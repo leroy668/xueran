@@ -1,0 +1,213 @@
+:root {
+  font-family: Inter, "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  color: #eee9e2;
+  background: #141416;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --bg: #141416;
+  --panel: #1d1d20;
+  --panel-raised: #242428;
+  --line: #37373d;
+  --line-light: #4a4a51;
+  --ink: #eee9e2;
+  --muted: #99969a;
+  --dim: #6e6c70;
+  --red: #d76156;
+  --red-deep: #843f3e;
+  --gold: #d5a66e;
+  --green: #79b58a;
+  --blue: #8daac3;
+  --purple: #b09bc8;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: var(--bg); }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+
+.app-shell { min-height: 100vh; background: var(--bg); }
+.topbar { min-height: 78px; padding: 0 34px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.brand-lockup, .top-actions, .heading-actions, .panel-heading, .card-topline, .night-nav, .round-stepper, .brand-lockup > div:first-of-type { display: flex; align-items: center; }
+.brand-lockup { gap: 12px; }
+.brand-seal { width: 38px; height: 38px; border: 1px solid var(--red); color: var(--red); display: grid; place-items: center; transform: rotate(-8deg); font-family: Georgia, serif; font-size: 20px; }
+.brand-seal span { transform: rotate(8deg); }
+.eyebrow { margin: 0 0 5px; font-size: 10px; letter-spacing: .15em; color: var(--dim); font-weight: 800; }
+.brand-lockup h1 { margin: 0; font-size: 16px; letter-spacing: .02em; font-weight: 700; }
+.top-actions { gap: 9px; }
+.local-badge { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; padding: 8px 11px; border: 1px solid var(--line); }
+.status-dot { display: inline-block; width: 7px; height: 7px; background: var(--green); border-radius: 50%; box-shadow: 0 0 0 3px rgba(121,181,138,.12); }
+.icon-button, .primary-button, .secondary-button, .danger-button { min-height: 36px; border: 1px solid var(--line-light); display: inline-flex; align-items: center; justify-content: center; gap: 7px; background: transparent; color: var(--ink); padding: 0 12px; }
+.icon-button:hover, .secondary-button:hover { background: var(--panel-raised); border-color: #66666e; }
+.primary-button { background: var(--red); border-color: var(--red); color: #fff8f2; font-weight: 700; }
+.primary-button:hover { background: #c45149; }
+.danger-button { color: var(--muted); }
+
+.workspace { width: min(1440px, calc(100% - 68px)); margin: 0 auto; padding: 30px 0 72px; }
+.hero-strip { min-height: 142px; border: 1px solid var(--line); padding: 25px 30px; display: flex; justify-content: space-between; align-items: center; background: #19191c; }
+.hero-strip h2 { margin: 0 0 7px; font-size: 29px; letter-spacing: -.02em; }
+.hero-strip p:not(.eyebrow) { color: var(--muted); margin: 0; font-size: 13px; }
+.hero-marks { display: flex; align-items: center; gap: 17px; color: var(--red); font-family: Georgia, serif; font-size: 30px; opacity: .6; }
+.hero-marks span:nth-child(2) { color: var(--gold); font-size: 46px; }
+.tab-bar { display: flex; gap: 4px; margin: 22px 0 16px; border-bottom: 1px solid var(--line); }
+.tab { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); border: 0; background: transparent; border-bottom: 2px solid transparent; padding: 12px 15px; margin-bottom: -1px; }
+.tab:hover { color: var(--ink); }
+.tab.active { color: var(--ink); border-bottom-color: var(--red); }
+.tab-count { min-width: 20px; height: 20px; display: grid; place-items: center; background: var(--panel-raised); border-radius: 10px; font-size: 11px; }
+
+.dashboard-grid, .night-layout, .script-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; }
+.side-panel, .main-panel, .night-main, .night-help, .script-main, .script-aside { border: 1px solid var(--line); background: var(--panel); }
+.side-panel, .main-panel, .night-main, .night-help, .script-main, .script-aside { padding: 23px; }
+.panel-heading { justify-content: space-between; gap: 16px; }
+.panel-heading h2, .panel-heading h3 { margin: 0; font-size: 20px; }
+.muted-icon { color: var(--dim); }
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: 22px 0; }
+.stat-cell { padding: 13px 7px; border-right: 1px solid var(--line); }
+.stat-cell:last-child { border: 0; }
+.stat-cell span { display: block; color: var(--dim); font-size: 11px; margin-bottom: 4px; }
+.stat-cell strong { font-size: 22px; font-weight: 600; }
+.section-label { color: var(--muted); font-size: 12px; margin-bottom: 9px; }
+.segmented-control { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); }
+.segmented-control button { border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted); padding: 9px 3px; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.segmented-control button:last-child { border: 0; }
+.segmented-control button.selected { color: var(--ink); background: var(--red-deep); }
+.round-stepper { justify-content: space-between; margin-top: 14px; color: var(--muted); font-size: 12px; }
+.round-stepper div { display: flex; gap: 5px; }
+.round-stepper button { width: 25px; height: 25px; border: 1px solid var(--line); background: transparent; color: var(--ink); }
+.notes-field { display: block; margin-top: 24px; }
+.notes-field > span { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+textarea, input, select { outline: none; }
+textarea:focus, input:focus, select:focus { border-color: var(--red) !important; }
+.notes-field textarea, .player-notes, .role-library-heading input { width: 100%; background: #17171a; border: 1px solid var(--line); color: var(--ink); padding: 10px; resize: vertical; }
+.notes-field textarea { min-height: 105px; }
+.privacy-note { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 11px; margin-top: 22px; }
+.players-heading { margin-bottom: 20px; }
+.heading-actions { gap: 8px; }
+.player-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.player-card { min-width: 0; border: 1px solid var(--line); background: #202023; padding: 14px; border-top: 2px solid var(--gold); }
+.player-card.dead { border-top-color: var(--dim); opacity: .72; }
+.card-topline { gap: 7px; }
+.seat-number { color: var(--gold); font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+.life-toggle { margin-left: auto; border: 1px solid var(--line); background: transparent; color: var(--muted); min-height: 24px; padding: 0 7px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
+.life-toggle.alive { color: var(--green); border-color: rgba(121,181,138,.3); }
+.card-delete { border: 0; background: transparent; color: var(--dim); padding: 3px; display: inline-flex; }
+.card-delete:hover { color: var(--red); }
+.player-name { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 17px; padding: 12px 0 8px; }
+.role-chip { display: flex; align-items: center; gap: 8px; margin: 12px 0 9px; padding: 6px 8px; border-left: 2px solid var(--gold); background: rgba(213,166,110,.07); }
+.role-chip.townsfolk, .mini-role-icon.townsfolk { border-color: var(--blue); }
+.role-chip.outsider, .mini-role-icon.outsider { border-color: var(--green); }
+.role-chip.minion, .mini-role-icon.minion { border-color: var(--purple); }
+.role-chip.demon, .mini-role-icon.demon { border-color: var(--red); }
+.role-chip span { font-size: 11px; color: var(--gold); min-width: 21px; }
+.role-chip select { min-width: 0; width: 100%; border: 0; background: transparent; color: var(--ink); font-size: 12px; }
+.role-chip option { background: #25252a; }
+.role-summary { min-height: 32px; color: var(--muted); font-size: 11px; line-height: 1.45; margin: 0 0 10px; }
+.player-notes { padding: 7px; font-size: 11px; min-height: 45px; }
+.empty-state { min-height: 340px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; border: 1px dashed var(--line-light); padding: 35px 20px; }
+.empty-state.compact { min-height: 230px; }
+.empty-glyph { width: 58px; height: 58px; display: grid; place-items: center; border: 1px solid var(--line-light); color: var(--gold); margin-bottom: 15px; }
+.empty-state h3 { margin: 0 0 8px; font-size: 17px; }
+.empty-state p { max-width: 370px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.empty-actions { display: flex; gap: 8px; margin-top: 20px; }
+
+.night-layout { grid-template-columns: minmax(0, 1fr) 265px; }
+.night-nav { gap: 6px; }
+.current-action { position: relative; display: flex; align-items: center; gap: 17px; margin: 22px 0; border: 1px solid var(--line); border-left: 3px solid var(--gold); padding: 20px; background: #222226; }
+.current-action.townsfolk { border-left-color: var(--blue); }
+.current-action.outsider { border-left-color: var(--green); }
+.current-action.minion { border-left-color: var(--purple); }
+.current-action.demon { border-left-color: var(--red); }
+.current-role-icon { width: 54px; height: 54px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid var(--line-light); color: var(--gold); font-family: Georgia, serif; font-size: 20px; }
+.current-action h3 { margin: 0 0 5px; font-size: 24px; }
+.current-action p:not(.eyebrow) { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.current-role-team { margin-left: auto; align-self: flex-start; color: var(--dim); font-size: 11px; }
+.night-list { border-top: 1px solid var(--line); }
+.night-row { width: 100%; display: grid; grid-template-columns: 32px 31px minmax(90px, 1fr) 55px 50px; align-items: center; gap: 8px; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--muted); padding: 12px 5px; }
+.night-row:hover, .night-row.active { background: #25252a; color: var(--ink); }
+.night-index { color: var(--dim); font-size: 11px; }
+.mini-role-icon { width: 27px; height: 27px; display: grid; place-items: center; border-left: 2px solid var(--gold); background: #2a2a2e; font-family: Georgia, serif; font-size: 11px; }
+.night-role-name { font-size: 13px; font-weight: 700; }
+.night-role-team { color: var(--dim); font-size: 11px; }
+.on-air { color: var(--red); font-size: 10px; white-space: nowrap; }
+.night-help { align-self: start; }
+.night-help h3, .script-aside h3 { margin: 0 0 10px; font-size: 18px; }
+.night-help ol { padding-left: 20px; color: var(--muted); line-height: 1.8; font-size: 12px; }
+.night-tip { border-top: 1px solid var(--line); padding-top: 15px; margin-top: 20px; display: flex; gap: 8px; color: var(--gold); font-size: 11px; line-height: 1.5; }
+
+.script-layout { grid-template-columns: minmax(0, 1fr) 265px; }
+.script-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 22px; }
+.script-card { position: relative; text-align: left; min-height: 160px; border: 1px solid var(--line); background: #202023; color: var(--ink); padding: 16px; display: flex; align-items: flex-start; flex-direction: column; }
+.script-card:hover, .script-card.selected { border-color: var(--red); }
+.script-card-top { width: 100%; display: flex; justify-content: space-between; margin-bottom: 17px; }
+.script-icon { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--line-light); color: var(--gold); }
+.selected-mark { width: 23px; height: 23px; display: grid; place-items: center; background: var(--red); color: white; }
+.script-card strong { font-size: 16px; margin-bottom: 4px; }
+.script-card > span:not(.script-icon) { color: var(--gold); font-size: 11px; }
+.script-card small { color: var(--muted); font-size: 11px; line-height: 1.5; margin-top: 9px; }
+.role-library-heading { display: flex; align-items: end; justify-content: space-between; gap: 14px; margin: 30px 0 12px; }
+.role-library-heading h3 { margin: 0; font-size: 17px; }
+.role-library-heading input { width: 190px; min-height: 34px; font-size: 12px; }
+.role-table { border-top: 1px solid var(--line); }
+.role-row { min-height: 48px; display: grid; grid-template-columns: 32px 100px 58px minmax(0, 1fr); align-items: center; gap: 9px; border-bottom: 1px solid var(--line); }
+.role-row strong { font-size: 12px; }
+.role-row p { color: var(--muted); font-size: 11px; margin: 0; }
+.team-label { font-size: 10px; }
+.team-label.townsfolk { color: var(--blue); }
+.team-label.outsider { color: var(--green); }
+.team-label.minion { color: var(--purple); }
+.team-label.demon { color: var(--red); }
+.script-aside { align-self: start; }
+.script-aside-seal { width: 64px; height: 64px; border: 1px solid var(--red); color: var(--red); display: grid; place-items: center; margin-bottom: 28px; font-family: Georgia, serif; font-size: 27px; transform: rotate(-8deg); }
+.script-aside > p:not(.eyebrow) { color: var(--muted); font-size: 12px; line-height: 1.7; }
+.script-aside-points { display: flex; flex-direction: column; gap: 9px; color: var(--ink); font-size: 12px; margin-top: 22px; }
+.script-aside-points span { display: flex; align-items: center; gap: 8px; }
+.script-aside-points svg { color: var(--green); }
+.mobile-nav { display: none; }
+.toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); background: #f0e9df; color: #1b1b1e; padding: 11px 16px; font-size: 12px; font-weight: 700; box-shadow: 0 9px 24px rgba(0,0,0,.3); z-index: 10; }
+
+@media (max-width: 980px) {
+  .dashboard-grid, .night-layout, .script-layout { grid-template-columns: 1fr; }
+  .side-panel, .night-help, .script-aside { order: 2; }
+  .player-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .workspace { width: min(100% - 32px, 760px); }
+}
+
+@media (max-width: 600px) {
+  .topbar { min-height: 66px; padding: 0 16px; }
+  .brand-seal { width: 32px; height: 32px; font-size: 17px; }
+  .brand-lockup h1 { font-size: 14px; }
+  .top-actions { gap: 5px; }
+  .local-badge, .with-label, .desktop-only { display: none; }
+  .icon-button { width: 35px; padding: 0; }
+  .workspace { width: calc(100% - 22px); padding: 16px 0 86px; }
+  .hero-strip { min-height: 112px; padding: 18px; }
+  .hero-strip h2 { font-size: 22px; }
+  .hero-strip p:not(.eyebrow) { max-width: 270px; line-height: 1.5; font-size: 11px; }
+  .hero-marks { gap: 6px; font-size: 19px; }
+  .hero-marks span:nth-child(2) { font-size: 30px; }
+  .tab-bar { display: none; }
+  .side-panel, .main-panel, .night-main, .night-help, .script-main, .script-aside { padding: 16px; }
+  .panel-heading h2 { font-size: 18px; }
+  .players-heading { align-items: flex-start; }
+  .heading-actions { flex-direction: column; align-items: stretch; }
+  .heading-actions button { white-space: nowrap; }
+  .player-grid { grid-template-columns: 1fr; }
+  .empty-state { min-height: 290px; }
+  .empty-actions { flex-direction: column; width: 100%; max-width: 220px; }
+  .current-action { align-items: flex-start; padding: 15px; gap: 11px; }
+  .current-role-icon { width: 42px; height: 42px; font-size: 16px; }
+  .current-action h3 { font-size: 19px; }
+  .current-role-team { display: none; }
+  .night-row { grid-template-columns: 28px 29px minmax(0, 1fr) 42px; }
+  .night-role-team { display: none; }
+  .on-air { text-align: right; }
+  .script-cards { grid-template-columns: 1fr; }
+  .role-library-heading { align-items: stretch; flex-direction: column; }
+  .role-library-heading input { width: 100%; }
+  .role-row { grid-template-columns: 30px 76px 48px minmax(0, 1fr); gap: 6px; }
+  .role-row p { line-height: 1.35; }
+  .mobile-nav { position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; height: 66px; display: grid; grid-template-columns: repeat(3, 1fr); background: #1b1b1e; border-top: 1px solid var(--line); }
+  .mobile-nav-item { border: 0; background: transparent; color: var(--dim); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; font-size: 10px; }
+  .mobile-nav-item.active { color: var(--ink); }
+  .mobile-nav-item.active svg { color: var(--red); }
+}
