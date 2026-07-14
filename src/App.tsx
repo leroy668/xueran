@@ -171,9 +171,9 @@ function App() {
             <span className="status-dot" />
             本地模式
           </span>
-          <button className="icon-button with-label" onClick={shareGame}>
+          <button className="icon-button with-label" onClick={shareGame} aria-label="分享剧本" title="分享剧本">
             <Share2 size={16} />
-            分享剧本
+            <span className="share-label">分享剧本</span>
           </button>
           <button className="icon-button danger-button" onClick={resetGame} title="清空当前魔典">
             <RotateCcw size={16} />

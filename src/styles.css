@@ -177,7 +177,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .brand-seal { width: 32px; height: 32px; font-size: 17px; }
   .brand-lockup h1 { font-size: 14px; }
   .top-actions { gap: 5px; }
-  .local-badge, .with-label, .desktop-only { display: none; }
+  .local-badge, .desktop-only, .share-label { display: none; }
   .icon-button { width: 35px; padding: 0; }
   .workspace { width: calc(100% - 22px); padding: 16px 0 86px; }
   .hero-strip { min-height: 112px; padding: 18px; }
