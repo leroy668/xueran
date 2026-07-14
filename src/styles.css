@@ -78,7 +78,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .notes-field > span { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
 textarea, input, select { outline: none; }
 textarea:focus, input:focus, select:focus { border-color: var(--red) !important; }
-.notes-field textarea, .player-notes, .role-library-heading input { width: 100%; background: #17171a; border: 1px solid var(--line); color: var(--ink); padding: 10px; resize: vertical; }
+.notes-field textarea, .identity-message, .player-notes, .role-library-heading input { width: 100%; background: #17171a; border: 1px solid var(--line); color: var(--ink); padding: 10px; resize: vertical; }
 .notes-field textarea { min-height: 105px; }
 .privacy-note { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 11px; margin-top: 22px; }
 .players-heading { margin-bottom: 20px; }
@@ -102,7 +102,11 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .role-chip select { min-width: 0; width: 100%; border: 0; background: transparent; color: var(--ink); font-size: 12px; }
 .role-chip option { background: #25252a; }
 .role-summary { min-height: 32px; color: var(--muted); font-size: 11px; line-height: 1.45; margin: 0 0 10px; }
-.player-notes { padding: 7px; font-size: 11px; min-height: 45px; }
+.identity-message, .player-notes { padding: 7px; font-size: 11px; min-height: 45px; }
+.identity-message { margin-bottom: 7px; border-left: 2px solid var(--gold); }
+.player-notes { border-left: 2px solid var(--line-light); }
+.identity-share-button { width: 100%; min-height: 34px; margin-top: 9px; border: 1px solid rgba(213,166,110,.45); background: rgba(213,166,110,.08); color: var(--gold); display: inline-flex; align-items: center; justify-content: center; gap: 7px; font-size: 11px; font-weight: 700; }
+.identity-share-button:hover { background: rgba(213,166,110,.15); border-color: var(--gold); }
 .empty-state { min-height: 340px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; border: 1px dashed var(--line-light); padding: 35px 20px; }
 .empty-state.compact { min-height: 230px; }
 .empty-glyph { width: 58px; height: 58px; display: grid; place-items: center; border: 1px solid var(--line-light); color: var(--gold); margin-bottom: 15px; }
@@ -165,6 +169,31 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .mobile-nav { display: none; }
 .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); background: #f0e9df; color: #1b1b1e; padding: 11px 16px; font-size: 12px; font-weight: 700; box-shadow: 0 9px 24px rgba(0,0,0,.3); z-index: 10; }
 
+.identity-page { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 32px 18px; background: #111113; }
+.identity-envelope { width: min(100%, 480px); border: 1px solid var(--line-light); border-top: 3px solid var(--red); background: #1c1c1f; padding: 36px; text-align: center; box-shadow: 0 24px 65px rgba(0,0,0,.34); }
+.identity-envelope.revealed { text-align: left; }
+.identity-seal { width: 64px; height: 64px; margin: 0 auto 25px; border: 1px solid var(--red); color: var(--red); display: grid; place-items: center; transform: rotate(-7deg); font-family: Georgia, serif; font-size: 27px; }
+.identity-envelope.revealed .identity-seal { color: var(--gold); border-color: var(--gold); }
+.identity-envelope > .eyebrow { text-align: center; }
+.identity-envelope h1 { margin: 0; color: var(--ink); font-size: 25px; text-align: center; }
+.identity-shield { display: block; margin: 35px auto 16px; color: var(--gold); }
+.identity-intro { max-width: 310px; margin: 0 auto; color: var(--muted); font-size: 13px; line-height: 1.7; text-align: center; }
+.identity-reveal-button { width: 100%; min-height: 46px; margin-top: 30px; border: 1px solid var(--red); background: var(--red); color: #fff8f2; display: inline-flex; align-items: center; justify-content: center; gap: 9px; font-weight: 800; }
+.identity-reveal-button.secondary { border-color: var(--line-light); background: transparent; color: var(--muted); }
+.identity-role-card { margin: 30px 0 0; padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 16px; }
+.identity-role-card.townsfolk { border-top-color: var(--blue); }
+.identity-role-card.outsider { border-top-color: var(--green); }
+.identity-role-card.minion { border-top-color: var(--purple); }
+.identity-role-card.demon { border-top-color: var(--red); }
+.identity-role-icon { width: 58px; height: 58px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid var(--line-light); color: var(--gold); font-family: Georgia, serif; font-size: 23px; }
+.identity-team { color: var(--muted); font-size: 11px; }
+.identity-role-card h2 { margin: 4px 0 0; font-size: 28px; }
+.identity-ability, .identity-message-panel { margin-top: 21px; }
+.identity-ability > span, .identity-message-panel > span { color: var(--dim); font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+.identity-ability p, .identity-message-panel p { margin: 7px 0 0; color: var(--ink); font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.identity-message-panel { padding-left: 13px; border-left: 2px solid var(--gold); }
+.identity-message-panel p { color: var(--gold); }
+
 @media (max-width: 980px) {
   .dashboard-grid, .night-layout, .script-layout { grid-template-columns: 1fr; }
   .side-panel, .night-help, .script-aside { order: 2; }
@@ -210,4 +239,8 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .mobile-nav-item { border: 0; background: transparent; color: var(--dim); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; font-size: 10px; }
   .mobile-nav-item.active { color: var(--ink); }
   .mobile-nav-item.active svg { color: var(--red); }
+  .identity-page { padding: 18px 12px; }
+  .identity-envelope { padding: 29px 22px; }
+  .identity-envelope h1 { font-size: 21px; }
+  .identity-role-card h2 { font-size: 24px; }
 }

@@ -1,4 +1,4 @@
-import type { GameState, SharedState } from "./types";
+import type { GameState, IdentityPayload, Player, SharedState } from "./types";
 
 const storageKey = "xueran-grimoire-v1";
 
@@ -15,7 +15,16 @@ export const defaultState = (): GameState => ({
 export const loadState = (): GameState => {
   try {
     const raw = localStorage.getItem(storageKey);
-    return raw ? { ...defaultState(), ...JSON.parse(raw) } : defaultState();
+    if (!raw) return defaultState();
+    const saved = JSON.parse(raw) as Partial<GameState>;
+    return {
+      ...defaultState(),
+      ...saved,
+      players: (saved.players ?? []).map((player) => ({
+        ...player,
+        identityMessage: player.identityMessage ?? "",
+      })),
+    };
   } catch {
     return defaultState();
   }
@@ -41,7 +50,15 @@ export const getSharedState = (): SharedState | null => {
   const encoded = new URLSearchParams(window.location.search).get("share");
   if (!encoded) return null;
   try {
-    return JSON.parse(decode(encoded)) as SharedState;
+    const shared = JSON.parse(decode(encoded)) as SharedState;
+    return {
+      ...shared,
+      players: shared.players.map((player) => ({
+        ...player,
+        identityMessage: "",
+        notes: "",
+      })),
+    };
   } catch {
     return null;
   }
@@ -52,9 +69,48 @@ export const buildShareUrl = (state: GameState) => {
     scriptId: state.scriptId,
     phase: state.phase,
     round: state.round,
-    players: state.players.map((player) => ({ ...player, notes: "" })),
+    players: state.players.map((player) => ({
+      ...player,
+      identityMessage: "",
+      notes: "",
+    })),
   };
   const url = new URL(window.location.href);
   url.search = `share=${encode(JSON.stringify(shareState))}`;
+  url.hash = "";
+  return url.toString();
+};
+
+export const getSharedIdentity = (): IdentityPayload | null => {
+  const encoded = new URLSearchParams(window.location.hash.slice(1)).get("identity");
+  if (!encoded) return null;
+  try {
+    const payload = JSON.parse(decode(encoded)) as IdentityPayload;
+    if (
+      payload.version !== 1 ||
+      typeof payload.playerName !== "string" ||
+      typeof payload.seat !== "number" ||
+      typeof payload.roleId !== "string" ||
+      typeof payload.message !== "string"
+    ) {
+      return null;
+    }
+    return payload;
+  } catch {
+    return null;
+  }
+};
+
+export const buildIdentityUrl = (player: Player) => {
+  const payload: IdentityPayload = {
+    version: 1,
+    playerName: player.name.trim() || `座位 ${player.seat}`,
+    seat: player.seat,
+    roleId: player.roleId,
+    message: player.identityMessage.trim(),
+  };
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = `identity=${encode(JSON.stringify(payload))}`;
   return url.toString();
 };

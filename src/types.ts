@@ -18,6 +18,7 @@ export type Player = {
   name: string;
   roleId: string;
   alive: boolean;
+  identityMessage: string;
   notes: string;
 };
 
@@ -32,3 +33,11 @@ export type GameState = {
 };
 
 export type SharedState = Pick<GameState, "scriptId" | "phase" | "round" | "players">;
+
+export type IdentityPayload = {
+  version: 1;
+  playerName: string;
+  seat: number;
+  roleId: string;
+  message: string;
+};
