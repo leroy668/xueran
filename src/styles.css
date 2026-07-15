@@ -417,13 +417,14 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .table-seat.dense .table-role-icon { width: 23px; height: 23px; font-size: 8px; }
   .table-seat.dense .table-player-name { font-size: 8px; }
   .table-seat.dense .table-role-name { font-size: 7px; }
-  .grimoire-workbench.large .grimoire-table { width: 100%; aspect-ratio: auto; border-radius: 0; box-shadow: inset 0 0 0 1px var(--line); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 6px; }
-  .grimoire-workbench.large .grimoire-table::before, .grimoire-workbench.large .table-center { display: none; }
-  .grimoire-workbench.large .table-seat { position: relative; left: auto !important; top: auto !important; width: 100%; height: 52px; transform: none; grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: 1fr 1fr; column-gap: 4px; padding: 5px 4px 3px; }
-  .grimoire-workbench.large .table-seat.selected { transform: none; }
-  .grimoire-workbench.large .table-seat .table-role-icon { width: 30px; height: 30px; font-size: 8px; }
-  .grimoire-workbench.large .table-seat .table-player-name { padding-right: 8px; font-size: 9px; }
-  .grimoire-workbench.large .table-seat .table-role-name { display: inline; margin-top: 0; font-size: 8px; }
+  .grimoire-workbench:is(.large, .mobile-grid) .grimoire-table { width: 100%; aspect-ratio: auto; border-radius: 0; box-shadow: inset 0 0 0 1px var(--line); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 6px; }
+  .grimoire-workbench:is(.large, .mobile-grid) .grimoire-table::before, .grimoire-workbench:is(.large, .mobile-grid) .table-center { display: none; }
+  .grimoire-workbench:is(.large, .mobile-grid) .table-seat { position: relative; left: auto !important; top: auto !important; width: 100%; height: 52px; transform: none; grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: 1fr 1fr; column-gap: 4px; padding: 5px 4px 3px; }
+  .grimoire-workbench:is(.large, .mobile-grid) .table-seat.selected { transform: none; }
+  .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-role-icon { width: 30px; height: 30px; font-size: 8px; }
+  .grimoire-workbench.mobile-grid .table-seat .role-icon-image { width: 30px; height: 30px; }
+  .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-player-name { padding-right: 8px; font-size: 9px; }
+  .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-role-name { display: inline; margin-top: 0; font-size: 8px; }
   .player-editor { padding: 14px; }
   .empty-state { min-height: 290px; }
   .empty-actions { flex-direction: column; width: 100%; max-width: 220px; }

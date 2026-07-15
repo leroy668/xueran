@@ -742,6 +742,7 @@ function GrimoirePanel({
           <div
             className={[
               "grimoire-workbench",
+              state.players.length >= 9 ? "mobile-grid" : "",
               state.players.length > 10 ? "large" : "",
               state.players.length > 15 ? "crowded" : "",
             ]
