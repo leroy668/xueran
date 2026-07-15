@@ -122,6 +122,9 @@ function GrimoireApp() {
   const [roomPlayers, setRoomPlayers] = useState<PublicRoomPlayer[]>([]);
   const [nightMessages, setNightMessages] = useState<NightMessage[]>([]);
   const [playerMessages, setPlayerMessages] = useState<PlayerMessage[]>([]);
+  const [readPlayerMessageIds, setReadPlayerMessageIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [roomBusy, setRoomBusy] = useState(false);
   const [roomReady, setRoomReady] = useState(false);
   const [syncStatus, setSyncStatus] = useState<
@@ -138,6 +141,27 @@ function GrimoireApp() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  useEffect(() => {
+    if (!room) {
+      setReadPlayerMessageIds(new Set());
+      return;
+    }
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(`xueran-host-read-messages-${room.id}`) ?? "[]",
+      );
+      setReadPlayerMessageIds(
+        new Set(
+          Array.isArray(saved)
+            ? saved.filter((messageId): messageId is string => typeof messageId === "string")
+            : [],
+        ),
+      );
+    } catch {
+      setReadPlayerMessageIds(new Set());
+    }
+  }, [room]);
+
   const refreshRoomAdmin = useCallback(async (targetRoom: SharedRoom) => {
     const [players, messages, incomingMessages] = await Promise.all([
       getRoomPlayers(targetRoom.id),
@@ -148,6 +172,38 @@ function GrimoireApp() {
     setNightMessages(messages);
     setPlayerMessages(incomingMessages);
   }, []);
+
+  const unreadPlayerMessages = useMemo(
+    () =>
+      playerMessages.filter(
+        (message) => !readPlayerMessageIds.has(message.id),
+      ),
+    [playerMessages, readPlayerMessageIds],
+  );
+
+  const markPlayerMessagesRead = useCallback(
+    (playerId: string) => {
+      if (!room) return;
+      const messageIds = playerMessages
+        .filter((message) => message.player_id === playerId)
+        .map((message) => message.id);
+      if (!messageIds.length) return;
+
+      setReadPlayerMessageIds((current) => {
+        if (messageIds.every((messageId) => current.has(messageId))) {
+          return current;
+        }
+        const next = new Set(current);
+        messageIds.forEach((messageId) => next.add(messageId));
+        localStorage.setItem(
+          `xueran-host-read-messages-${room.id}`,
+          JSON.stringify([...next]),
+        );
+        return next;
+      });
+    },
+    [playerMessages, room],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -570,8 +626,8 @@ function GrimoireApp() {
                 {tab.label}
                 {tab.id === "night" && nightRoles.length > 0 ? (
                   <span className="tab-count">{nightRoles.length}</span>
-                ) : tab.id === "messages" && playerMessages.length > 0 ? (
-                  <span className="tab-count">{playerMessages.length}</span>
+                ) : tab.id === "messages" && unreadPlayerMessages.length > 0 ? (
+                  <span className="tab-count">{unreadPlayerMessages.length}</span>
                 ) : null}
               </button>
             );
@@ -626,6 +682,8 @@ function GrimoireApp() {
             roomPlayers={roomPlayers}
             nightMessages={nightMessages}
             playerMessages={playerMessages}
+            unreadPlayerMessages={unreadPlayerMessages}
+            onReadPlayerMessages={markPlayerMessagesRead}
             onSendMessage={handleSendNightMessage}
           />
         ) : null}
@@ -651,9 +709,9 @@ function GrimoireApp() {
             >
               <Icon size={19} />
               <span>{tab.label}</span>
-              {tab.id === "messages" && playerMessages.length > 0 ? (
+              {tab.id === "messages" && unreadPlayerMessages.length > 0 ? (
                 <strong className="mobile-nav-badge">
-                  {Math.min(playerMessages.length, 99)}
+                  {Math.min(unreadPlayerMessages.length, 99)}
                 </strong>
               ) : null}
             </button>
@@ -1247,6 +1305,8 @@ function HostMessagesPanel({
   roomPlayers,
   nightMessages,
   playerMessages,
+  unreadPlayerMessages,
+  onReadPlayerMessages,
   onSendMessage,
 }: {
   state: GameState;
@@ -1254,6 +1314,8 @@ function HostMessagesPanel({
   roomPlayers: PublicRoomPlayer[];
   nightMessages: NightMessage[];
   playerMessages: PlayerMessage[];
+  unreadPlayerMessages: PlayerMessage[];
+  onReadPlayerMessages: (playerId: string) => void;
   onSendMessage: (message: {
     playerId: string;
     roleId: string;
@@ -1284,7 +1346,11 @@ function HostMessagesPanel({
     if (availablePlayers.some(({ player }) => player.id === selectedPlayerId)) {
       return;
     }
-    const latestMessage = [...nightMessages, ...playerMessages].sort(
+    const latestMessage = [
+      ...unreadPlayerMessages,
+      ...nightMessages,
+      ...playerMessages,
+    ].sort(
       (left, right) =>
         new Date(right.created_at).getTime() -
         new Date(left.created_at).getTime(),
@@ -1303,7 +1369,13 @@ function HostMessagesPanel({
         availablePlayers[0]?.player.id ??
         "",
     );
-  }, [availablePlayers, nightMessages, playerMessages, selectedPlayerId]);
+  }, [
+    availablePlayers,
+    nightMessages,
+    playerMessages,
+    selectedPlayerId,
+    unreadPlayerMessages,
+  ]);
 
   const latestByPlayer = useMemo(() => {
     const latest = new Map<
@@ -1331,11 +1403,11 @@ function HostMessagesPanel({
 
   const incomingCountByPlayer = useMemo(() => {
     const counts = new Map<string, number>();
-    playerMessages.forEach((message) => {
+    unreadPlayerMessages.forEach((message) => {
       counts.set(message.player_id, (counts.get(message.player_id) ?? 0) + 1);
     });
     return counts;
-  }, [playerMessages]);
+  }, [unreadPlayerMessages]);
 
   const conversationPlayers = useMemo(
     () =>
@@ -1405,6 +1477,21 @@ function HostMessagesPanel({
     return () => cancelAnimationFrame(frame);
   }, [latestMessageKey]);
 
+  useEffect(() => {
+    if (
+      selectedPlayerId &&
+      unreadPlayerMessages.some(
+        (message) => message.player_id === selectedPlayerId,
+      )
+    ) {
+      onReadPlayerMessages(selectedPlayerId);
+    }
+  }, [
+    onReadPlayerMessages,
+    selectedPlayerId,
+    unreadPlayerMessages,
+  ]);
+
   const canSend =
     Boolean(room) &&
     Boolean(selectedPlayer) &&
@@ -1457,7 +1544,7 @@ function HostMessagesPanel({
             <p className="eyebrow">PLAYER CHAT</p>
             <h2>玩家消息</h2>
           </div>
-          <strong>{playerMessages.length}</strong>
+          <strong>{unreadPlayerMessages.length}</strong>
         </div>
         <div className="host-player-tabs">
           {conversationPlayers.map(({ player, roomPlayer }) => {
