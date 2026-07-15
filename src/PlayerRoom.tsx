@@ -14,6 +14,8 @@ import {
   Users,
 } from "lucide-react";
 import { getRole, roles, scripts } from "./data";
+import { DemonBluffMessage } from "./DemonBluffMessage";
+import { parseDemonBluffMessage } from "./demonBluffs";
 import {
   claimSeat,
   findRoomByCode,
@@ -794,6 +796,10 @@ function EvilTeamMessages({
             : isMine
               ? "我"
               : String(sender?.seat ?? "?").padStart(2, "0"),
+        demonBluffRoleIds:
+          message.sender_kind === "host"
+            ? parseDemonBluffMessage(message.body)
+            : null,
       };
     })
     .sort(
@@ -869,7 +875,11 @@ function EvilTeamMessages({
                   </time>
                 </div>
                 <div className="player-message-bubble">
-                  <p>{message.body}</p>
+                  {message.demonBluffRoleIds ? (
+                    <DemonBluffMessage roleIds={message.demonBluffRoleIds} />
+                  ) : (
+                    <p>{message.body}</p>
+                  )}
                 </div>
               </div>
             </article>

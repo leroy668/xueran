@@ -28,6 +28,13 @@ import {
   Users,
 } from "lucide-react";
 import { getNightRoles, getRole, roles, scripts } from "./data";
+import { DemonBluffMessage } from "./DemonBluffMessage";
+import {
+  buildDemonBluffMessage,
+  getDemonBluffPreview,
+  getDemonBluffSignature,
+  parseDemonBluffMessage,
+} from "./demonBluffs";
 import { HostRoomPanel } from "./HostRoomPanel";
 import { PlayerRoom } from "./PlayerRoom";
 import { RoleIcon } from "./RoleIcon";
@@ -541,6 +548,7 @@ function GrimoireApp() {
       setNightMessages([]);
       setPlayerMessages([]);
       setEvilMessages([]);
+      localStorage.removeItem(`xueran-demon-bluffs-${room.id}`);
       setRoom((current) =>
         current
           ? {
@@ -1573,7 +1581,9 @@ function HostMessagesPanel({
   const [selectedConversationId, setSelectedConversationId] = useState("");
   const [messageBody, setMessageBody] = useState("");
   const [sending, setSending] = useState(false);
+  const [sendingBluffs, setSendingBluffs] = useState(false);
   const [sendError, setSendError] = useState("");
+  const [demonBluffRoleIds, setDemonBluffRoleIds] = useState<string[]>([]);
   const timelineRef = useRef<HTMLDivElement>(null);
   const roomPlayersById = useMemo(
     () => new Map(roomPlayers.map((player) => [player.id, player])),
@@ -1599,9 +1609,113 @@ function HostMessagesPanel({
   );
   const evilChatAvailable =
     state.phase !== "准备" && evilPlayers.length > 0;
+  const availableDemonBluffRoles = useMemo(() => {
+    const assignedRoleIds = new Set(
+      state.players.map((player) => player.roleId),
+    );
+    return roles.filter(
+      (role) =>
+        (role.team === "镇民" || role.team === "外来者") &&
+        !assignedRoleIds.has(role.id),
+    );
+  }, [state.players]);
+  const assignedRoleSignature = useMemo(
+    () =>
+      [...state.players]
+        .sort((left, right) => left.seat - right.seat)
+        .map((player) => `${player.seat}:${player.roleId}`)
+        .join("|"),
+    [state.players],
+  );
+  const demonBluffStorageKey = room
+    ? `xueran-demon-bluffs-${room.id}`
+    : "";
   const isEvilConversation =
     evilChatAvailable && selectedConversationId === evilConversationId;
   const selectedPlayerId = isEvilConversation ? "" : selectedConversationId;
+
+  const chooseRandomBluffs = useCallback(
+    (excludedSignature = "") => {
+      const shuffled = [...availableDemonBluffRoles].sort(
+        () => Math.random() - 0.5,
+      );
+      let nextRoleIds = shuffled.slice(0, 3).map((role) => role.id);
+      if (
+        availableDemonBluffRoles.length > 3 &&
+        getDemonBluffSignature(nextRoleIds) === excludedSignature
+      ) {
+        nextRoleIds = [
+          ...nextRoleIds.slice(0, 2),
+          shuffled.find((role) => !nextRoleIds.includes(role.id))!.id,
+        ];
+      }
+      return nextRoleIds;
+    },
+    [availableDemonBluffRoles],
+  );
+
+  const persistDemonBluffs = useCallback(
+    (roleIds: string[]) => {
+      setDemonBluffRoleIds(roleIds);
+      if (!demonBluffStorageKey) return;
+      localStorage.setItem(
+        demonBluffStorageKey,
+        JSON.stringify({
+          assignedRoleSignature,
+          roleIds,
+        }),
+      );
+    },
+    [assignedRoleSignature, demonBluffStorageKey],
+  );
+
+  useEffect(() => {
+    if (
+      !evilChatAvailable ||
+      !demonBluffStorageKey ||
+      availableDemonBluffRoles.length < 3
+    ) {
+      setDemonBluffRoleIds([]);
+      return;
+    }
+
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(demonBluffStorageKey) ?? "null",
+      ) as {
+        assignedRoleSignature?: string;
+        roleIds?: unknown;
+      } | null;
+      const savedRoleIds = Array.isArray(saved?.roleIds)
+        ? saved.roleIds.filter(
+            (roleId): roleId is string => typeof roleId === "string",
+          )
+        : [];
+      const availableRoleIds = new Set(
+        availableDemonBluffRoles.map((role) => role.id),
+      );
+      if (
+        saved?.assignedRoleSignature === assignedRoleSignature &&
+        savedRoleIds.length === 3 &&
+        new Set(savedRoleIds).size === 3 &&
+        savedRoleIds.every((roleId) => availableRoleIds.has(roleId))
+      ) {
+        setDemonBluffRoleIds(savedRoleIds);
+        return;
+      }
+    } catch {
+      // Invalid local drafts are replaced below.
+    }
+
+    persistDemonBluffs(chooseRandomBluffs());
+  }, [
+    assignedRoleSignature,
+    availableDemonBluffRoles,
+    chooseRandomBluffs,
+    demonBluffStorageKey,
+    evilChatAvailable,
+    persistDemonBluffs,
+  ]);
 
   useEffect(() => {
     if (
@@ -1722,6 +1836,7 @@ function HostMessagesPanel({
         direction: "outgoing" as const,
         label: `上帝 · 第 ${message.round} 回合 · ${getRole(message.role_id).name}`,
         avatar: "上",
+        demonBluffRoleIds: null,
       })),
     ...playerMessages
       .filter((message) => message.player_id === selectedPlayerId)
@@ -1732,6 +1847,7 @@ function HostMessagesPanel({
         avatar: selectedPlayer
           ? String(selectedPlayer.seat).padStart(2, "0")
           : "?",
+        demonBluffRoleIds: null,
       })),
   ];
   const evilTimeline = evilMessages.map((message) => {
@@ -1752,6 +1868,10 @@ function HostMessagesPanel({
         message.sender_kind === "host"
           ? "上"
           : String(sender?.seat ?? "?").padStart(2, "0"),
+      demonBluffRoleIds:
+        message.sender_kind === "host"
+          ? parseDemonBluffMessage(message.body)
+          : null,
     };
   });
   const timeline = (isEvilConversation ? evilTimeline : playerTimeline).sort(
@@ -1836,6 +1956,64 @@ function HostMessagesPanel({
     }
   };
 
+  const sentDemonBluffSignatures = useMemo(
+    () =>
+      new Set(
+        evilMessages
+          .filter((message) => message.sender_kind === "host")
+          .map((message) => parseDemonBluffMessage(message.body))
+          .filter((roleIds): roleIds is string[] => Boolean(roleIds))
+          .map(getDemonBluffSignature),
+      ),
+    [evilMessages],
+  );
+  const currentDemonBluffSignature =
+    demonBluffRoleIds.length === 3
+      ? getDemonBluffSignature(demonBluffRoleIds)
+      : "";
+  const demonBluffsAlreadySent =
+    Boolean(currentDemonBluffSignature) &&
+    sentDemonBluffSignatures.has(currentDemonBluffSignature);
+
+  const replaceDemonBluff = (index: number, nextRoleId?: string) => {
+    const otherRoleIds = demonBluffRoleIds.filter(
+      (_, roleIndex) => roleIndex !== index,
+    );
+    const candidates = availableDemonBluffRoles.filter(
+      (role) =>
+        !otherRoleIds.includes(role.id) &&
+        (nextRoleId || role.id !== demonBluffRoleIds[index]),
+    );
+    const replacement =
+      nextRoleId ??
+      candidates[Math.floor(Math.random() * candidates.length)]?.id;
+    if (!replacement || otherRoleIds.includes(replacement)) return;
+    persistDemonBluffs(
+      demonBluffRoleIds.map((roleId, roleIndex) =>
+        roleIndex === index ? replacement : roleId,
+      ),
+    );
+  };
+
+  const sendDemonBluffs = async () => {
+    if (
+      demonBluffRoleIds.length !== 3 ||
+      demonBluffsAlreadySent ||
+      sendingBluffs
+    ) {
+      return;
+    }
+    setSendingBluffs(true);
+    setSendError("");
+    try {
+      await onSendEvilMessage(buildDemonBluffMessage(demonBluffRoleIds));
+    } catch {
+      setSendError("伪装身份发送失败，请稍后重试");
+    } finally {
+      setSendingBluffs(false);
+    }
+  };
+
   if (!room) {
     return (
       <section className="host-messages-empty">
@@ -1879,7 +2057,11 @@ function HostMessagesPanel({
                 <strong>邪恶阵营群聊</strong>
                 <small>
                   {evilMessages[0]
-                    ? `${evilMessages[0].sender_kind === "host" ? "我" : roomPlayersById.get(evilMessages[0].sender_player_id ?? "")?.name || "邪恶玩家"}：${evilMessages[0].body}`
+                    ? `${evilMessages[0].sender_kind === "host" ? "我" : roomPlayersById.get(evilMessages[0].sender_player_id ?? "")?.name || "邪恶玩家"}：${
+                        evilMessages[0].sender_kind === "host"
+                          ? getDemonBluffPreview(evilMessages[0].body)
+                          : evilMessages[0].body
+                      }`
                     : `上帝与 ${evilPlayers.length} 名邪恶玩家`}
                 </small>
               </span>
@@ -1970,6 +2152,88 @@ function HostMessagesPanel({
               ) : null}
             </header>
 
+            {isEvilConversation && demonBluffRoleIds.length === 3 ? (
+              <section className="demon-bluff-draft">
+                <div className="demon-bluff-draft-heading">
+                  <div>
+                    <strong>恶魔伪装身份</strong>
+                    <small>发送前仅上帝可见</small>
+                  </div>
+                  <button
+                    className="icon-button"
+                    title="整组重选"
+                    aria-label="整组重选伪装身份"
+                    onClick={() =>
+                      persistDemonBluffs(
+                        chooseRandomBluffs(currentDemonBluffSignature),
+                      )
+                    }
+                  >
+                    <Dices size={16} />
+                  </button>
+                </div>
+                <div className="demon-bluff-draft-roles">
+                  {demonBluffRoleIds.map((roleId, index) => {
+                    const role = getRole(roleId);
+                    return (
+                      <div
+                        className="demon-bluff-draft-role"
+                        key={`${index}-${roleId}`}
+                      >
+                        <span className="demon-bluff-draft-icon">
+                          <RoleIcon roleId={roleId} size={20} />
+                        </span>
+                        <select
+                          value={roleId}
+                          aria-label={`第 ${index + 1} 个伪装身份`}
+                          onChange={(event) =>
+                            replaceDemonBluff(index, event.target.value)
+                          }
+                        >
+                          {availableDemonBluffRoles.map((option) => (
+                            <option
+                              value={option.id}
+                              key={option.id}
+                              disabled={
+                                option.id !== roleId &&
+                                demonBluffRoleIds.includes(option.id)
+                              }
+                            >
+                              {option.name} · {option.team}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="icon-button"
+                          title="更换这个身份"
+                          aria-label={`更换${role.name}`}
+                          onClick={() => replaceDemonBluff(index)}
+                        >
+                          <RotateCcw size={15} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                <button
+                  className="primary-button demon-bluff-send"
+                  disabled={demonBluffsAlreadySent || sendingBluffs}
+                  onClick={() => void sendDemonBluffs()}
+                >
+                  {demonBluffsAlreadySent ? (
+                    <Check size={15} />
+                  ) : (
+                    <Send size={15} />
+                  )}
+                  {demonBluffsAlreadySent
+                    ? "本组已发送"
+                    : sendingBluffs
+                      ? "发送中"
+                      : "发送这三个身份"}
+                </button>
+              </section>
+            ) : null}
+
             {timeline.length ? (
               <div className="host-chat-timeline" ref={timelineRef}>
                 {timeline.map((message) => (
@@ -1993,7 +2257,13 @@ function HostMessagesPanel({
                         </time>
                       </div>
                       <div className="host-chat-bubble">
-                        <p>{message.body}</p>
+                        {message.demonBluffRoleIds ? (
+                          <DemonBluffMessage
+                            roleIds={message.demonBluffRoleIds}
+                          />
+                        ) : (
+                          <p>{message.body}</p>
+                        )}
                       </div>
                     </div>
                   </article>

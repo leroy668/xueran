@@ -295,6 +295,19 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .host-chat-role.evil-group { border-left-color: var(--red); color: var(--red); }
 .host-chat-header h3 { margin: 0; font-size: 16px; }
 .host-chat-header p { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
+.demon-bluff-draft { padding: 12px 20px; border-bottom: 1px solid rgba(215,97,86,.3); background: #1b191b; }
+.demon-bluff-draft-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+.demon-bluff-draft-heading > div { display: flex; align-items: baseline; gap: 9px; }
+.demon-bluff-draft-heading strong { color: #e58a82; font-size: 12px; }
+.demon-bluff-draft-heading small { color: var(--dim); font-size: 9px; }
+.demon-bluff-draft-heading .icon-button, .demon-bluff-draft-role .icon-button { width: 30px; min-width: 30px; height: 30px; padding: 0; display: grid; place-items: center; border: 1px solid var(--line-light); background: transparent; color: var(--muted); }
+.demon-bluff-draft-heading .icon-button:hover, .demon-bluff-draft-role .icon-button:hover { border-color: var(--gold); color: var(--gold); }
+.demon-bluff-draft-roles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.demon-bluff-draft-role { min-width: 0; display: grid; grid-template-columns: 34px minmax(0, 1fr) 30px; align-items: center; gap: 6px; border: 1px solid var(--line); background: #151517; padding: 4px; }
+.demon-bluff-draft-icon { width: 34px; height: 34px; display: grid; place-items: center; overflow: hidden; }
+.demon-bluff-draft-role select { min-width: 0; width: 100%; height: 30px; border: 0; background: transparent; color: var(--ink); font-size: 11px; }
+.demon-bluff-draft-role select option { background: #202023; color: var(--ink); }
+.demon-bluff-send { min-height: 34px; margin-top: 9px; padding: 0 12px; }
 .host-chat-timeline { min-height: 360px; max-height: 58vh; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; background: #151517; overscroll-behavior: contain; scrollbar-width: thin; }
 .host-chat-message { width: 100%; display: flex; align-items: flex-start; gap: 9px; }
 .host-chat-message.outgoing { flex-direction: row-reverse; }
@@ -312,6 +325,14 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .host-chat-bubble::before { content: ""; position: absolute; top: 8px; left: -5px; width: 8px; height: 8px; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #29292d; transform: rotate(45deg); }
 .host-chat-message.outgoing .host-chat-bubble::before { right: -5px; left: auto; border: 0; border-top: 1px solid rgba(137,176,139,.38); border-right: 1px solid rgba(137,176,139,.38); background: #36513b; }
 .host-chat-bubble p { margin: 0; padding: 9px 11px; color: var(--ink); font-size: 14px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.demon-bluff-message { min-width: min(290px, 100%); padding: 10px; }
+.demon-bluff-message > strong { display: block; margin-bottom: 8px; color: #efaca5; font-size: 11px; }
+.demon-bluff-message-roles { display: grid; gap: 5px; }
+.demon-bluff-message-role { min-width: 0; display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: center; gap: 7px; border-top: 1px solid rgba(255,255,255,.08); padding-top: 5px; }
+.demon-bluff-message-role > span { width: 34px; height: 34px; display: grid; place-items: center; overflow: hidden; }
+.demon-bluff-message-role b, .demon-bluff-message-role small { display: block; }
+.demon-bluff-message-role b { color: var(--ink); font-size: 12px; }
+.demon-bluff-message-role small { margin-top: 2px; color: var(--dim); font-size: 9px; }
 .host-chat-no-messages { min-height: 360px; flex: 1; padding: 30px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; color: var(--dim); }
 .host-chat-no-messages h3 { margin: 11px 0 5px; color: var(--ink); font-size: 16px; }
 .host-chat-no-messages p { margin: 0; color: var(--muted); font-size: 10px; }
@@ -577,10 +598,15 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .host-player-summary small { margin-top: 4px; font-size: 9px; }
   .host-chat-header { min-height: 65px; padding: 10px 13px; }
   .host-chat-role { width: 38px; height: 38px; }
+  .demon-bluff-draft { padding: 10px 11px; }
+  .demon-bluff-draft-heading > div { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .demon-bluff-draft-roles { grid-template-columns: 1fr; gap: 5px; }
+  .demon-bluff-draft-role { grid-template-columns: 36px minmax(0, 1fr) 32px; }
   .host-chat-timeline { min-height: 280px; max-height: none; padding: 14px 11px; }
   .host-chat-message-content { width: min(78%, 410px); }
   .host-chat-message-meta { gap: 7px; }
   .host-chat-bubble p { font-size: 14px; }
+  .demon-bluff-message { min-width: 0; width: 100%; padding: 9px; }
   .host-chat-composer { padding: 11px; }
   .host-chat-composer textarea { min-height: 56px; }
   .host-chat-no-messages { min-height: 280px; }
