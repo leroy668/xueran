@@ -195,6 +195,18 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 
 .night-layout { grid-template-columns: minmax(0, 1fr) 265px; }
 .night-nav { gap: 6px; }
+.player-inbox { margin: 20px 0; border: 1px solid rgba(213,166,110,.32); background: rgba(213,166,110,.04); padding: 14px 16px; }
+.player-inbox-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 9px; border-bottom: 1px solid var(--line); }
+.player-inbox-heading h3 { margin: 0; font-size: 16px; }
+.player-inbox-heading > strong { color: var(--gold); font-size: 10px; }
+.player-inbox-empty { margin: 12px 0 0; color: var(--dim); font-size: 10px; text-align: center; }
+.player-inbox-row { min-height: 40px; display: grid; grid-template-columns: 150px minmax(0, 1fr) 42px; align-items: start; gap: 8px; padding: 8px 1px; border-bottom: 1px solid rgba(55,55,61,.72); }
+.player-inbox-row:last-child { border-bottom: 0; }
+.player-inbox-row > div { min-width: 0; }
+.player-inbox-row strong { display: block; color: var(--gold); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-inbox-row span { display: block; margin-top: 2px; color: var(--dim); font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-inbox-row p { margin: 0; color: var(--ink); font-size: 11px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.player-inbox-row time { color: var(--dim); font-size: 9px; text-align: right; }
 .current-action { position: relative; display: flex; align-items: center; gap: 17px; margin: 22px 0; border: 1px solid var(--line); border-left: 3px solid var(--gold); padding: 20px; background: #222226; }
 .current-action.townsfolk { border-left-color: var(--blue); }
 .current-action.outsider { border-left-color: var(--green); }
@@ -304,12 +316,21 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .player-script-role strong { font-size: 13px; }
 .player-script-role p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .player-message-view { min-height: 380px; }
+.player-chat-composer { margin-top: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.player-chat-composer textarea { width: 100%; min-height: 74px; resize: vertical; border: 1px solid var(--line); background: #17171a; color: var(--ink); padding: 10px; font-size: 13px; line-height: 1.6; }
+.player-chat-composer textarea::placeholder { color: var(--dim); }
+.player-chat-composer > div:not(.inline-error) { min-height: 36px; margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.player-chat-composer > div > span { color: var(--dim); font-size: 9px; }
+.player-chat-composer button { min-width: 88px; }
 .player-message-timeline { margin-top: 20px; border-top: 1px solid var(--line); }
 .player-message-item { padding: 17px 4px; border-bottom: 1px solid var(--line); }
 .player-message-item.latest { padding-left: 14px; border-left: 3px solid var(--gold); background: rgba(213,166,110,.04); }
+.player-message-item.outgoing { padding-left: 4px; padding-right: 14px; border-left: 0; border-right: 3px solid var(--blue); background: rgba(141,170,195,.05); }
+.player-message-item.outgoing .player-message-meta span { color: var(--blue); }
 .player-message-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .player-message-meta span { color: var(--muted); font-size: 10px; font-weight: 700; }
 .player-message-item.latest .player-message-meta span { color: var(--gold); }
+.player-message-item.outgoing .player-message-meta span { color: var(--blue); }
 .player-message-meta time { color: var(--dim); font-size: 9px; white-space: nowrap; }
 .player-message-item > p { margin: 9px 0 0; color: var(--ink); font-size: 15px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
 .player-message-empty { min-height: 260px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; color: var(--dim); }
@@ -422,6 +443,9 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .empty-state { min-height: 290px; }
   .empty-actions { flex-direction: column; width: 100%; max-width: 220px; }
   .current-action { align-items: flex-start; padding: 15px; gap: 11px; }
+  .player-inbox { padding: 12px; }
+  .player-inbox-row { grid-template-columns: 96px minmax(0, 1fr) 36px; gap: 5px; padding: 7px 0; }
+  .player-inbox-row p { font-size: 10px; }
   .current-role-icon { width: 42px; height: 42px; font-size: 16px; }
   .current-action h3 { font-size: 19px; }
   .current-role-team { display: none; }

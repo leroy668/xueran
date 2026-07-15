@@ -7,6 +7,7 @@ import {
   MoonStar,
   RefreshCw,
   ScrollText,
+  Send,
   ShieldCheck,
   UserRoundCheck,
   Users,
@@ -17,8 +18,11 @@ import {
   findRoomByCode,
   getMyIdentity,
   getMyNightMessages,
+  getMyPlayerMessages,
   getRoomPlayers,
+  sendPlayerMessage,
   type NightMessage,
+  type PlayerMessage,
   type PrivateIdentity,
   type PublicRoomPlayer,
   type SharedRoom,
@@ -36,6 +40,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
   const [players, setPlayers] = useState<PublicRoomPlayer[]>([]);
   const [identity, setIdentity] = useState<PrivateIdentity | null>(null);
   const [nightMessages, setNightMessages] = useState<NightMessage[]>([]);
+  const [playerMessages, setPlayerMessages] = useState<PlayerMessage[]>([]);
   const [playerName, setPlayerName] = useState("");
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState("");
@@ -43,11 +48,18 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
 
   const refresh = useCallback(async (targetRoom: SharedRoom) => {
     if (targetRoom.status === "closed") return;
-    const [latestRoom, nextPlayers, nextIdentity, nextNightMessages] = await Promise.all([
+    const [
+      latestRoom,
+      nextPlayers,
+      nextIdentity,
+      nextNightMessages,
+      nextPlayerMessages,
+    ] = await Promise.all([
       findRoomByCode(targetRoom.code),
       getRoomPlayers(targetRoom.id),
       getMyIdentity(targetRoom.id),
       getMyNightMessages(targetRoom.id),
+      getMyPlayerMessages(targetRoom.id),
     ]);
 
     if (!latestRoom) throw new Error("房间已不存在");
@@ -56,12 +68,14 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       setPlayers([]);
       setIdentity(null);
       setNightMessages([]);
+      setPlayerMessages([]);
       return;
     }
 
     setPlayers(nextPlayers);
     setIdentity(nextIdentity);
     setNightMessages(nextNightMessages);
+    setPlayerMessages(nextPlayerMessages);
   }, []);
 
   useEffect(() => {
@@ -119,6 +133,11 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
         { event: "INSERT", schema: "public", table: "xueran_night_messages", filter: `room_id=eq.${room.id}` },
         () => void refresh(room),
       )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "xueran_player_messages", filter: `room_id=eq.${room.id}` },
+        () => void refresh(room),
+      )
       .subscribe();
 
     return () => {
@@ -148,6 +167,15 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
     } finally {
       setSubmittingId("");
     }
+  };
+
+  const sendMessageToHost = async (body: string) => {
+    if (!room) throw new Error("房间尚未加载");
+    const message = await sendPlayerMessage({ roomId: room.id, body });
+    setPlayerMessages((current) => [
+      message,
+      ...current.filter((item) => item.id !== message.id),
+    ]);
   };
 
   if (loading) {
@@ -201,6 +229,8 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
         roomCode={room.code}
         scriptId={room.script_id}
         nightMessages={nightMessages}
+        playerMessages={playerMessages}
+        onSendPlayerMessage={sendMessageToHost}
       />
     );
   }
@@ -280,11 +310,15 @@ function ClaimedIdentity({
   roomCode,
   scriptId,
   nightMessages,
+  playerMessages,
+  onSendPlayerMessage,
 }: {
   identity: IdentityPayload;
   roomCode: string;
   scriptId: string;
   nightMessages: NightMessage[];
+  playerMessages: PlayerMessage[];
+  onSendPlayerMessage: (body: string) => Promise<void>;
 }) {
   const [revealed, setRevealed] = useState(false);
   const identitySeenKey = `xueran-identity-seen-${roomCode}-${identity.seat}-${identity.roleId}`;
@@ -406,7 +440,11 @@ function ClaimedIdentity({
       ) : null}
 
       {activeView === "messages" ? (
-        <PlayerMessages messages={nightMessages} />
+        <PlayerMessages
+          hostMessages={nightMessages}
+          playerMessages={playerMessages}
+          onSend={onSendPlayerMessage}
+        />
       ) : null}
 
     </main>
@@ -486,10 +524,55 @@ function IdentityView({
 }
 
 function PlayerMessages({
-  messages,
+  hostMessages,
+  playerMessages,
+  onSend,
 }: {
-  messages: NightMessage[];
+  hostMessages: NightMessage[];
+  playerMessages: PlayerMessage[];
+  onSend: (body: string) => Promise<void>;
 }) {
+  const [messageBody, setMessageBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const timeline = [
+    ...hostMessages.map((message) => ({
+      ...message,
+      direction: "incoming" as const,
+      label: `上帝 · 第 ${message.round} 回合 · ${getRole(message.role_id).name}`,
+    })),
+    ...playerMessages.map((message) => ({
+      ...message,
+      direction: "outgoing" as const,
+      label: `我 · 第 ${message.round} 回合`,
+    })),
+  ].sort(
+    (left, right) =>
+      new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+  );
+
+  const submitMessage = async () => {
+    const body = messageBody.trim();
+    if (!body || sending) return;
+    setSending(true);
+    setSendError("");
+    try {
+      await onSend(body);
+      setMessageBody("");
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "";
+      setSendError(
+        /function|player_messages|schema cache/i.test(message)
+          ? "玩家消息数据库尚未配置"
+          : /claimed player|room is not open/i.test(message)
+            ? "当前座位或房间状态不可发送"
+            : "发送失败，请稍后重试",
+      );
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <section className="player-view-panel player-message-view">
       <div className="player-view-heading">
@@ -500,34 +583,60 @@ function PlayerMessages({
         <MessageSquareText size={22} />
       </div>
 
-      {messages.length ? (
+      <div className="player-chat-composer">
+        <textarea
+          value={messageBody}
+          onChange={(event) => setMessageBody(event.target.value)}
+          placeholder="给上帝发送私密信息"
+          maxLength={500}
+          rows={2}
+          disabled={sending}
+        />
+        <div>
+          <span>{messageBody.length}/500</span>
+          <button
+            className="primary-button"
+            disabled={!messageBody.trim() || sending}
+            onClick={() => void submitMessage()}
+          >
+            <Send size={14} />
+            {sending ? "发送中" : "发送"}
+          </button>
+        </div>
+        {sendError ? <div className="inline-error">{sendError}</div> : null}
+      </div>
+
+      {timeline.length ? (
         <div className="player-message-timeline">
-          {messages.map((message, index) => {
-            const messageRole = getRole(message.role_id);
-            return (
-              <article
-                className={index === 0 ? "player-message-item latest" : "player-message-item"}
-                key={message.id}
-              >
-                <div className="player-message-meta">
-                  <span>第 {message.round} 回合 · {messageRole.name}</span>
-                  <time>
-                    {new Date(message.created_at).toLocaleTimeString("zh-CN", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </time>
-                </div>
-                <p>{message.body}</p>
-              </article>
-            );
-          })}
+          {timeline.map((message, index) => (
+            <article
+              className={[
+                "player-message-item",
+                message.direction,
+                index === 0 ? "latest" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              key={`${message.direction}-${message.id}`}
+            >
+              <div className="player-message-meta">
+                <span>{message.label}</span>
+                <time>
+                  {new Date(message.created_at).toLocaleTimeString("zh-CN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </time>
+              </div>
+              <p>{message.body}</p>
+            </article>
+          ))}
         </div>
       ) : (
         <div className="player-message-empty">
           <MessageSquareText size={25} />
-          <h3>暂无上帝消息</h3>
-          <p>主持人发送的新信息会自动出现在这里。</p>
+          <h3>暂无聊天记录</h3>
+          <p>你和上帝发送的新信息会自动出现在这里。</p>
         </div>
       )}
     </section>

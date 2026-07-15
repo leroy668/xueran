@@ -32,12 +32,14 @@ import {
   createRoom,
   findRoomByCode,
   getRoomNightMessages,
+  getRoomPlayerMessages,
   getRoomPlayers,
   loadHostRoom,
   revokeClaim,
   sendNightMessage,
   syncRoom,
   type NightMessage,
+  type PlayerMessage,
   type PublicRoomPlayer,
   type SharedRoom,
 } from "./room";
@@ -111,6 +113,7 @@ function GrimoireApp() {
   const [room, setRoom] = useState<SharedRoom | null>(null);
   const [roomPlayers, setRoomPlayers] = useState<PublicRoomPlayer[]>([]);
   const [nightMessages, setNightMessages] = useState<NightMessage[]>([]);
+  const [playerMessages, setPlayerMessages] = useState<PlayerMessage[]>([]);
   const [roomBusy, setRoomBusy] = useState(false);
   const [roomReady, setRoomReady] = useState(false);
   const [syncStatus, setSyncStatus] = useState<
@@ -128,12 +131,14 @@ function GrimoireApp() {
   }, [toast]);
 
   const refreshRoomAdmin = useCallback(async (targetRoom: SharedRoom) => {
-    const [players, messages] = await Promise.all([
+    const [players, messages, incomingMessages] = await Promise.all([
       getRoomPlayers(targetRoom.id),
       getRoomNightMessages(targetRoom.id),
+      getRoomPlayerMessages(targetRoom.id),
     ]);
     setRoomPlayers(players);
     setNightMessages(messages);
+    setPlayerMessages(incomingMessages);
   }, []);
 
   useEffect(() => {
@@ -212,6 +217,16 @@ function GrimoireApp() {
           event: "INSERT",
           schema: "public",
           table: "xueran_night_messages",
+          filter: `room_id=eq.${room.id}`,
+        },
+        () => void refreshRoomAdmin(room),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "xueran_player_messages",
           filter: `room_id=eq.${room.id}`,
         },
         () => void refreshRoomAdmin(room),
@@ -524,6 +539,7 @@ function GrimoireApp() {
             room={room}
             roomPlayers={roomPlayers}
             nightMessages={nightMessages}
+            playerMessages={playerMessages}
             onChangeNight={changeNight}
             onSelectNight={(index) => update({ nightIndex: index })}
             onSendMessage={handleSendNightMessage}
@@ -917,6 +933,7 @@ function NightPanel({
   room,
   roomPlayers,
   nightMessages,
+  playerMessages,
   onChangeNight,
   onSelectNight,
   onSendMessage,
@@ -927,6 +944,7 @@ function NightPanel({
   room: SharedRoom | null;
   roomPlayers: PublicRoomPlayer[];
   nightMessages: NightMessage[];
+  playerMessages: PlayerMessage[];
   onChangeNight: (offset: number) => void;
   onSelectNight: (index: number) => void;
   onSendMessage: (message: {
@@ -1009,6 +1027,50 @@ function NightPanel({
             <button className="icon-button" onClick={() => onChangeNight(1)} disabled={!nightRoles.length} title="下一个行动"><ChevronRight size={17} /></button>
           </div>
         </div>
+        {room ? (
+          <section className="player-inbox">
+            <div className="player-inbox-heading">
+              <div>
+                <p className="eyebrow">PLAYER MESSAGES</p>
+                <h3>玩家来信</h3>
+              </div>
+              <strong>{playerMessages.length} 条</strong>
+            </div>
+            {playerMessages.length ? (
+              <div className="player-inbox-list">
+                {playerMessages.map((message) => {
+                const sender = roomPlayersById.get(message.player_id);
+                const senderRole = state.players.find(
+                  (player) => player.id === message.player_id,
+                );
+                return (
+                  <article className="player-inbox-row" key={message.id}>
+                    <div>
+                      <strong>
+                        座位 {String(sender?.seat ?? "?").padStart(2, "0")}
+                        {sender?.name ? ` · ${sender.name}` : ""}
+                      </strong>
+                      <span>
+                        第 {message.round} 回合
+                        {senderRole ? ` · ${getRole(senderRole.roleId).name}` : ""}
+                      </span>
+                    </div>
+                    <p>{message.body}</p>
+                    <time>
+                      {new Date(message.created_at).toLocaleTimeString("zh-CN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </time>
+                  </article>
+                );
+                })}
+              </div>
+            ) : (
+              <p className="player-inbox-empty">暂无玩家来信</p>
+            )}
+          </section>
+        ) : null}
         {currentRole ? (
           <>
             <div className={`current-action ${teamLabels[currentRole.team]}`}>

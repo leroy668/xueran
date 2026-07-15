@@ -44,6 +44,15 @@ export type NightMessage = {
   created_at: string;
 };
 
+export type PlayerMessage = {
+  id: string;
+  room_id: string;
+  player_id: string;
+  round: number;
+  body: string;
+  created_at: string;
+};
+
 export const activeRoomStorageKey = "xueran-active-host-room";
 
 export const buildRoomUrl = (code: string) => {
@@ -220,6 +229,36 @@ export const getRoomNightMessages = getAllNightMessages;
 
 export const getMyNightMessages = getAllNightMessages;
 
+const isMissingPlayerMessagesTable = (error: { code?: string; message?: string }) =>
+  error.code === "42P01" ||
+  error.code === "PGRST205" ||
+  /xueran_player_messages/i.test(error.message ?? "");
+
+const getAllPlayerMessages = async (roomId: string) => {
+  const pageSize = 500;
+  const messages: PlayerMessage[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("xueran_player_messages")
+      .select("*")
+      .eq("room_id", roomId)
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error && isMissingPlayerMessagesTable(error)) return [];
+    if (error) throw error;
+
+    const page = data as PlayerMessage[];
+    messages.push(...page);
+    if (page.length < pageSize) return messages;
+  }
+};
+
+export const getRoomPlayerMessages = getAllPlayerMessages;
+
+export const getMyPlayerMessages = getAllPlayerMessages;
+
 export const sendNightMessage = async ({
   roomId,
   playerId,
@@ -242,6 +281,21 @@ export const sendNightMessage = async ({
   });
   if (error) throw error;
   return data as NightMessage;
+};
+
+export const sendPlayerMessage = async ({
+  roomId,
+  body,
+}: {
+  roomId: string;
+  body: string;
+}) => {
+  const { data, error } = await supabase.rpc("xueran_send_player_message", {
+    p_room_id: roomId,
+    p_body: body,
+  });
+  if (error) throw error;
+  return data as PlayerMessage;
 };
 
 export const claimSeat = async (
