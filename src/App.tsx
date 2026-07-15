@@ -645,6 +645,7 @@ function GrimoireApp() {
             onAssignRoles={assignRoles}
             onQuickStart={quickStart}
             roomPlayers={roomPlayers}
+            nightMessages={nightMessages}
             roomPanel={
               <HostRoomPanel
                 room={room}
@@ -732,6 +733,7 @@ function GrimoirePanel({
   onAssignRoles,
   onQuickStart,
   roomPlayers,
+  nightMessages,
   roomPanel,
 }: {
   state: GameState;
@@ -743,6 +745,7 @@ function GrimoirePanel({
   onAssignRoles: () => void;
   onQuickStart: () => void;
   roomPlayers: PublicRoomPlayer[];
+  nightMessages: NightMessage[];
   roomPanel: ReactNode;
 }) {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(
@@ -971,6 +974,12 @@ function GrimoirePanel({
               <PlayerEditor
                 player={selectedPlayer}
                 displayName={getDisplayName(selectedPlayer)}
+                roomPlayer={roomPlayersBySeat.get(selectedPlayer.seat)}
+                phase={state.phase}
+                round={state.round}
+                messages={nightMessages.filter(
+                  (message) => message.player_id === selectedPlayer.id,
+                )}
                 onUpdate={onUpdatePlayer}
                 onRemove={onRemovePlayer}
               />
@@ -985,15 +994,28 @@ function GrimoirePanel({
 function PlayerEditor({
   player,
   displayName,
+  roomPlayer,
+  phase,
+  round,
+  messages,
   onUpdate,
   onRemove,
 }: {
   player: Player;
   displayName: string;
+  roomPlayer?: PublicRoomPlayer;
+  phase: Phase;
+  round: number;
+  messages: NightMessage[];
   onUpdate: (id: string, patch: Partial<Player>) => void;
   onRemove: (id: string) => void;
 }) {
   const role = getRole(player.roleId);
+  const messageHistory = [...messages].sort(
+    (left, right) =>
+      new Date(right.created_at).getTime() -
+      new Date(left.created_at).getTime(),
+  );
   return (
     <aside className={player.alive ? "player-editor" : "player-editor dead"}>
       <div className="player-editor-topline">
@@ -1039,6 +1061,29 @@ function PlayerEditor({
         </div>
       </div>
 
+      <div className="player-status-grid" aria-label="角色当前状态">
+        <div>
+          <span>入座状态</span>
+          <strong className={roomPlayer?.is_claimed ? "positive" : ""}>
+            {roomPlayer?.is_claimed ? "已入座" : "待入座"}
+          </strong>
+        </div>
+        <div>
+          <span>生存状态</span>
+          <strong className={player.alive ? "positive" : "danger"}>
+            {player.alive ? "存活" : "死亡"}
+          </strong>
+        </div>
+        <div>
+          <span>当前阶段</span>
+          <strong>{phase}</strong>
+        </div>
+        <div>
+          <span>当前回合</span>
+          <strong>第 {round} 回合</strong>
+        </div>
+      </div>
+
       <label className="player-editor-field">
         <span>主持人私密备注</span>
         <textarea
@@ -1049,6 +1094,44 @@ function PlayerEditor({
           rows={3}
         />
       </label>
+
+      <section className="player-message-history">
+        <div className="player-history-heading">
+          <div>
+            <span>已传达信息</span>
+            <small>发送给此座位的历史记录</small>
+          </div>
+          <strong>{messageHistory.length}</strong>
+        </div>
+        {messageHistory.length ? (
+          <div className="player-history-list">
+            {messageHistory.map((message) => {
+              const messageRole = getRole(message.role_id);
+              return (
+                <article className="player-history-item" key={message.id}>
+                  <div>
+                    <strong>第 {message.round} 回合</strong>
+                    <span>{messageRole.name}</span>
+                    <time>
+                      {new Date(message.created_at).toLocaleString("zh-CN", {
+                        month: "numeric",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </time>
+                  </div>
+                  <p>{message.body}</p>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="player-history-empty">
+            还没有向该玩家传达过信息
+          </div>
+        )}
+      </section>
 
       <div className="player-editor-actions">
         <button
