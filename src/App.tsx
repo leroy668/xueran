@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   BookOpen,
   Check,
@@ -1267,6 +1274,7 @@ function HostMessagesPanel({
   const [messageBody, setMessageBody] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
+  const timelineRef = useRef<HTMLDivElement>(null);
   const roomPlayersById = useMemo(
     () => new Map(roomPlayers.map((player) => [player.id, player])),
     [roomPlayers],
@@ -1365,6 +1373,19 @@ function HostMessagesPanel({
       new Date(left.created_at).getTime() -
       new Date(right.created_at).getTime(),
   );
+  const latestMessageKey = timeline.length
+    ? `${selectedPlayerId}-${timeline[timeline.length - 1].direction}-${timeline[timeline.length - 1].id}`
+    : selectedPlayerId;
+
+  useEffect(() => {
+    const timelineElement = timelineRef.current;
+    if (!timelineElement) return;
+    const frame = requestAnimationFrame(() => {
+      timelineElement.scrollTop = timelineElement.scrollHeight;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [latestMessageKey]);
+
   const canSend =
     Boolean(room) &&
     Boolean(selectedPlayer) &&
@@ -1480,24 +1501,33 @@ function HostMessagesPanel({
             </header>
 
             {timeline.length ? (
-              <div className="host-chat-timeline">
+              <div className="host-chat-timeline" ref={timelineRef}>
                 {timeline.map((message) => (
                   <article
                     className={`host-chat-message ${message.direction}`}
                     key={`${message.direction}-${message.id}`}
                   >
-                    <div className="host-chat-message-meta">
-                      <span>{message.label}</span>
-                      <time>
-                        {new Date(message.created_at).toLocaleString("zh-CN", {
-                          month: "numeric",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </time>
+                    <span className="host-chat-avatar" aria-hidden="true">
+                      {message.direction === "incoming"
+                        ? String(selectedPlayer.seat).padStart(2, "0")
+                        : "上"}
+                    </span>
+                    <div className="host-chat-message-content">
+                      <div className="host-chat-message-meta">
+                        <span>{message.label}</span>
+                        <time>
+                          {new Date(message.created_at).toLocaleString("zh-CN", {
+                            month: "numeric",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </time>
+                      </div>
+                      <div className="host-chat-bubble">
+                        <p>{message.body}</p>
+                      </div>
                     </div>
-                    <p>{message.body}</p>
                   </article>
                 ))}
               </div>
@@ -1513,6 +1543,12 @@ function HostMessagesPanel({
               <textarea
                 value={messageBody}
                 onChange={(event) => setMessageBody(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void submitMessage();
+                  }
+                }}
                 placeholder={
                   selectedRoomPlayer?.is_claimed
                     ? "回复该玩家"
