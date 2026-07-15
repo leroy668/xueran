@@ -16,6 +16,7 @@ import {
   Sparkles,
   Sun,
   Trash2,
+  UserMinus,
   UserRound,
   Users,
 } from "lucide-react";
@@ -662,6 +663,24 @@ function GrimoirePanel({
               <button className="secondary-button" onClick={onQuickStart}>
                 <Sparkles size={15} />
                 载入示例局
+              </button>
+            ) : null}
+            {state.players.length > 0 ? (
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  const lastPlayer = state.players[state.players.length - 1];
+                  if (
+                    window.confirm(
+                      `移除最后一个座位（座位 ${lastPlayer.seat}）？`,
+                    )
+                  ) {
+                    onRemovePlayer(lastPlayer.id);
+                  }
+                }}
+              >
+                <UserMinus size={16} />
+                减少玩家
               </button>
             ) : null}
             <button className="primary-button" onClick={onAddPlayer}>
