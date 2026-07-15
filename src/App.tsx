@@ -226,7 +226,6 @@ function GrimoireApp() {
   const currentNightRole = nightRoles[state.nightIndex] ?? nightRoles[0];
   const aliveCount = state.players.filter((player) => player.alive).length;
   const selectedRole = currentNightRole ? getRole(currentNightRole.id) : null;
-  const script = scripts.find((item) => item.id === state.scriptId) ?? scripts[0];
 
   const update = (patch: Partial<GameState>) => {
     setState((current) => ({
@@ -429,22 +428,6 @@ function GrimoireApp() {
       </header>
 
       <main className="workspace">
-        <section className="hero-strip">
-          <div>
-            <p className="eyebrow">今晚的剧本</p>
-            <h2>{script.name}</h2>
-            <p>
-              {script.description}{" "}
-              {room ? "身份已安全同步到共享房间。" : "所有信息只保存在这台设备的浏览器里。"}
-            </p>
-          </div>
-          <div className="hero-marks" aria-hidden="true">
-            <span>✦</span>
-            <span>☾</span>
-            <span>✦</span>
-          </div>
-        </section>
-
         <nav className="tab-bar" aria-label="魔典导航">
           {tabs.map((tab) => {
             const Icon = tab.icon;
