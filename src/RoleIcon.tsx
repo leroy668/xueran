@@ -1,67 +1,44 @@
-import {
-  Bird,
-  BookOpen,
-  ChefHat,
-  CircleDot,
-  Crown,
-  Cross,
-  Eye,
-  FlaskConical,
-  Ghost,
-  GitBranch,
-  Hand,
-  Heart,
-  HeartCrack,
-  Landmark,
-  Search,
-  Shield,
-  Shirt,
-  Shovel,
-  Umbrella,
-  Wine,
-  type LucideIcon,
-} from "lucide-react";
+import type { SyntheticEvent } from "react";
 
-const roleIconMap: Record<string, LucideIcon> = {
-  washerwoman: Shirt,
-  librarian: BookOpen,
-  investigator: Search,
-  chef: ChefHat,
-  empath: Heart,
-  "fortune-teller": Eye,
-  monk: Hand,
-  undertaker: Shovel,
-  ravenkeeper: Bird,
-  soldier: Shield,
-  mayor: Landmark,
-  recluse: Ghost,
-  drunk: Wine,
-  butler: Umbrella,
-  saint: Cross,
-  poisoner: FlaskConical,
-  "scarlet-woman": HeartCrack,
-  baron: Crown,
-  imp: GitBranch,
+const roleIconAliases: Record<string, string> = {
+  "fortune-teller": "fortuneteller",
+  "scarlet-woman": "scarletwoman",
 };
+
+const iconBaseUrl = `${import.meta.env.BASE_URL}role-icons/`;
+const fallbackIconUrl = `${iconBaseUrl}custom.webp`;
+
+function handleIconError(event: SyntheticEvent<HTMLImageElement>) {
+  const image = event.currentTarget;
+
+  if (!image.src.endsWith("/custom.webp")) {
+    image.src = fallbackIconUrl;
+  }
+}
 
 export function RoleIcon({
   roleId,
   size = 18,
-  strokeWidth = 1.8,
   className,
 }: {
   roleId: string;
   size?: number;
-  strokeWidth?: number;
   className?: string;
 }) {
-  const Icon = roleIconMap[roleId] ?? CircleDot;
+  const fileName = roleIconAliases[roleId] ?? roleId;
+  const renderedSize = Math.round(size * 1.45);
+
   return (
-    <Icon
-      size={size}
-      strokeWidth={strokeWidth}
-      className={className}
+    <img
+      src={`${iconBaseUrl}${fileName}.webp`}
+      width={renderedSize}
+      height={renderedSize}
+      className={["role-icon-image", className].filter(Boolean).join(" ")}
+      alt=""
       aria-hidden="true"
+      draggable={false}
+      decoding="async"
+      onError={handleIconError}
     />
   );
 }
