@@ -974,9 +974,6 @@ function GrimoirePanel({
               <PlayerEditor
                 player={selectedPlayer}
                 displayName={getDisplayName(selectedPlayer)}
-                roomPlayer={roomPlayersBySeat.get(selectedPlayer.seat)}
-                phase={state.phase}
-                round={state.round}
                 messages={nightMessages.filter(
                   (message) => message.player_id === selectedPlayer.id,
                 )}
@@ -994,18 +991,12 @@ function GrimoirePanel({
 function PlayerEditor({
   player,
   displayName,
-  roomPlayer,
-  phase,
-  round,
   messages,
   onUpdate,
   onRemove,
 }: {
   player: Player;
   displayName: string;
-  roomPlayer?: PublicRoomPlayer;
-  phase: Phase;
-  round: number;
   messages: NightMessage[];
   onUpdate: (id: string, patch: Partial<Player>) => void;
   onRemove: (id: string) => void;
@@ -1058,29 +1049,6 @@ function PlayerEditor({
           <strong>{role.name}</strong>
           <small>{role.team}</small>
           <p>{role.short}</p>
-        </div>
-      </div>
-
-      <div className="player-status-grid" aria-label="角色当前状态">
-        <div>
-          <span>入座状态</span>
-          <strong className={roomPlayer?.is_claimed ? "positive" : ""}>
-            {roomPlayer?.is_claimed ? "已入座" : "待入座"}
-          </strong>
-        </div>
-        <div>
-          <span>生存状态</span>
-          <strong className={player.alive ? "positive" : "danger"}>
-            {player.alive ? "存活" : "死亡"}
-          </strong>
-        </div>
-        <div>
-          <span>当前阶段</span>
-          <strong>{phase}</strong>
-        </div>
-        <div>
-          <span>当前回合</span>
-          <strong>第 {round} 回合</strong>
         </div>
       </div>
 

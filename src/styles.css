@@ -180,14 +180,6 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .selected-role-summary strong { display: inline-block; margin-right: 7px; font-size: 13px; }
 .selected-role-summary small { color: var(--muted); font-size: 9px; }
 .selected-role-summary p { color: var(--muted); font-size: 10px; line-height: 1.5; margin: 5px 0 0; }
-.player-status-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--line); background: #19191c; }
-.player-status-grid > div { min-width: 0; padding: 9px 10px; }
-.player-status-grid > div:nth-child(odd) { border-right: 1px solid var(--line); }
-.player-status-grid > div:nth-child(n + 3) { border-top: 1px solid var(--line); }
-.player-status-grid span { display: block; margin-bottom: 4px; color: var(--dim); font-size: 8px; }
-.player-status-grid strong { display: block; min-width: 0; color: var(--ink); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.player-status-grid strong.positive { color: var(--green); }
-.player-status-grid strong.danger { color: var(--red); }
 .player-editor-field { margin-top: 10px; }
 .player-notes { padding: 8px; font-size: 11px; min-height: 45px; }
 .player-notes { border-left: 2px solid var(--line-light); }
