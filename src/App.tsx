@@ -4,6 +4,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Dices,
   MoonStar,
   MessageSquareText,
   NotebookPen,
@@ -24,6 +25,7 @@ import { getNightRoles, getRole, roles, scripts } from "./data";
 import { HostRoomPanel } from "./HostRoomPanel";
 import { PlayerRoom } from "./PlayerRoom";
 import { RoleIcon } from "./RoleIcon";
+import { distributeRoles } from "./roleDistribution";
 import {
   activeRoomStorageKey,
   buildRoomUrl,
@@ -276,6 +278,47 @@ function GrimoireApp() {
     setToast("已载入 7 人示例局");
   };
 
+  const assignRoles = () => {
+    const playerCount = state.players.length;
+    if (playerCount < 5 || playerCount > 15) {
+      setToast("标准角色分配需要 5 至 15 名玩家");
+      return;
+    }
+
+    const currentRoleIds = state.players.map((player) => player.roleId);
+    const rolesAlreadyAssigned = new Set(currentRoleIds).size === playerCount;
+    if (
+      rolesAlreadyAssigned &&
+      !window.confirm("重新随机分配全部角色？现有角色、存活状态和角色备注将被替换。")
+    ) {
+      return;
+    }
+
+    try {
+      const distribution = distributeRoles(playerCount);
+      setState((current) => ({
+        ...current,
+        phase: "准备",
+        round: 1,
+        nightIndex: 0,
+        players: current.players.map((player, index) => ({
+          ...player,
+          roleId: distribution.roleIds[index],
+          alive: true,
+          identityMessage: "",
+          notes: "",
+        })),
+        updatedAt: new Date().toISOString(),
+      }));
+      const { counts } = distribution;
+      setToast(
+        `已分配：${counts.镇民}镇民 · ${counts.外来者}外来者 · ${counts.爪牙}爪牙 · ${counts.恶魔}恶魔${distribution.hasBaron ? "（男爵修正）" : ""}`,
+      );
+    } catch (reason) {
+      setToast(reason instanceof Error ? reason.message : "角色分配失败");
+    }
+  };
+
   const resetGame = () => {
     if (!window.confirm("清空当前魔典？玩家、角色和备注都会被删除。")) return;
     setState(defaultState());
@@ -455,6 +498,7 @@ function GrimoireApp() {
             onUpdatePlayer={updatePlayer}
             onRemovePlayer={removePlayer}
             onAddPlayer={addPlayer}
+            onAssignRoles={assignRoles}
             onQuickStart={quickStart}
             roomPlayers={roomPlayers}
             roomPanel={
@@ -524,6 +568,7 @@ function GrimoirePanel({
   onUpdatePlayer,
   onRemovePlayer,
   onAddPlayer,
+  onAssignRoles,
   onQuickStart,
   roomPlayers,
   roomPanel,
@@ -534,6 +579,7 @@ function GrimoirePanel({
   onUpdatePlayer: (id: string, patch: Partial<Player>) => void;
   onRemovePlayer: (id: string) => void;
   onAddPlayer: () => void;
+  onAssignRoles: () => void;
   onQuickStart: () => void;
   roomPlayers: PublicRoomPlayer[];
   roomPanel: ReactNode;
@@ -646,6 +692,16 @@ function GrimoirePanel({
               <button className="secondary-button" onClick={onQuickStart}>
                 <Sparkles size={15} />
                 载入示例局
+              </button>
+            ) : null}
+            {state.players.length > 0 ? (
+              <button
+                className="secondary-button assign-roles-button"
+                onClick={onAssignRoles}
+                title="按当前人数随机分配不重复角色"
+              >
+                <Dices size={16} />
+                一键分配
               </button>
             ) : null}
             {state.players.length > 0 ? (

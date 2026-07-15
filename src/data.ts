@@ -27,6 +27,8 @@ export const roles: RoleDefinition[] = [
   { id: "monk", name: "僧侣", team: "镇民", icon: "僧", short: "每晚保护一名玩家免受恶魔攻击", nightOrder: 120, reminder: "僧侣选择一名其他玩家进行保护。" },
   { id: "undertaker", name: "掘墓人", team: "镇民", icon: "墓", short: "每晚得知白天被处决者的角色", nightOrder: 130, reminder: "告诉掘墓人白天处决玩家的角色。" },
   { id: "ravenkeeper", name: "守鸦人", team: "镇民", icon: "鸦", short: "死亡当晚查验一名玩家的角色", nightOrder: 140, reminder: "若守鸦人当晚死亡，让其选择一名玩家并展示角色。" },
+  { id: "virgin", name: "处女", team: "镇民", icon: "处", short: "首次被镇民提名时，提名者可能立即被处决", nightOrder: 0, reminder: "若首次提名处女的是镇民，立即处决该镇民并结束白天。" },
+  { id: "slayer", name: "杀手", team: "镇民", icon: "杀", short: "每局一次公开选择一名玩家，若其是恶魔则死亡", nightOrder: 0, reminder: "杀手使用能力后记录已使用；命中恶魔时恶魔死亡。" },
   { id: "soldier", name: "士兵", team: "镇民", icon: "兵", short: "免疫恶魔的攻击", nightOrder: 0, reminder: "恶魔选择士兵时，标记攻击无效。" },
   { id: "mayor", name: "镇长", team: "镇民", icon: "镇", short: "三人存活时，可能由恶魔攻击转移", nightOrder: 0, reminder: "若只剩三名存活且无僧侣保护，可考虑转移攻击。" },
   { id: "recluse", name: "隐士", team: "外来者", icon: "隐", short: "可能被当作邪恶角色或爪牙检测", nightOrder: 0, reminder: "在需要时可被视为邪恶、爪牙或恶魔。" },
@@ -36,6 +38,7 @@ export const roles: RoleDefinition[] = [
   { id: "poisoner", name: "投毒者", team: "爪牙", icon: "毒", short: "每晚使一名玩家中毒", nightOrder: 50, reminder: "投毒者选择一名其他玩家，直到下次夜晚开始前中毒。" },
   { id: "scarlet-woman", name: "猩红女郎", team: "爪牙", icon: "猩", short: "恶魔死亡且存活人数足够时接替恶魔", nightOrder: 60, reminder: "当恶魔死亡且存活玩家不少于五人时，可接替恶魔。" },
   { id: "baron", name: "男爵", team: "爪牙", icon: "爵", short: "剧本中增加两名外来者", nightOrder: 0, reminder: "确认本局外来者数量因为男爵增加。" },
+  { id: "spy", name: "间谍", team: "爪牙", icon: "谍", short: "每晚查看魔典，且可能被当作善良角色检测", nightOrder: 70, reminder: "向间谍展示完整魔典；其可能被视为善良、镇民或外来者。" },
   { id: "imp", name: "小恶魔", team: "恶魔", icon: "魔", short: "每晚杀死一名玩家，也可以自杀传递恶魔", nightOrder: 150, reminder: "恶魔选择一名玩家攻击；若选择自己，传递恶魔角色。" },
 ];
 

@@ -111,6 +111,8 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 @keyframes spin { to { transform: rotate(360deg); } }
 .players-heading { margin-bottom: 20px; }
 .heading-actions { gap: 8px; }
+.assign-roles-button { border-color: rgba(213,166,110,.58); background: rgba(213,166,110,.08); color: #efc58f; }
+.assign-roles-button:hover { border-color: var(--gold); background: rgba(213,166,110,.15); }
 .grimoire-workbench { display: grid; grid-template-columns: minmax(420px, 1fr) 310px; gap: 18px; align-items: start; }
 .grimoire-workbench.crowded { grid-template-columns: 1fr; }
 .grimoire-workbench.crowded .player-editor { width: min(100%, 650px); margin: 0 auto; }
