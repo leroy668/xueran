@@ -35,6 +35,7 @@ import {
   getRoomPlayerMessages,
   getRoomPlayers,
   loadHostRoom,
+  resetRoom,
   revokeClaim,
   sendNightMessage,
   syncRoom,
@@ -45,7 +46,6 @@ import {
 } from "./room";
 import {
   buildShareUrl,
-  defaultState,
   getSharedState,
   loadState,
 } from "./storage";
@@ -334,10 +334,71 @@ function GrimoireApp() {
     }
   };
 
-  const resetGame = () => {
-    if (!window.confirm("清空当前魔典？玩家、角色和备注都会被删除。")) return;
-    setState(defaultState());
-    setToast("魔典已清空");
+  const resetGame = async () => {
+    if (
+      !window.confirm(
+        room
+          ? "重新开始一局？将保留房间、座位、已入座玩家和当前角色，清空全部聊天记录、备注与存活状态。"
+          : "重新开始一局？将保留当前座位和角色，清空备注并恢复全员存活。",
+      )
+    ) {
+      return;
+    }
+
+    const nextState: GameState = {
+      ...state,
+      phase: "准备",
+      round: 1,
+      nightIndex: 0,
+      storytellerNotes: "",
+      players: state.players.map((player) => ({
+        ...player,
+        alive: true,
+        identityMessage: "",
+        notes: "",
+      })),
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (!room) {
+      setState(nextState);
+      setNightMessages([]);
+      setPlayerMessages([]);
+      setActiveTab("grimoire");
+      setToast("已重开一局，当前玩家和角色已保留");
+      return;
+    }
+
+    setRoomBusy(true);
+    setRoomReady(false);
+    setSyncStatus("syncing");
+    try {
+      await resetRoom(room.id);
+      await syncRoom(room.id, nextState);
+      setState(nextState);
+      setNightMessages([]);
+      setPlayerMessages([]);
+      setRoom((current) =>
+        current
+          ? {
+              ...current,
+              phase: "准备",
+              round: 1,
+              updated_at: new Date().toISOString(),
+            }
+          : current,
+      );
+      await refreshRoomAdmin(room);
+      setActiveTab("grimoire");
+      setSyncStatus("synced");
+      setToast("已重开一局，已入座玩家全部保留");
+    } catch {
+      setSyncStatus("error");
+      setToast("重开失败，请检查 Supabase 数据库配置");
+    } finally {
+      setRoomReady(true);
+      setRoomBusy(false);
+    }
   };
 
   const shareGame = async () => {
@@ -476,7 +537,12 @@ function GrimoireApp() {
             <Share2 size={16} />
             <span className="share-label">分享剧本</span>
           </button>
-          <button className="icon-button danger-button" onClick={resetGame} title="清空当前魔典">
+          <button
+            className="icon-button danger-button"
+            onClick={() => void resetGame()}
+            title="保留玩家并重开"
+            disabled={roomBusy}
+          >
             <RotateCcw size={16} />
             <span className="desktop-only">重置</span>
           </button>

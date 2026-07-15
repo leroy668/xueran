@@ -318,6 +318,13 @@ export const revokeClaim = async (playerId: string) => {
   if (error) throw error;
 };
 
+export const resetRoom = async (roomId: string) => {
+  const { error } = await supabase.rpc("xueran_reset_room", {
+    p_room_id: roomId,
+  });
+  if (error) throw error;
+};
+
 export const closeRoom = async (roomId: string) => {
   const { error } = await supabase
     .from("xueran_rooms")
