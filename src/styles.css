@@ -81,6 +81,46 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .notes-field textarea, .identity-message, .player-notes, .role-library-heading input { width: 100%; background: #17171a; border: 1px solid var(--line); color: var(--ink); padding: 10px; resize: vertical; }
 .notes-field textarea { min-height: 105px; }
 .privacy-note { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 11px; margin-top: 22px; }
+.room-launcher { margin-top: 24px; padding: 15px; border: 1px solid rgba(213,166,110,.34); background: rgba(213,166,110,.05); }
+.room-launcher-icon { width: 34px; height: 34px; display: grid; place-items: center; color: var(--gold); border: 1px solid rgba(213,166,110,.35); margin-bottom: 11px; }
+.room-launcher strong { font-size: 13px; }
+.room-launcher p { color: var(--muted); font-size: 11px; line-height: 1.55; margin: 6px 0 13px; }
+.room-create-button { width: 100%; min-height: 38px; font-size: 12px; }
+.host-room-panel { margin-top: 24px; padding: 15px; border: 1px solid rgba(121,181,138,.34); background: #1a201d; }
+.room-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.room-heading > div { min-width: 0; }
+.room-live-label { display: flex; align-items: center; gap: 7px; color: var(--green); font-size: 10px; margin-bottom: 5px; }
+.room-heading strong { display: block; color: var(--ink); font-family: Consolas, monospace; font-size: 21px; letter-spacing: .12em; }
+.cloud-status { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 9px; white-space: nowrap; }
+.cloud-status.error { color: var(--red); }
+.room-qr { width: 174px; height: 174px; margin: 17px auto 9px; padding: 10px; border: 0; background: #f5f1ea; display: grid; place-items: center; }
+.room-scan-copy { text-align: center; color: var(--muted); font-size: 10px; margin: 0 0 10px; }
+.room-copy-button { width: 100%; min-height: 34px; font-size: 11px; }
+.claim-section { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--line); }
+.claim-section-heading { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 11px; }
+.claim-section-heading strong { min-width: 20px; height: 20px; display: grid; place-items: center; color: var(--ink); background: var(--panel-raised); border-radius: 10px; }
+.claim-list { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
+.claim-row { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px; background: #222724; border-left: 2px solid var(--gold); }
+.claim-row > div:first-child { min-width: 0; }
+.claim-row strong, .claim-row span { display: block; overflow-wrap: anywhere; }
+.claim-row strong { font-size: 11px; }
+.claim-row span { color: var(--dim); font-size: 9px; margin-top: 3px; }
+.claim-actions { display: flex; gap: 5px; }
+.claim-actions button { width: 28px; height: 28px; border: 1px solid var(--line); display: grid; place-items: center; background: transparent; }
+.claim-approve { color: var(--green); }
+.claim-reject { color: var(--red); }
+.claim-empty { color: var(--dim); font-size: 10px; line-height: 1.5; margin: 10px 0 0; }
+.claimed-list { margin-top: 15px; padding-top: 13px; border-top: 1px solid var(--line); }
+.claimed-list-title { display: flex; align-items: center; gap: 6px; color: var(--green); font-size: 10px; margin-bottom: 7px; }
+.claimed-row { min-height: 29px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid rgba(55,55,61,.7); font-size: 10px; }
+.claimed-row button { border: 0; background: transparent; color: var(--dim); font-size: 9px; padding: 4px; }
+.claimed-row button:hover { color: var(--red); }
+.room-footer-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; }
+.room-footer-actions button { border: 0; background: transparent; color: var(--muted); padding: 4px 0; display: inline-flex; align-items: center; gap: 5px; font-size: 10px; }
+.room-footer-actions .room-close { color: var(--red); }
+.cloud-badge { border-color: rgba(121,181,138,.3); color: var(--green); }
+.spin { animation: spin .85s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .players-heading { margin-bottom: 20px; }
 .heading-actions { gap: 8px; }
 .player-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
@@ -193,6 +233,36 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .identity-ability p, .identity-message-panel p { margin: 7px 0 0; color: var(--ink); font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .identity-message-panel { padding-left: 13px; border-left: 2px solid var(--gold); }
 .identity-message-panel p { color: var(--gold); }
+.identity-room-code { display: flex; align-items: center; justify-content: center; gap: 5px; color: var(--green); font-size: 10px; margin-bottom: 20px; }
+
+.player-room-page { min-height: 100vh; min-height: 100dvh; width: min(100% - 28px, 620px); margin: 0 auto; padding: 34px 0 48px; }
+.centered-page { display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; color: var(--muted); }
+.centered-page h1 { color: var(--ink); margin: 18px 0 8px; font-size: 24px; }
+.centered-page p { max-width: 330px; line-height: 1.6; margin: 0 0 22px; font-size: 13px; }
+.player-room-header { display: flex; align-items: center; gap: 13px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+.player-room-header h1 { margin: 0; font-size: 20px; }
+.player-room-seal { width: 42px; height: 42px; flex: 0 0 auto; border: 1px solid var(--red); color: var(--red); display: grid; place-items: center; transform: rotate(-7deg); font-family: Georgia, serif; font-size: 20px; }
+.seat-claim-panel, .claim-waiting { margin-top: 20px; border: 1px solid var(--line); background: var(--panel); padding: 22px; }
+.seat-claim-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.seat-claim-heading h2, .claim-waiting h2 { margin: 0; font-size: 20px; }
+.seat-claim-heading svg { color: var(--gold); }
+.seat-claim-help { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 10px 0 17px; }
+.seat-choice-list { border-top: 1px solid var(--line); }
+.seat-choice { width: 100%; min-height: 54px; display: grid; grid-template-columns: 38px minmax(0, 1fr) 72px; align-items: center; gap: 9px; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); padding: 7px 5px; }
+.seat-choice:hover:not(:disabled) { background: var(--panel-raised); }
+.seat-choice:disabled { opacity: .55; }
+.seat-choice-number { color: var(--gold); font-family: Consolas, monospace; font-size: 11px; }
+.seat-choice-name { min-width: 0; font-weight: 700; font-size: 13px; overflow-wrap: anywhere; }
+.seat-available, .seat-claimed { display: inline-flex; align-items: center; justify-content: flex-end; gap: 5px; font-size: 10px; }
+.seat-available { color: var(--green); }
+.seat-claimed { color: var(--dim); }
+.claim-waiting { text-align: center; padding: 42px 24px; }
+.claim-waiting > svg { color: var(--gold); margin-bottom: 17px; }
+.claim-waiting p { max-width: 390px; color: var(--muted); font-size: 13px; line-height: 1.7; margin: 10px auto 16px; }
+.claim-waiting p strong { color: var(--ink); margin: 0 4px; }
+.claim-waiting > span { color: var(--dim); font-size: 10px; }
+.inline-error { margin-top: 12px; border-left: 2px solid var(--red); background: rgba(215,97,86,.08); color: #e8aaa4; padding: 10px 12px; font-size: 11px; line-height: 1.5; }
+.player-room-privacy { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--dim); font-size: 10px; margin: 18px 0 0; text-align: center; }
 
 @media (max-width: 980px) {
   .dashboard-grid, .night-layout, .script-layout { grid-template-columns: 1fr; }
@@ -243,4 +313,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .identity-envelope { padding: 29px 22px; }
   .identity-envelope h1 { font-size: 21px; }
   .identity-role-card h2 { font-size: 24px; }
+  .player-room-page { width: calc(100% - 24px); padding-top: 20px; }
+  .seat-claim-panel { padding: 17px; }
+  .seat-choice { grid-template-columns: 34px minmax(0, 1fr) 64px; }
 }
