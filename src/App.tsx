@@ -534,6 +534,10 @@ function GrimoirePanel({
       "等待玩家入座"
     );
   };
+  const getTableName = (player: Player) => {
+    const roomPlayer = roomPlayersBySeat.get(player.seat);
+    return roomPlayer?.name.trim() || player.name.trim() || "待入座";
+  };
 
   return (
     <div className="dashboard-grid">
@@ -678,9 +682,12 @@ function GrimoirePanel({
                         {String(player.seat).padStart(2, "0")}
                       </span>
                       <span className="table-role-icon">
-                        <RoleIcon roleId={role.id} size={15} />
+                        <RoleIcon
+                          roleId={role.id}
+                          size={state.players.length > 10 ? 18 : 21}
+                        />
                       </span>
-                      <span className="table-player-name">{getDisplayName(player)}</span>
+                      <span className="table-player-name">{getTableName(player)}</span>
                       <span className="table-role-name">{role.name}</span>
                       {roomPlayer?.is_claimed ? (
                         <span className="table-claimed-dot" title="玩家已入座" />

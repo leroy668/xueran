@@ -26,7 +26,7 @@ export function RoleIcon({
   className?: string;
 }) {
   const fileName = roleIconAliases[roleId] ?? roleId;
-  const renderedSize = Math.round(size * 1.45);
+  const renderedSize = Math.round(size * 1.7);
 
   return (
     <img
