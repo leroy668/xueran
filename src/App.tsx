@@ -668,7 +668,6 @@ function GrimoireApp() {
             currentRole={selectedRole}
             room={room}
             roomPlayers={roomPlayers}
-            nightMessages={nightMessages}
             onChangeNight={changeNight}
             onSelectNight={(index) => update({ nightIndex: index })}
             onSendMessage={handleSendNightMessage}
@@ -1075,7 +1074,6 @@ function NightPanel({
   currentRole,
   room,
   roomPlayers,
-  nightMessages,
   onChangeNight,
   onSelectNight,
   onSendMessage,
@@ -1085,7 +1083,6 @@ function NightPanel({
   currentRole: ReturnType<typeof getRole> | null;
   room: SharedRoom | null;
   roomPlayers: PublicRoomPlayer[];
-  nightMessages: NightMessage[];
   onChangeNight: (offset: number) => void;
   onSelectNight: (index: number) => void;
   onSendMessage: (message: {
@@ -1239,35 +1236,6 @@ function NightPanel({
                 </button>
               </div>
               {sendError ? <div className="inline-error">{sendError}</div> : null}
-              {nightMessages.length ? (
-                <div className="night-sent-history">
-                  <div className="night-sent-history-heading">
-                    <span>全部发送记录</span>
-                    <strong>{nightMessages.length} 条</strong>
-                  </div>
-                  {nightMessages.map((message) => {
-                    const recipient = roomPlayersById.get(message.player_id);
-                    const messageRole = getRole(message.role_id);
-                    return (
-                      <div className="night-sent-row" key={message.id}>
-                        <div className="night-sent-meta">
-                          <strong>
-                            座位 {String(recipient?.seat ?? "?").padStart(2, "0")}
-                          </strong>
-                          <span>第 {message.round} 回合 · {messageRole.name}</span>
-                        </div>
-                        <p>{message.body}</p>
-                        <time>
-                          {new Date(message.created_at).toLocaleTimeString("zh-CN", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </time>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
             </section>
           </>
         ) : (
