@@ -55,6 +55,7 @@ import type { GameState, Phase, Player, TabId, Team } from "./types";
 const tabs: { id: TabId; label: string; icon: typeof BookOpen }[] = [
   { id: "grimoire", label: "魔典", icon: BookOpen },
   { id: "night", label: "夜晚顺序", icon: MoonStar },
+  { id: "messages", label: "玩家消息", icon: MessageSquareText },
   { id: "script", label: "剧本角色", icon: ScrollText },
 ];
 
@@ -416,6 +417,7 @@ function GrimoireApp() {
       setRoomReady(false);
       setRoomPlayers([]);
       setNightMessages([]);
+      setPlayerMessages([]);
       setSyncStatus("idle");
       setToast("共享房间已结束，本地魔典仍然保留");
     } catch {
@@ -495,6 +497,8 @@ function GrimoireApp() {
                 {tab.label}
                 {tab.id === "night" && nightRoles.length > 0 ? (
                   <span className="tab-count">{nightRoles.length}</span>
+                ) : tab.id === "messages" && playerMessages.length > 0 ? (
+                  <span className="tab-count">{playerMessages.length}</span>
                 ) : null}
               </button>
             );
@@ -536,9 +540,19 @@ function GrimoireApp() {
             room={room}
             roomPlayers={roomPlayers}
             nightMessages={nightMessages}
-            playerMessages={playerMessages}
             onChangeNight={changeNight}
             onSelectNight={(index) => update({ nightIndex: index })}
+            onSendMessage={handleSendNightMessage}
+          />
+        ) : null}
+
+        {activeTab === "messages" ? (
+          <HostMessagesPanel
+            state={state}
+            room={room}
+            roomPlayers={roomPlayers}
+            nightMessages={nightMessages}
+            playerMessages={playerMessages}
             onSendMessage={handleSendNightMessage}
           />
         ) : null}
@@ -564,6 +578,11 @@ function GrimoireApp() {
             >
               <Icon size={19} />
               <span>{tab.label}</span>
+              {tab.id === "messages" && playerMessages.length > 0 ? (
+                <strong className="mobile-nav-badge">
+                  {Math.min(playerMessages.length, 99)}
+                </strong>
+              ) : null}
             </button>
           );
         })}
@@ -926,7 +945,6 @@ function NightPanel({
   room,
   roomPlayers,
   nightMessages,
-  playerMessages,
   onChangeNight,
   onSelectNight,
   onSendMessage,
@@ -937,7 +955,6 @@ function NightPanel({
   room: SharedRoom | null;
   roomPlayers: PublicRoomPlayer[];
   nightMessages: NightMessage[];
-  playerMessages: PlayerMessage[];
   onChangeNight: (offset: number) => void;
   onSelectNight: (index: number) => void;
   onSendMessage: (message: {
@@ -1020,50 +1037,6 @@ function NightPanel({
             <button className="icon-button" onClick={() => onChangeNight(1)} disabled={!nightRoles.length} title="下一个行动"><ChevronRight size={17} /></button>
           </div>
         </div>
-        {room ? (
-          <section className="player-inbox">
-            <div className="player-inbox-heading">
-              <div>
-                <p className="eyebrow">PLAYER MESSAGES</p>
-                <h3>玩家来信</h3>
-              </div>
-              <strong>{playerMessages.length} 条</strong>
-            </div>
-            {playerMessages.length ? (
-              <div className="player-inbox-list">
-                {playerMessages.map((message) => {
-                const sender = roomPlayersById.get(message.player_id);
-                const senderRole = state.players.find(
-                  (player) => player.id === message.player_id,
-                );
-                return (
-                  <article className="player-inbox-row" key={message.id}>
-                    <div>
-                      <strong>
-                        座位 {String(sender?.seat ?? "?").padStart(2, "0")}
-                        {sender?.name ? ` · ${sender.name}` : ""}
-                      </strong>
-                      <span>
-                        第 {message.round} 回合
-                        {senderRole ? ` · ${getRole(senderRole.roleId).name}` : ""}
-                      </span>
-                    </div>
-                    <p>{message.body}</p>
-                    <time>
-                      {new Date(message.created_at).toLocaleTimeString("zh-CN", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </time>
-                  </article>
-                );
-                })}
-              </div>
-            ) : (
-              <p className="player-inbox-empty">暂无玩家来信</p>
-            )}
-          </section>
-        ) : null}
         {currentRole ? (
           <>
             <div className={`current-action ${teamLabels[currentRole.team]}`}>
@@ -1202,6 +1175,310 @@ function NightPanel({
         <div className="night-tip"><MoonStar size={17} /><span>死亡角色不会出现在夜晚行动列表里。</span></div>
       </aside>
     </div>
+  );
+}
+
+function HostMessagesPanel({
+  state,
+  room,
+  roomPlayers,
+  nightMessages,
+  playerMessages,
+  onSendMessage,
+}: {
+  state: GameState;
+  room: SharedRoom | null;
+  roomPlayers: PublicRoomPlayer[];
+  nightMessages: NightMessage[];
+  playerMessages: PlayerMessage[];
+  onSendMessage: (message: {
+    playerId: string;
+    roleId: string;
+    body: string;
+  }) => Promise<void>;
+}) {
+  const [selectedPlayerId, setSelectedPlayerId] = useState("");
+  const [messageBody, setMessageBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const roomPlayersById = useMemo(
+    () => new Map(roomPlayers.map((player) => [player.id, player])),
+    [roomPlayers],
+  );
+  const availablePlayers = useMemo(
+    () =>
+      [...state.players]
+        .sort((left, right) => left.seat - right.seat)
+        .map((player) => ({
+          player,
+          roomPlayer: roomPlayersById.get(player.id),
+        })),
+    [roomPlayersById, state.players],
+  );
+
+  useEffect(() => {
+    if (availablePlayers.some(({ player }) => player.id === selectedPlayerId)) {
+      return;
+    }
+    const latestMessage = [...nightMessages, ...playerMessages].sort(
+      (left, right) =>
+        new Date(right.created_at).getTime() -
+        new Date(left.created_at).getTime(),
+    )[0];
+    const firstClaimed = availablePlayers.find(
+      ({ roomPlayer }) => roomPlayer?.is_claimed,
+    );
+    const latestAvailablePlayer = latestMessage
+      ? availablePlayers.find(
+          ({ player }) => player.id === latestMessage.player_id,
+        )
+      : undefined;
+    setSelectedPlayerId(
+      latestAvailablePlayer?.player.id ??
+        firstClaimed?.player.id ??
+        availablePlayers[0]?.player.id ??
+        "",
+    );
+  }, [availablePlayers, nightMessages, playerMessages, selectedPlayerId]);
+
+  const latestByPlayer = useMemo(() => {
+    const latest = new Map<
+      string,
+      { body: string; createdAt: string; direction: "incoming" | "outgoing" }
+    >();
+    [...nightMessages.map((message) => ({ ...message, direction: "outgoing" as const })),
+      ...playerMessages.map((message) => ({ ...message, direction: "incoming" as const }))]
+      .sort(
+        (left, right) =>
+          new Date(right.created_at).getTime() -
+          new Date(left.created_at).getTime(),
+      )
+      .forEach((message) => {
+        if (!latest.has(message.player_id)) {
+          latest.set(message.player_id, {
+            body: message.body,
+            createdAt: message.created_at,
+            direction: message.direction,
+          });
+        }
+      });
+    return latest;
+  }, [nightMessages, playerMessages]);
+
+  const incomingCountByPlayer = useMemo(() => {
+    const counts = new Map<string, number>();
+    playerMessages.forEach((message) => {
+      counts.set(message.player_id, (counts.get(message.player_id) ?? 0) + 1);
+    });
+    return counts;
+  }, [playerMessages]);
+
+  const selectedEntry = availablePlayers.find(
+    ({ player }) => player.id === selectedPlayerId,
+  );
+  const selectedPlayer = selectedEntry?.player;
+  const selectedRoomPlayer = selectedEntry?.roomPlayer;
+  const selectedRole = selectedPlayer ? getRole(selectedPlayer.roleId) : null;
+  const timeline = [
+    ...nightMessages
+      .filter((message) => message.player_id === selectedPlayerId)
+      .map((message) => ({
+        ...message,
+        direction: "outgoing" as const,
+        label: `上帝 · 第 ${message.round} 回合 · ${getRole(message.role_id).name}`,
+      })),
+    ...playerMessages
+      .filter((message) => message.player_id === selectedPlayerId)
+      .map((message) => ({
+        ...message,
+        direction: "incoming" as const,
+        label: `玩家 · 第 ${message.round} 回合`,
+      })),
+  ].sort(
+    (left, right) =>
+      new Date(left.created_at).getTime() -
+      new Date(right.created_at).getTime(),
+  );
+  const canSend =
+    Boolean(room) &&
+    Boolean(selectedPlayer) &&
+    Boolean(selectedRoomPlayer?.is_claimed) &&
+    Boolean(messageBody.trim()) &&
+    !sending;
+
+  const submitMessage = async () => {
+    if (!selectedPlayer || !canSend) return;
+    setSending(true);
+    setSendError("");
+    try {
+      await onSendMessage({
+        playerId: selectedPlayer.id,
+        roleId: selectedPlayer.roleId,
+        body: messageBody.trim(),
+      });
+      setMessageBody("");
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "";
+      setSendError(
+        /claimed player/i.test(message)
+          ? "该玩家尚未入座，暂时无法接收信息"
+          : /function|night_messages|schema cache/i.test(message)
+            ? "消息数据库尚未配置"
+            : "发送失败，请稍后重试",
+      );
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (!room) {
+    return (
+      <section className="host-messages-empty">
+        <div className="empty-glyph">
+          <MessageSquareText size={26} />
+        </div>
+        <h2>请先创建共享房间</h2>
+        <p>创建房间并让玩家入座后，可以在这里集中查看和回复所有私密消息。</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="host-messages-page">
+      <aside className="host-conversation-list">
+        <div className="host-conversation-heading">
+          <div>
+            <p className="eyebrow">PLAYER CHAT</p>
+            <h2>玩家消息</h2>
+          </div>
+          <strong>{playerMessages.length}</strong>
+        </div>
+        <div className="host-player-tabs">
+          {availablePlayers.map(({ player, roomPlayer }) => {
+            const latest = latestByPlayer.get(player.id);
+            const incomingCount = incomingCountByPlayer.get(player.id) ?? 0;
+            return (
+              <button
+                className={player.id === selectedPlayerId ? "active" : ""}
+                key={player.id}
+                onClick={() => {
+                  setSelectedPlayerId(player.id);
+                  setMessageBody("");
+                  setSendError("");
+                }}
+              >
+                <span className="host-player-seat">
+                  {String(player.seat).padStart(2, "0")}
+                </span>
+                <span className="host-player-summary">
+                  <strong>{roomPlayer?.name || "等待玩家入座"}</strong>
+                  <small>
+                    {latest
+                      ? `${latest.direction === "outgoing" ? "我：" : ""}${latest.body}`
+                      : `${getRole(player.roleId).name} · 暂无消息`}
+                  </small>
+                </span>
+                {incomingCount ? (
+                  <span className="host-player-count">{incomingCount}</span>
+                ) : (
+                  <span
+                    className={
+                      roomPlayer?.is_claimed
+                        ? "host-player-status online"
+                        : "host-player-status"
+                    }
+                    title={roomPlayer?.is_claimed ? "已入座" : "未入座"}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      <div className="host-chat-panel">
+        {selectedPlayer && selectedRole ? (
+          <>
+            <header className="host-chat-header">
+              <div className={`host-chat-role ${teamLabels[selectedRole.team]}`}>
+                <RoleIcon roleId={selectedRole.id} size={24} />
+              </div>
+              <div>
+                <h3>{selectedRoomPlayer?.name || `座位 ${selectedPlayer.seat}`}</h3>
+                <p>
+                  座位 {String(selectedPlayer.seat).padStart(2, "0")} ·{" "}
+                  {selectedRole.name} ·{" "}
+                  {selectedRoomPlayer?.is_claimed ? "已入座" : "未入座"}
+                </p>
+              </div>
+            </header>
+
+            {timeline.length ? (
+              <div className="host-chat-timeline">
+                {timeline.map((message) => (
+                  <article
+                    className={`host-chat-message ${message.direction}`}
+                    key={`${message.direction}-${message.id}`}
+                  >
+                    <div className="host-chat-message-meta">
+                      <span>{message.label}</span>
+                      <time>
+                        {new Date(message.created_at).toLocaleString("zh-CN", {
+                          month: "numeric",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </time>
+                    </div>
+                    <p>{message.body}</p>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="host-chat-no-messages">
+                <MessageSquareText size={24} />
+                <h3>暂无聊天记录</h3>
+                <p>玩家来信和你发送的信息会按时间显示在这里。</p>
+              </div>
+            )}
+
+            <div className="host-chat-composer">
+              <textarea
+                value={messageBody}
+                onChange={(event) => setMessageBody(event.target.value)}
+                placeholder={
+                  selectedRoomPlayer?.is_claimed
+                    ? "回复该玩家"
+                    : "该玩家入座后即可发送"
+                }
+                maxLength={500}
+                rows={2}
+                disabled={!selectedRoomPlayer?.is_claimed || sending}
+              />
+              <div className="host-chat-composer-footer">
+                <span>{messageBody.length}/500</span>
+                <button
+                  className="primary-button"
+                  disabled={!canSend}
+                  onClick={() => void submitMessage()}
+                >
+                  <Send size={14} />
+                  {sending ? "发送中" : "发送"}
+                </button>
+              </div>
+              {sendError ? <div className="inline-error">{sendError}</div> : null}
+            </div>
+          </>
+        ) : (
+          <div className="host-chat-no-messages">
+            <Users size={25} />
+            <h3>暂无座位</h3>
+            <p>先在魔典中添加玩家座位。</p>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

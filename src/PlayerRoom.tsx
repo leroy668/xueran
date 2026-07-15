@@ -548,7 +548,7 @@ function PlayerMessages({
     })),
   ].sort(
     (left, right) =>
-      new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+      new Date(left.created_at).getTime() - new Date(right.created_at).getTime(),
   );
 
   const submitMessage = async () => {
@@ -583,40 +583,11 @@ function PlayerMessages({
         <MessageSquareText size={22} />
       </div>
 
-      <div className="player-chat-composer">
-        <textarea
-          value={messageBody}
-          onChange={(event) => setMessageBody(event.target.value)}
-          placeholder="给上帝发送私密信息"
-          maxLength={500}
-          rows={2}
-          disabled={sending}
-        />
-        <div>
-          <span>{messageBody.length}/500</span>
-          <button
-            className="primary-button"
-            disabled={!messageBody.trim() || sending}
-            onClick={() => void submitMessage()}
-          >
-            <Send size={14} />
-            {sending ? "发送中" : "发送"}
-          </button>
-        </div>
-        {sendError ? <div className="inline-error">{sendError}</div> : null}
-      </div>
-
       {timeline.length ? (
         <div className="player-message-timeline">
-          {timeline.map((message, index) => (
+          {timeline.map((message) => (
             <article
-              className={[
-                "player-message-item",
-                message.direction,
-                index === 0 ? "latest" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
+              className={`player-message-item ${message.direction}`}
               key={`${message.direction}-${message.id}`}
             >
               <div className="player-message-meta">
@@ -639,6 +610,29 @@ function PlayerMessages({
           <p>你和上帝发送的新信息会自动出现在这里。</p>
         </div>
       )}
+
+      <div className="player-chat-composer">
+        <textarea
+          value={messageBody}
+          onChange={(event) => setMessageBody(event.target.value)}
+          placeholder="给上帝发送私密信息"
+          maxLength={500}
+          rows={2}
+          disabled={sending}
+        />
+        <div>
+          <span>{messageBody.length}/500</span>
+          <button
+            className="primary-button"
+            disabled={!messageBody.trim() || sending}
+            onClick={() => void submitMessage()}
+          >
+            <Send size={14} />
+            {sending ? "发送中" : "发送"}
+          </button>
+        </div>
+        {sendError ? <div className="inline-error">{sendError}</div> : null}
+      </div>
     </section>
   );
 }
