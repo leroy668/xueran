@@ -4,16 +4,12 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Eye,
-  EyeOff,
   MoonStar,
   NotebookPen,
   Plus,
   RotateCcw,
   ScrollText,
-  Send,
   Share2,
-  ShieldCheck,
   Skull,
   Sparkles,
   Sun,
@@ -39,15 +35,13 @@ import {
   type SharedRoom,
 } from "./room";
 import {
-  buildIdentityUrl,
   buildShareUrl,
   defaultState,
-  getSharedIdentity,
   getSharedState,
   loadState,
 } from "./storage";
 import { ensureAnonymousSession, supabase } from "./supabase";
-import type { GameState, IdentityPayload, Phase, Player, TabId, Team } from "./types";
+import type { GameState, Phase, Player, TabId, Team } from "./types";
 
 const tabs: { id: TabId; label: string; icon: typeof BookOpen }[] = [
   { id: "grimoire", label: "魔典", icon: BookOpen },
@@ -88,11 +82,8 @@ const newPlayer = (seat: number, name = ""): Player => ({
 });
 
 function App() {
-  const [identity] = useState(() => getSharedIdentity());
   const roomCode = new URLSearchParams(window.location.search).get("room");
-  return identity ? (
-    <IdentityReveal identity={identity} />
-  ) : roomCode ? (
+  return roomCode ? (
     <PlayerRoom roomCode={roomCode} />
   ) : (
     <GrimoireApp />
@@ -281,36 +272,6 @@ function GrimoireApp() {
     }
   };
 
-  const shareIdentity = async (player: Player) => {
-    const url = buildIdentityUrl(player);
-    const playerLabel = player.name.trim() || `座位 ${player.seat}`;
-    const copyLink = async () => {
-      try {
-        await navigator.clipboard.writeText(url);
-        setToast(`${playerLabel}的身份链接已复制`);
-      } catch {
-        window.prompt(`复制${playerLabel}的身份链接`, url);
-      }
-    };
-
-    if (!navigator.share) {
-      await copyLink();
-      return;
-    }
-
-    try {
-      await navigator.share({
-        title: `${playerLabel}的身份密函`,
-        text: `请查收你在《血染钟楼》中的身份：`,
-        url,
-      });
-      setToast(`${playerLabel}的身份链接已分享`);
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      await copyLink();
-    }
-  };
-
   const startSharedRoom = async () => {
     setRoomBusy(true);
     try {
@@ -465,7 +426,6 @@ function GrimoireApp() {
             onRemovePlayer={removePlayer}
             onAddPlayer={addPlayer}
             onQuickStart={quickStart}
-            onShareIdentity={shareIdentity}
             roomPlayers={roomPlayers}
             roomPanel={
               <HostRoomPanel
@@ -531,7 +491,6 @@ function GrimoirePanel({
   onRemovePlayer,
   onAddPlayer,
   onQuickStart,
-  onShareIdentity,
   roomPlayers,
   roomPanel,
 }: {
@@ -542,7 +501,6 @@ function GrimoirePanel({
   onRemovePlayer: (id: string) => void;
   onAddPlayer: () => void;
   onQuickStart: () => void;
-  onShareIdentity: (player: Player) => void;
   roomPlayers: PublicRoomPlayer[];
   roomPanel: ReactNode;
 }) {
@@ -573,7 +531,7 @@ function GrimoirePanel({
     return (
       roomPlayer?.name.trim() ||
       player.name.trim() ||
-      `座位 ${String(player.seat).padStart(2, "0")}`
+      "等待玩家入座"
     );
   };
 
@@ -745,7 +703,6 @@ function GrimoirePanel({
                 )}
                 onUpdate={onUpdatePlayer}
                 onRemove={onRemovePlayer}
-                onShare={onShareIdentity}
               />
             ) : null}
           </div>
@@ -761,14 +718,12 @@ function PlayerEditor({
   claimed,
   onUpdate,
   onRemove,
-  onShare,
 }: {
   player: Player;
   displayName: string;
   claimed: boolean;
   onUpdate: (id: string, patch: Partial<Player>) => void;
   onRemove: (id: string) => void;
-  onShare: (player: Player) => void;
 }) {
   const role = getRole(player.roleId);
   return (
@@ -846,13 +801,6 @@ function PlayerEditor({
 
       <div className="player-editor-actions">
         <button
-          className="identity-share-button"
-          onClick={() => onShare({ ...player, name: displayName })}
-        >
-          <Send size={14} />
-          分享身份
-        </button>
-        <button
           className="remove-player-button"
           onClick={() => {
             if (window.confirm(`移除座位 ${player.seat}？`)) {
@@ -866,68 +814,6 @@ function PlayerEditor({
         </button>
       </div>
     </aside>
-  );
-}
-
-function IdentityReveal({ identity }: { identity: IdentityPayload }) {
-  const [revealed, setRevealed] = useState(false);
-  const role = getRole(identity.roleId);
-
-  useEffect(() => {
-    const previousTitle = document.title;
-    document.title = `${identity.playerName}的身份密函`;
-    return () => {
-      document.title = previousTitle;
-    };
-  }, [identity.playerName]);
-
-  return (
-    <main className="identity-page">
-      <section className={revealed ? "identity-envelope revealed" : "identity-envelope"}>
-        <div className="identity-seal" aria-hidden="true">
-          {revealed ? <RoleIcon roleId={role.id} size={29} /> : "血"}
-        </div>
-        <p className="eyebrow">PRIVATE IDENTITY · 座位 {String(identity.seat).padStart(2, "0")}</p>
-        <h1>{identity.playerName}的身份密函</h1>
-
-        {revealed ? (
-          <>
-            <div className={`identity-role-card ${teamLabels[role.team]}`}>
-              <span className="identity-role-icon">
-                <RoleIcon roleId={role.id} size={30} />
-              </span>
-              <div>
-                <span className="identity-team">{role.team}</span>
-                <h2>{role.name}</h2>
-              </div>
-            </div>
-            <div className="identity-ability">
-              <span>角色能力</span>
-              <p>{role.short}</p>
-            </div>
-            {identity.message ? (
-              <div className="identity-message-panel">
-                <span>主持人私信</span>
-                <p>{identity.message}</p>
-              </div>
-            ) : null}
-            <button className="identity-reveal-button secondary" onClick={() => setRevealed(false)}>
-              <EyeOff size={17} />
-              隐藏身份
-            </button>
-          </>
-        ) : (
-          <>
-            <ShieldCheck size={27} className="identity-shield" />
-            <p className="identity-intro">请确认周围没有其他玩家，然后独自揭示你的身份。</p>
-            <button className="identity-reveal-button" onClick={() => setRevealed(true)}>
-              <Eye size={18} />
-              查看我的身份
-            </button>
-          </>
-        )}
-      </section>
-    </main>
   );
 }
 
