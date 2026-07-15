@@ -636,7 +636,7 @@ function PlayerMessages({
     ...hostMessages.map((message) => ({
       ...message,
       direction: "incoming" as const,
-      label: `上帝 · 第 ${message.round} 回合 · ${getRole(message.role_id).name}`,
+      label: `上帝 · 第 ${message.round} 回合`,
     })),
     ...playerMessages.map((message) => ({
       ...message,
