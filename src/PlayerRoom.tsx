@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import {
   CheckCircle2,
   LoaderCircle,
+  MessageSquareText,
+  MoonStar,
   RefreshCw,
   ShieldCheck,
   UserRoundCheck,
@@ -12,7 +14,9 @@ import {
   claimSeat,
   findRoomByCode,
   getMyIdentity,
+  getMyNightMessages,
   getRoomPlayers,
+  type NightMessage,
   type PrivateIdentity,
   type PublicRoomPlayer,
   type SharedRoom,
@@ -25,6 +29,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
   const [room, setRoom] = useState<SharedRoom | null>(null);
   const [players, setPlayers] = useState<PublicRoomPlayer[]>([]);
   const [identity, setIdentity] = useState<PrivateIdentity | null>(null);
+  const [nightMessages, setNightMessages] = useState<NightMessage[]>([]);
   const [playerName, setPlayerName] = useState("");
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState("");
@@ -32,10 +37,11 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
 
   const refresh = useCallback(async (targetRoom: SharedRoom) => {
     if (targetRoom.status === "closed") return;
-    const [latestRoom, nextPlayers, nextIdentity] = await Promise.all([
+    const [latestRoom, nextPlayers, nextIdentity, nextNightMessages] = await Promise.all([
       findRoomByCode(targetRoom.code),
       getRoomPlayers(targetRoom.id),
       getMyIdentity(targetRoom.id),
+      getMyNightMessages(targetRoom.id),
     ]);
 
     if (!latestRoom) throw new Error("房间已不存在");
@@ -43,11 +49,13 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       setRoom(latestRoom);
       setPlayers([]);
       setIdentity(null);
+      setNightMessages([]);
       return;
     }
 
     setPlayers(nextPlayers);
     setIdentity(nextIdentity);
+    setNightMessages(nextNightMessages);
   }, []);
 
   useEffect(() => {
@@ -98,6 +106,11 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "xueran_rooms", filter: `id=eq.${room.id}` },
+        () => void refresh(room),
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "xueran_night_messages", filter: `room_id=eq.${room.id}` },
         () => void refresh(room),
       )
       .subscribe();
@@ -175,7 +188,13 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       roleId: identity.role_id,
       message: identity.identity_message,
     };
-    return <ClaimedIdentity identity={payload} roomCode={room.code} />;
+    return (
+      <ClaimedIdentity
+        identity={payload}
+        roomCode={room.code}
+        nightMessages={nightMessages}
+      />
+    );
   }
 
   return (
@@ -251,9 +270,11 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
 function ClaimedIdentity({
   identity,
   roomCode,
+  nightMessages,
 }: {
   identity: IdentityPayload;
   roomCode: string;
+  nightMessages: NightMessage[];
 }) {
   const [revealed, setRevealed] = useState(false);
   const role = getRole(identity.roleId);
@@ -294,6 +315,39 @@ function ClaimedIdentity({
                 <p>{identity.message}</p>
               </div>
             ) : null}
+            {nightMessages.length ? (
+              <section className="player-night-messages">
+                <div className="player-night-heading">
+                  <div>
+                    <span>夜间信息</span>
+                    <strong>{nightMessages.length} 条</strong>
+                  </div>
+                  <MessageSquareText size={18} />
+                </div>
+                <div className="player-night-list">
+                  {nightMessages.map((message, index) => {
+                    const messageRole = getRole(message.role_id);
+                    return (
+                      <article
+                        className={index === 0 ? "player-night-message latest" : "player-night-message"}
+                        key={message.id}
+                      >
+                        <div>
+                          <span>第 {message.round} 回合 · {messageRole.name}</span>
+                          <time>
+                            {new Date(message.created_at).toLocaleTimeString("zh-CN", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </time>
+                        </div>
+                        <p>{message.body}</p>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
             <button
               className="identity-reveal-button secondary"
               onClick={() => setRevealed(false)}
@@ -305,6 +359,12 @@ function ClaimedIdentity({
           <>
             <ShieldCheck size={27} className="identity-shield" />
             <p className="identity-intro">请确认周围没有其他玩家，然后独自揭示你的身份。</p>
+            {nightMessages.length ? (
+              <div className="night-message-alert">
+                <MoonStar size={16} />
+                已收到 {nightMessages.length} 条夜间信息
+              </div>
+            ) : null}
             <button className="identity-reveal-button" onClick={() => setRevealed(true)}>
               查看我的身份
             </button>
