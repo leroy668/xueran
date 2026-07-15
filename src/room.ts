@@ -25,17 +25,6 @@ export type PublicRoomPlayer = {
   updated_at: string;
 };
 
-export type ClaimRequest = {
-  id: string;
-  room_id: string;
-  player_id: string;
-  applicant_user_id: string;
-  applicant_name: string;
-  status: "pending" | "approved" | "rejected" | "revoked";
-  created_at: string;
-  updated_at: string;
-};
-
 export type PrivateIdentity = {
   player_id: string;
   room_id: string;
@@ -151,7 +140,7 @@ export const loadHostRoom = async (room: SharedRoom, user: User) => {
       return {
         id: player.id,
         seat: player.seat,
-        name: player.name,
+        name: "",
         alive: player.alive,
         roleId: identity?.role_id ?? "washerwoman",
         identityMessage: identity?.identity_message ?? "",
@@ -181,26 +170,6 @@ export const getRoomPlayers = async (roomId: string) => {
   return data as PublicRoomPlayer[];
 };
 
-export const getHostClaims = async (roomId: string) => {
-  const { data, error } = await supabase
-    .from("xueran_claim_requests")
-    .select("*")
-    .eq("room_id", roomId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return data as ClaimRequest[];
-};
-
-export const getMyClaims = async (roomId: string) => {
-  const { data, error } = await supabase
-    .from("xueran_claim_requests")
-    .select("*")
-    .eq("room_id", roomId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return data as ClaimRequest[];
-};
-
 export const getMyIdentity = async (roomId: string) => {
   const { data, error } = await supabase
     .from("xueran_identities")
@@ -211,32 +180,16 @@ export const getMyIdentity = async (roomId: string) => {
   return data as PrivateIdentity | null;
 };
 
-export const requestPlayerClaim = async (
+export const claimSeat = async (
   roomId: string,
-  player: PublicRoomPlayer,
-  userId: string,
+  playerId: string,
+  playerName: string,
 ) => {
-  const { error } = await supabase.from("xueran_claim_requests").insert({
-    room_id: roomId,
-    player_id: player.id,
-    applicant_user_id: userId,
-    applicant_name: player.name.trim() || `座位 ${player.seat}`,
+  const { error } = await supabase.rpc("xueran_claim_seat", {
+    p_room_id: roomId,
+    p_player_id: playerId,
+    p_player_name: playerName.trim(),
   });
-  if (error) throw error;
-};
-
-export const approveClaim = async (claimId: string) => {
-  const { error } = await supabase.rpc("xueran_approve_claim", {
-    p_claim_id: claimId,
-  });
-  if (error) throw error;
-};
-
-export const rejectClaim = async (claimId: string) => {
-  const { error } = await supabase
-    .from("xueran_claim_requests")
-    .update({ status: "rejected" })
-    .eq("id", claimId);
   if (error) throw error;
 };
 

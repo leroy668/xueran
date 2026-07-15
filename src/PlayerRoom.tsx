@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   CheckCircle2,
-  Clock3,
   LoaderCircle,
   RefreshCw,
   ShieldCheck,
@@ -10,12 +9,10 @@ import {
 } from "lucide-react";
 import { getRole } from "./data";
 import {
+  claimSeat,
   findRoomByCode,
-  getMyClaims,
   getMyIdentity,
   getRoomPlayers,
-  requestPlayerClaim,
-  type ClaimRequest,
   type PrivateIdentity,
   type PublicRoomPlayer,
   type SharedRoom,
@@ -26,19 +23,17 @@ import type { IdentityPayload } from "./types";
 export function PlayerRoom({ roomCode }: { roomCode: string }) {
   const [room, setRoom] = useState<SharedRoom | null>(null);
   const [players, setPlayers] = useState<PublicRoomPlayer[]>([]);
-  const [claims, setClaims] = useState<ClaimRequest[]>([]);
   const [identity, setIdentity] = useState<PrivateIdentity | null>(null);
-  const [userId, setUserId] = useState("");
+  const [playerName, setPlayerName] = useState("");
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState("");
   const [error, setError] = useState("");
 
   const refresh = useCallback(async (targetRoom: SharedRoom) => {
     if (targetRoom.status === "closed") return;
-    const [latestRoom, nextPlayers, nextClaims, nextIdentity] = await Promise.all([
+    const [latestRoom, nextPlayers, nextIdentity] = await Promise.all([
       findRoomByCode(targetRoom.code),
       getRoomPlayers(targetRoom.id),
-      getMyClaims(targetRoom.id),
       getMyIdentity(targetRoom.id),
     ]);
 
@@ -46,13 +41,11 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
     if (latestRoom.status === "closed") {
       setRoom(latestRoom);
       setPlayers([]);
-      setClaims([]);
       setIdentity(null);
       return;
     }
 
     setPlayers(nextPlayers);
-    setClaims(nextClaims);
     setIdentity(nextIdentity);
   }, []);
 
@@ -62,11 +55,10 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       setLoading(true);
       setError("");
       try {
-        const session = await ensureAnonymousSession();
+        await ensureAnonymousSession();
         const foundRoom = await findRoomByCode(roomCode);
         if (!foundRoom) throw new Error("没有找到这个房间，请检查链接是否完整");
         if (cancelled) return;
-        setUserId(session.user.id);
         setRoom(foundRoom);
         if (foundRoom.status === "open") await refresh(foundRoom);
       } catch (reason) {
@@ -99,11 +91,6 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "xueran_claim_requests", filter: `room_id=eq.${room.id}` },
-        () => void refresh(room),
-      )
-      .on(
-        "postgres_changes",
         { event: "*", schema: "public", table: "xueran_identities", filter: `room_id=eq.${room.id}` },
         () => void refresh(room),
       )
@@ -120,23 +107,24 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
     };
   }, [refresh, room]);
 
-  const currentClaim = useMemo(
-    () =>
-      claims.find((claim) => claim.status === "approved") ??
-      claims.find((claim) => claim.status === "pending") ??
-      claims[0],
-    [claims],
-  );
-
   const claimPlayer = async (player: PublicRoomPlayer) => {
-    if (!room || !userId) return;
+    if (!room || !playerName.trim()) return;
     setSubmittingId(player.id);
     setError("");
     try {
-      await requestPlayerClaim(room.id, player, userId);
+      await claimSeat(room.id, player.id, playerName);
       await refresh(room);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "申请提交失败");
+      const message = reason instanceof Error ? reason.message : "";
+      setError(
+        /already claimed/i.test(message)
+          ? "这个座位刚刚被其他玩家认领，请选择其他座位"
+          : /device already/i.test(message)
+            ? "这台设备已经认领了本房间的座位"
+            : /name required/i.test(message)
+              ? "请输入名字或昵称"
+              : "入座失败，请稍后重试",
+      );
     } finally {
       setSubmittingId("");
     }
@@ -189,10 +177,6 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
     return <ClaimedIdentity identity={payload} roomCode={room.code} />;
   }
 
-  const pending = currentClaim?.status === "pending";
-  const rejected = currentClaim?.status === "rejected" || currentClaim?.status === "revoked";
-  const pendingPlayer = players.find((player) => player.id === currentClaim?.player_id);
-
   return (
     <main className="player-room-page">
       <header className="player-room-header">
@@ -203,64 +187,61 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
         </div>
       </header>
 
-      {pending ? (
-        <section className="claim-waiting">
-          <Clock3 size={27} />
-          <h2>等待主持人确认</h2>
-          <p>
-            你申请了
-            <strong>
-              {pendingPlayer?.name || `座位 ${pendingPlayer?.seat ?? "?"}`}
-            </strong>
-            。确认后，这台设备会自动收到身份。
-          </p>
-          <span>页面会自动刷新，请留在这里。</span>
-        </section>
-      ) : (
-        <section className="seat-claim-panel">
-          <div className="seat-claim-heading">
-            <div>
-              <p className="eyebrow">CLAIM YOUR SEAT</p>
-              <h2>{rejected ? "请重新选择座位" : "你是哪位玩家？"}</h2>
-            </div>
-            <Users size={21} />
+      <section className="seat-claim-panel">
+        <div className="seat-claim-heading">
+          <div>
+            <p className="eyebrow">CLAIM YOUR SEAT</p>
+            <h2>填写名字并选择座位</h2>
           </div>
-          <p className="seat-claim-help">选择自己的姓名或座位，提交后由主持人确认。</p>
-          <div className="seat-choice-list">
-            {players.map((player) => (
-              <button
-                className="seat-choice"
-                key={player.id}
-                disabled={player.is_claimed || Boolean(submittingId)}
-                onClick={() => void claimPlayer(player)}
-              >
-                <span className="seat-choice-number">
-                  {String(player.seat).padStart(2, "0")}
-                </span>
-                <span className="seat-choice-name">
-                  {player.name.trim() || `座位 ${player.seat}`}
-                </span>
-                <span className={player.is_claimed ? "seat-claimed" : "seat-available"}>
-                  {player.is_claimed ? (
-                    <>
-                      <UserRoundCheck size={14} />
-                      已认领
-                    </>
-                  ) : submittingId === player.id ? (
-                    <LoaderCircle className="spin" size={15} />
-                  ) : (
-                    "选择"
-                  )}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+          <Users size={21} />
+        </div>
+        <p className="seat-claim-help">输入你的名字或昵称，然后选择现场对应的座位号。</p>
+        <label className="player-name-field">
+          <span>你的名字或昵称</span>
+          <input
+            value={playerName}
+            onChange={(event) => setPlayerName(event.target.value)}
+            placeholder="例如：小明"
+            maxLength={24}
+            autoComplete="name"
+          />
+        </label>
+        <div className="seat-choice-list">
+          {players.map((player) => (
+            <button
+              className="seat-choice"
+              key={player.id}
+              disabled={
+                player.is_claimed ||
+                Boolean(submittingId) ||
+                !playerName.trim()
+              }
+              onClick={() => void claimPlayer(player)}
+            >
+              <span className="seat-choice-number">
+                {String(player.seat).padStart(2, "0")}
+              </span>
+              <span className="seat-choice-name">座位 {player.seat}</span>
+              <span className={player.is_claimed ? "seat-claimed" : "seat-available"}>
+                {player.is_claimed ? (
+                  <>
+                    <UserRoundCheck size={14} />
+                    已入座
+                  </>
+                ) : submittingId === player.id ? (
+                  <LoaderCircle className="spin" size={15} />
+                ) : (
+                  "入座"
+                )}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
       {error ? <div className="inline-error">{error}</div> : null}
       <p className="player-room-privacy">
         <ShieldCheck size={14} />
-        主持人确认后，本设备只能读取你自己的身份。
+        入座成功后，本设备只能读取该座位的身份。
       </p>
     </main>
   );
@@ -281,7 +262,7 @@ function ClaimedIdentity({
       <section className={revealed ? "identity-envelope revealed" : "identity-envelope"}>
         <div className="identity-room-code">
           <CheckCircle2 size={14} />
-          房间 {roomCode} · 已确认
+          房间 {roomCode} · 已入座
         </div>
         <div className="identity-seal" aria-hidden="true">
           {revealed ? role.icon : "血"}

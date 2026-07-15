@@ -1,5 +1,4 @@
 import {
-  Check,
   Cloud,
   Copy,
   Link2,
@@ -8,26 +7,18 @@ import {
   Share2,
   Unlink,
   UserCheck,
-  X,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import type {
-  ClaimRequest,
-  PublicRoomPlayer,
-  SharedRoom,
-} from "./room";
+import type { PublicRoomPlayer, SharedRoom } from "./room";
 
 type Props = {
   room: SharedRoom | null;
   roomUrl: string;
-  claims: ClaimRequest[];
   players: PublicRoomPlayer[];
   busy: boolean;
   syncStatus: "idle" | "syncing" | "synced" | "error";
   onCreate: () => void;
   onCopy: () => void;
-  onApprove: (claimId: string) => void;
-  onReject: (claimId: string) => void;
   onRevoke: (playerId: string) => void;
   onClose: () => void;
 };
@@ -35,14 +26,11 @@ type Props = {
 export function HostRoomPanel({
   room,
   roomUrl,
-  claims,
   players,
   busy,
   syncStatus,
   onCreate,
   onCopy,
-  onApprove,
-  onReject,
   onRevoke,
   onClose,
 }: Props) {
@@ -54,7 +42,7 @@ export function HostRoomPanel({
         </div>
         <div>
           <strong>统一身份房间</strong>
-          <p>生成一个二维码，所有玩家扫码后认领自己的座位。</p>
+          <p>玩家扫码填写名字并选择座位，无需主持人确认。</p>
         </div>
         <button className="primary-button room-create-button" onClick={onCreate} disabled={busy}>
           {busy ? <LoaderCircle className="spin" size={15} /> : <Link2 size={15} />}
@@ -64,9 +52,7 @@ export function HostRoomPanel({
     );
   }
 
-  const pendingClaims = claims.filter((claim) => claim.status === "pending");
-  const approvedClaims = claims.filter((claim) => claim.status === "approved");
-  const playerMap = new Map(players.map((player) => [player.id, player]));
+  const claimedPlayers = players.filter((player) => player.is_claimed);
 
   return (
     <section className="host-room-panel">
@@ -111,63 +97,29 @@ export function HostRoomPanel({
 
       <div className="claim-section">
         <div className="claim-section-heading">
-          <span>待确认申请</span>
-          <strong>{pendingClaims.length}</strong>
+          <span>已入座玩家</span>
+          <strong>{claimedPlayers.length}</strong>
         </div>
-        {pendingClaims.length ? (
-          <div className="claim-list">
-            {pendingClaims.map((claim) => {
-              const player = playerMap.get(claim.player_id);
-              return (
-                <div className="claim-row" key={claim.id}>
-                  <div>
-                    <strong>
-                      {player?.name || claim.applicant_name || `座位 ${player?.seat ?? "?"}`}
-                    </strong>
-                    <span>申请座位 {player?.seat ?? "?"}</span>
-                  </div>
-                  <div className="claim-actions">
-                    <button
-                      className="claim-approve"
-                      onClick={() => onApprove(claim.id)}
-                      title="确认认领"
-                    >
-                      <Check size={14} />
-                    </button>
-                    <button
-                      className="claim-reject"
-                      onClick={() => onReject(claim.id)}
-                      title="拒绝申请"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+        {claimedPlayers.length ? (
+          <div className="claimed-list">
+            <span className="claimed-list-title">
+              <UserCheck size={14} />
+              身份已自动发放
+            </span>
+            {claimedPlayers.map((player) => (
+              <div className="claimed-row" key={player.id}>
+                <span>
+                  <strong>{player.name || `座位 ${player.seat}`}</strong>
+                  <small>座位 {player.seat}</small>
+                </span>
+                <button onClick={() => onRevoke(player.id)}>撤销</button>
+              </div>
+            ))}
           </div>
         ) : (
-          <p className="claim-empty">玩家提交认领后会出现在这里。</p>
+          <p className="claim-empty">玩家扫码入座后，姓名会自动显示在这里。</p>
         )}
       </div>
-
-      {approvedClaims.length ? (
-        <div className="claimed-list">
-          <span className="claimed-list-title">
-            <UserCheck size={14} />
-            已确认身份
-          </span>
-          {approvedClaims.map((claim) => {
-            const player = playerMap.get(claim.player_id);
-            return (
-              <div className="claimed-row" key={claim.id}>
-                <span>{player?.name || claim.applicant_name}</span>
-                <button onClick={() => onRevoke(claim.player_id)}>撤销</button>
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
 
       <div className="room-footer-actions">
         <button onClick={onCopy}>

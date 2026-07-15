@@ -25,18 +25,14 @@ import { HostRoomPanel } from "./HostRoomPanel";
 import { PlayerRoom } from "./PlayerRoom";
 import {
   activeRoomStorageKey,
-  approveClaim,
   buildRoomUrl,
   closeRoom,
   createRoom,
   findRoomByCode,
-  getHostClaims,
   getRoomPlayers,
   loadHostRoom,
-  rejectClaim,
   revokeClaim,
   syncRoom,
-  type ClaimRequest,
   type PublicRoomPlayer,
   type SharedRoom,
 } from "./room";
@@ -69,14 +65,14 @@ const makeId = () =>
     ? crypto.randomUUID()
     : `player-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-const samplePlayers: [string, string][] = [
-  ["阿黎", "washerwoman"],
-  ["小满", "empath"],
-  ["青禾", "fortune-teller"],
-  ["北辰", "monk"],
-  ["橘子", "ravenkeeper"],
-  ["老周", "butler"],
-  ["小夜", "imp"],
+const sampleRoles = [
+  "washerwoman",
+  "empath",
+  "fortune-teller",
+  "monk",
+  "ravenkeeper",
+  "butler",
+  "imp",
 ];
 
 const newPlayer = (seat: number, name = ""): Player => ({
@@ -113,7 +109,6 @@ function GrimoireApp() {
   const [toast, setToast] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [room, setRoom] = useState<SharedRoom | null>(null);
-  const [roomClaims, setRoomClaims] = useState<ClaimRequest[]>([]);
   const [roomPlayers, setRoomPlayers] = useState<PublicRoomPlayer[]>([]);
   const [roomBusy, setRoomBusy] = useState(false);
   const [roomReady, setRoomReady] = useState(false);
@@ -132,11 +127,7 @@ function GrimoireApp() {
   }, [toast]);
 
   const refreshRoomAdmin = useCallback(async (targetRoom: SharedRoom) => {
-    const [claims, players] = await Promise.all([
-      getHostClaims(targetRoom.id),
-      getRoomPlayers(targetRoom.id),
-    ]);
-    setRoomClaims(claims);
+    const players = await getRoomPlayers(targetRoom.id);
     setRoomPlayers(players);
   }, []);
 
@@ -260,8 +251,8 @@ function GrimoireApp() {
   };
 
   const quickStart = () => {
-    const players = samplePlayers.map(([name, roleId], index) => ({
-      ...newPlayer(index + 1, name),
+    const players = sampleRoles.map((roleId, index) => ({
+      ...newPlayer(index + 1),
       roleId,
     }));
     update({ players, phase: "准备", round: 1, nightIndex: 0 });
@@ -343,7 +334,7 @@ function GrimoireApp() {
       if (navigator.share) {
         await navigator.share({
           title: `血染钟楼房间 ${room.code}`,
-          text: "打开链接，选择你的姓名并等待主持人确认身份。",
+          text: "打开链接，填写你的名字并选择现场座位号。",
           url,
         });
         return;
@@ -358,28 +349,6 @@ function GrimoireApp() {
       } catch {
         window.prompt("复制统一房间链接", url);
       }
-    }
-  };
-
-  const handleApproveClaim = async (claimId: string) => {
-    if (!room) return;
-    try {
-      await approveClaim(claimId);
-      await refreshRoomAdmin(room);
-      setToast("已确认玩家身份");
-    } catch {
-      setToast("确认失败，该座位可能已被认领");
-    }
-  };
-
-  const handleRejectClaim = async (claimId: string) => {
-    if (!room) return;
-    try {
-      await rejectClaim(claimId);
-      await refreshRoomAdmin(room);
-      setToast("已拒绝认领申请");
-    } catch {
-      setToast("操作失败，请稍后重试");
     }
   };
 
@@ -401,7 +370,6 @@ function GrimoireApp() {
       localStorage.removeItem(activeRoomStorageKey);
       setRoom(null);
       setRoomReady(false);
-      setRoomClaims([]);
       setRoomPlayers([]);
       setSyncStatus("idle");
       setToast("共享房间已结束，本地魔典仍然保留");
@@ -496,14 +464,11 @@ function GrimoireApp() {
               <HostRoomPanel
                 room={room}
                 roomUrl={room ? buildRoomUrl(room.code) : ""}
-                claims={roomClaims}
                 players={roomPlayers}
                 busy={roomBusy}
                 syncStatus={syncStatus}
                 onCreate={() => void startSharedRoom()}
                 onCopy={() => void shareRoom()}
-                onApprove={(claimId) => void handleApproveClaim(claimId)}
-                onReject={(claimId) => void handleRejectClaim(claimId)}
                 onRevoke={(playerId) => void handleRevokeClaim(playerId)}
                 onClose={() => void endSharedRoom()}
               />
@@ -710,13 +675,7 @@ function PlayerCard({
           <Trash2 size={15} />
         </button>
       </div>
-      <input
-        className="player-name"
-        value={player.name}
-        onChange={(event) => onUpdate(player.id, { name: event.target.value })}
-        placeholder="玩家姓名"
-        aria-label={`座位 ${player.seat} 玩家姓名`}
-      />
+      <div className="player-seat-label">座位 {String(player.seat).padStart(2, "0")}</div>
       <div className={`role-chip ${teamLabels[role.team]}`}>
         <span>{role.icon}</span>
         <select

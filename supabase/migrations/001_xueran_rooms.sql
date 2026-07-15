@@ -359,7 +359,10 @@ begin
   set
     room_id = excluded.room_id,
     seat = excluded.seat,
-    name = excluded.name,
+    name = case
+      when public.xueran_players.is_claimed then public.xueran_players.name
+      else excluded.name
+    end,
     alive = excluded.alive;
 
   insert into public.xueran_identities(
@@ -387,6 +390,108 @@ $$;
 
 revoke all on function public.xueran_sync_room(uuid, jsonb) from public;
 grant execute on function public.xueran_sync_room(uuid, jsonb) to authenticated;
+
+create or replace function public.xueran_claim_seat(
+  p_room_id uuid,
+  p_player_id uuid,
+  p_player_name text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_player public.xueran_players;
+  existing_owner uuid;
+  clean_name text;
+begin
+  if auth.uid() is null then
+    raise exception 'authentication required';
+  end if;
+
+  clean_name := left(trim(coalesce(p_player_name, '')), 24);
+  if clean_name = '' then
+    raise exception 'player name required';
+  end if;
+
+  if not exists (
+    select 1
+    from public.xueran_rooms
+    where id = p_room_id
+      and status = 'open'
+  ) then
+    raise exception 'room is not open';
+  end if;
+
+  select *
+  into target_player
+  from public.xueran_players
+  where id = p_player_id
+    and room_id = p_room_id
+  for update;
+
+  if target_player.id is null then
+    raise exception 'seat not found';
+  end if;
+
+  select claimed_by
+  into existing_owner
+  from public.xueran_identities
+  where player_id = p_player_id;
+
+  if target_player.is_claimed then
+    if existing_owner = auth.uid() then
+      return;
+    end if;
+    raise exception 'seat is already claimed';
+  end if;
+
+  if exists (
+    select 1
+    from public.xueran_identities
+    where room_id = p_room_id
+      and claimed_by = auth.uid()
+  ) then
+    raise exception 'device already claimed a seat';
+  end if;
+
+  update public.xueran_identities
+  set
+    claimed_by = auth.uid(),
+    claimed_at = now()
+  where player_id = p_player_id
+    and room_id = p_room_id;
+
+  if not found then
+    raise exception 'seat identity not found';
+  end if;
+
+  update public.xueran_players
+  set
+    name = clean_name,
+    is_claimed = true
+  where id = p_player_id;
+
+  insert into public.xueran_claim_requests(
+    room_id,
+    player_id,
+    applicant_user_id,
+    applicant_name,
+    status
+  )
+  values (
+    p_room_id,
+    p_player_id,
+    auth.uid(),
+    clean_name,
+    'approved'
+  );
+end;
+$$;
+
+revoke all on function public.xueran_claim_seat(uuid, uuid, text) from public;
+grant execute on function public.xueran_claim_seat(uuid, uuid, text) to authenticated;
 
 create or replace function public.xueran_approve_claim(p_claim_id uuid)
 returns void
@@ -461,7 +566,7 @@ begin
   where player_id = p_player_id;
 
   update public.xueran_players
-  set is_claimed = false
+  set is_claimed = false, name = ''
   where id = p_player_id;
 
   update public.xueran_claim_requests

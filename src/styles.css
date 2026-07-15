@@ -99,20 +99,13 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .claim-section { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--line); }
 .claim-section-heading { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 11px; }
 .claim-section-heading strong { min-width: 20px; height: 20px; display: grid; place-items: center; color: var(--ink); background: var(--panel-raised); border-radius: 10px; }
-.claim-list { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
-.claim-row { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px; background: #222724; border-left: 2px solid var(--gold); }
-.claim-row > div:first-child { min-width: 0; }
-.claim-row strong, .claim-row span { display: block; overflow-wrap: anywhere; }
-.claim-row strong { font-size: 11px; }
-.claim-row span { color: var(--dim); font-size: 9px; margin-top: 3px; }
-.claim-actions { display: flex; gap: 5px; }
-.claim-actions button { width: 28px; height: 28px; border: 1px solid var(--line); display: grid; place-items: center; background: transparent; }
-.claim-approve { color: var(--green); }
-.claim-reject { color: var(--red); }
 .claim-empty { color: var(--dim); font-size: 10px; line-height: 1.5; margin: 10px 0 0; }
-.claimed-list { margin-top: 15px; padding-top: 13px; border-top: 1px solid var(--line); }
+.claimed-list { margin-top: 10px; }
 .claimed-list-title { display: flex; align-items: center; gap: 6px; color: var(--green); font-size: 10px; margin-bottom: 7px; }
 .claimed-row { min-height: 29px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid rgba(55,55,61,.7); font-size: 10px; }
+.claimed-row > span { min-width: 0; display: flex; align-items: baseline; gap: 6px; overflow-wrap: anywhere; }
+.claimed-row strong { color: var(--ink); font-size: 10px; }
+.claimed-row small { color: var(--dim); font-size: 9px; white-space: nowrap; }
 .claimed-row button { border: 0; background: transparent; color: var(--dim); font-size: 9px; padding: 4px; }
 .claimed-row button:hover { color: var(--red); }
 .room-footer-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; }
@@ -132,7 +125,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .life-toggle.alive { color: var(--green); border-color: rgba(121,181,138,.3); }
 .card-delete { border: 0; background: transparent; color: var(--dim); padding: 3px; display: inline-flex; }
 .card-delete:hover { color: var(--red); }
-.player-name { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 17px; padding: 12px 0 8px; }
+.player-seat-label { width: 100%; border-bottom: 1px solid var(--line); color: var(--ink); font-size: 17px; font-weight: 700; padding: 12px 0 8px; }
 .role-chip { display: flex; align-items: center; gap: 8px; margin: 12px 0 9px; padding: 6px 8px; border-left: 2px solid var(--gold); background: rgba(213,166,110,.07); }
 .role-chip.townsfolk, .mini-role-icon.townsfolk { border-color: var(--blue); }
 .role-chip.outsider, .mini-role-icon.outsider { border-color: var(--green); }
@@ -247,6 +240,10 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .seat-claim-heading h2, .claim-waiting h2 { margin: 0; font-size: 20px; }
 .seat-claim-heading svg { color: var(--gold); }
 .seat-claim-help { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 10px 0 17px; }
+.player-name-field { display: block; margin-bottom: 18px; }
+.player-name-field span { display: block; color: var(--muted); font-size: 10px; margin-bottom: 7px; }
+.player-name-field input { width: 100%; min-height: 44px; border: 1px solid var(--line); background: var(--panel-raised); color: var(--ink); padding: 0 12px; font-size: 15px; }
+.player-name-field input:focus { border-color: var(--gold); outline: 0; }
 .seat-choice-list { border-top: 1px solid var(--line); }
 .seat-choice { width: 100%; min-height: 54px; display: grid; grid-template-columns: 38px minmax(0, 1fr) 72px; align-items: center; gap: 9px; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); padding: 7px 5px; }
 .seat-choice:hover:not(:disabled) { background: var(--panel-raised); }
