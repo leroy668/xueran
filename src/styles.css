@@ -399,9 +399,10 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .tab-bar { display: none; }
   .side-panel, .main-panel, .night-main, .night-help, .script-main, .script-aside { padding: 16px; }
   .panel-heading h2 { font-size: 18px; }
-  .players-heading { align-items: flex-start; }
-  .heading-actions { flex-direction: column; align-items: stretch; }
-  .heading-actions button { white-space: nowrap; }
+  .players-heading { align-items: stretch; flex-direction: column; gap: 12px; }
+  .heading-actions { width: 100%; flex-direction: row; align-items: center; gap: 5px; }
+  .heading-actions button { min-width: 0; min-height: 32px; flex: 1 1 0; gap: 4px; padding: 0 5px; font-size: 10px; white-space: nowrap; }
+  .heading-actions button svg { width: 14px; height: 14px; flex: 0 0 auto; }
   .grimoire-workbench { gap: 12px; }
   .table-stage { margin: 0 -7px; }
   .grimoire-table { width: 100%; box-shadow: inset 0 0 0 8px #202024, inset 0 0 0 9px var(--line); }
