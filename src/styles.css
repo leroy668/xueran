@@ -166,8 +166,8 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .player-editor-topline h3 { margin: 0; min-width: 0; font-size: 18px; overflow-wrap: anywhere; }
 .life-toggle { margin-left: auto; border: 1px solid var(--line); background: transparent; color: var(--muted); min-height: 24px; padding: 0 7px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
 .life-toggle.alive { color: var(--green); border-color: rgba(121,181,138,.3); }
-.role-select-field, .player-editor-field { display: block; }
-.role-select-field > span, .player-editor-field > span { display: block; color: var(--muted); font-size: 10px; margin-bottom: 7px; }
+.role-select-field { display: block; }
+.role-select-field > span { display: block; color: var(--muted); font-size: 10px; margin-bottom: 7px; }
 .role-select-field select { width: 100%; min-height: 39px; border: 1px solid var(--line); background: #17171a; color: var(--ink); padding: 0 10px; font-size: 12px; }
 .role-select-field option { background: #25252a; }
 .selected-role-summary { margin: 12px 0 16px; padding: 12px; border-left: 3px solid var(--gold); background: #25252a; display: flex; gap: 11px; }
@@ -180,9 +180,26 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .selected-role-summary strong { display: inline-block; margin-right: 7px; font-size: 13px; }
 .selected-role-summary small { color: var(--muted); font-size: 9px; }
 .selected-role-summary p { color: var(--muted); font-size: 10px; line-height: 1.5; margin: 5px 0 0; }
-.player-editor-field { margin-top: 10px; }
-.player-notes { padding: 8px; font-size: 11px; min-height: 45px; }
-.player-notes { border-left: 2px solid var(--line-light); }
+.player-notes-section { margin-top: 14px; }
+.player-notes-heading { min-height: 25px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.player-notes-heading > span { color: var(--muted); font-size: 10px; }
+.player-notes-heading > strong { min-width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--line); color: var(--gold); font-size: 8px; }
+.player-note-composer { padding: 9px; border: 1px solid var(--line); background: #19191c; }
+.player-note-composer textarea { min-height: 54px; padding: 8px; font-size: 11px; }
+.player-note-composer > div { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-top: 7px; }
+.player-note-composer > div > span { color: var(--dim); font-size: 8px; }
+.player-note-add { min-height: 30px; padding: 0 9px; font-size: 9px; }
+.player-note-list { max-height: 260px; margin-top: 8px; overflow-y: auto; border: 1px solid var(--line); background: #19191c; scrollbar-width: thin; }
+.player-note-item { padding: 8px; border-bottom: 1px solid var(--line); }
+.player-note-item:last-child { border-bottom: 0; }
+.player-note-meta { min-height: 22px; display: flex; align-items: center; gap: 7px; }
+.player-note-meta > span { color: var(--gold); font-size: 9px; font-weight: 800; }
+.player-note-meta time { margin-left: auto; color: var(--dim); font-size: 8px; }
+.player-note-meta button { width: 24px; height: 24px; display: grid; place-items: center; border: 0; background: transparent; color: var(--dim); }
+.player-note-meta button:hover { color: var(--red); }
+.player-note-item textarea { min-height: 46px; padding: 7px; border-color: transparent; background: #222226; font-size: 11px; line-height: 1.45; }
+.player-note-item textarea:focus { border-color: var(--line-light); }
+.player-note-empty { min-height: 48px; display: grid; place-items: center; border: 1px dashed var(--line); color: var(--dim); font-size: 9px; }
 .player-message-history { margin-top: 15px; border-top: 1px solid var(--line); padding-top: 13px; }
 .player-history-heading { min-height: 34px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .player-history-heading span { display: block; color: var(--ink); font-size: 11px; font-weight: 800; }

@@ -78,6 +78,40 @@ const makeId = () =>
     ? crypto.randomUUID()
     : `player-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
+type PlayerNoteEntry = {
+  id: string;
+  body: string;
+  createdAt?: string;
+};
+
+const playerNotesPrefix = "__xueran_notes_v1__";
+
+const parsePlayerNotes = (value: string): PlayerNoteEntry[] => {
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+  if (!trimmed.startsWith(playerNotesPrefix)) {
+    return [{ id: "legacy", body: value }];
+  }
+  try {
+    const parsed = JSON.parse(trimmed.slice(playerNotesPrefix.length));
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (note): note is PlayerNoteEntry =>
+        Boolean(note) &&
+        typeof note.id === "string" &&
+        typeof note.body === "string" &&
+        (note.createdAt === undefined || typeof note.createdAt === "string"),
+    );
+  } catch {
+    return [{ id: "legacy", body: value }];
+  }
+};
+
+const serializePlayerNotes = (notes: PlayerNoteEntry[]) =>
+  notes.length
+    ? `${playerNotesPrefix}${JSON.stringify(notes)}`
+    : "";
+
 const sampleRoles = [
   "washerwoman",
   "empath",
@@ -972,6 +1006,7 @@ function GrimoirePanel({
 
             {selectedPlayer ? (
               <PlayerEditor
+                key={selectedPlayer.id}
                 player={selectedPlayer}
                 displayName={getDisplayName(selectedPlayer)}
                 messages={nightMessages.filter(
@@ -1002,11 +1037,44 @@ function PlayerEditor({
   onRemove: (id: string) => void;
 }) {
   const role = getRole(player.roleId);
+  const [noteDraft, setNoteDraft] = useState("");
+  const noteEntries = parsePlayerNotes(player.notes);
   const messageHistory = [...messages].sort(
     (left, right) =>
       new Date(right.created_at).getTime() -
       new Date(left.created_at).getTime(),
   );
+  const addNote = () => {
+    const body = noteDraft.trim();
+    if (!body) return;
+    onUpdate(player.id, {
+      notes: serializePlayerNotes([
+        {
+          id: makeId(),
+          body,
+          createdAt: new Date().toISOString(),
+        },
+        ...noteEntries,
+      ]),
+    });
+    setNoteDraft("");
+  };
+  const updateNote = (noteId: string, body: string) => {
+    onUpdate(player.id, {
+      notes: serializePlayerNotes(
+        noteEntries.map((note) =>
+          note.id === noteId ? { ...note, body } : note,
+        ),
+      ),
+    });
+  };
+  const removeNote = (noteId: string) => {
+    onUpdate(player.id, {
+      notes: serializePlayerNotes(
+        noteEntries.filter((note) => note.id !== noteId),
+      ),
+    });
+  };
   return (
     <aside className={player.alive ? "player-editor" : "player-editor dead"}>
       <div className="player-editor-topline">
@@ -1052,16 +1120,76 @@ function PlayerEditor({
         </div>
       </div>
 
-      <label className="player-editor-field">
-        <span>主持人私密备注</span>
-        <textarea
-          className="player-notes"
-          value={player.notes}
-          onChange={(event) => onUpdate(player.id, { notes: event.target.value })}
-          placeholder="记录中毒、保护、红鲱鱼等状态…"
-          rows={3}
-        />
-      </label>
+      <section className="player-notes-section">
+        <div className="player-notes-heading">
+          <span>主持人私密备注</span>
+          <strong>{noteEntries.length}</strong>
+        </div>
+        <div className="player-note-composer">
+          <textarea
+            value={noteDraft}
+            onChange={(event) => setNoteDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                event.preventDefault();
+                addNote();
+              }
+            }}
+            placeholder="新增一条状态或事件备注…"
+            maxLength={500}
+            rows={2}
+          />
+          <div>
+            <span>{noteDraft.length}/500</span>
+            <button
+              className="secondary-button player-note-add"
+              onClick={addNote}
+              disabled={!noteDraft.trim()}
+            >
+              <Plus size={14} />
+              添加备注
+            </button>
+          </div>
+        </div>
+        {noteEntries.length ? (
+          <div className="player-note-list">
+            {noteEntries.map((note, index) => (
+              <article className="player-note-item" key={note.id}>
+                <div className="player-note-meta">
+                  <span>备注 {noteEntries.length - index}</span>
+                  {note.createdAt ? (
+                    <time>
+                      {new Date(note.createdAt).toLocaleString("zh-CN", {
+                        month: "numeric",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </time>
+                  ) : (
+                    <time>原有备注</time>
+                  )}
+                  <button
+                    onClick={() => removeNote(note.id)}
+                    title="删除这条备注"
+                    aria-label={`删除备注 ${noteEntries.length - index}`}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+                <textarea
+                  value={note.body}
+                  onChange={(event) => updateNote(note.id, event.target.value)}
+                  aria-label={`备注 ${noteEntries.length - index}`}
+                  rows={2}
+                />
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="player-note-empty">还没有角色备注</div>
+        )}
+      </section>
 
       <section className="player-message-history">
         <div className="player-history-heading">
