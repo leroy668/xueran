@@ -698,10 +698,7 @@ function GrimoirePanel({
 
       <section className="main-panel">
         <div className="panel-heading players-heading">
-          <div>
-            <p className="eyebrow">GRIMOIRE</p>
-            <h2>环桌魔典</h2>
-          </div>
+          <h2 className="grimoire-title">一起染一把</h2>
           <div className="heading-actions">
             {state.players.length === 0 ? (
               <button className="secondary-button" onClick={onQuickStart}>
