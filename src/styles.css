@@ -273,6 +273,50 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); background: #f0e9df; color: #1b1b1e; padding: 11px 16px; font-size: 12px; font-weight: 700; box-shadow: 0 9px 24px rgba(0,0,0,.3); z-index: 10; }
 
 .identity-page { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 32px 18px; background: #111113; }
+.player-hub-page { min-height: 100vh; min-height: 100dvh; width: min(100% - 32px, 720px); margin: 0 auto; padding: 24px 0 92px; }
+.player-hub-header { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); }
+.player-hub-header h1 { margin: 0; font-size: 19px; }
+.player-hub-header > span { color: var(--gold); border: 1px solid rgba(213,166,110,.38); padding: 6px 9px; font-family: Consolas, monospace; font-size: 10px; white-space: nowrap; }
+.player-hub-nav { position: sticky; z-index: 4; top: 0; display: grid; grid-template-columns: repeat(3, 1fr); margin: 14px 0 18px; border: 1px solid var(--line); background: #1b1b1e; }
+.player-hub-nav button { position: relative; min-height: 48px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--dim); display: inline-flex; align-items: center; justify-content: center; gap: 7px; font-size: 11px; }
+.player-hub-nav button:last-child { border-right: 0; }
+.player-hub-nav button.active { color: var(--ink); background: var(--panel-raised); box-shadow: inset 0 -2px var(--red); }
+.player-hub-nav button.active svg { color: var(--red); }
+.player-hub-nav button strong { position: absolute; top: 5px; right: 8px; min-width: 17px; height: 17px; padding: 0 4px; display: grid; place-items: center; border-radius: 9px; background: var(--red); color: #fff; font-size: 8px; }
+.player-hub-page .identity-envelope { margin: 18px auto 0; }
+.player-view-panel { border: 1px solid var(--line); background: var(--panel); padding: 24px; }
+.player-view-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.player-view-heading h2 { margin: 0; font-size: 22px; }
+.player-view-heading > svg { color: var(--gold); }
+.player-script-groups { display: grid; gap: 22px; margin-top: 22px; }
+.player-script-group { border-top: 2px solid var(--blue); }
+.player-script-group.outsider { border-top-color: var(--green); }
+.player-script-group.minion { border-top-color: var(--purple); }
+.player-script-group.demon { border-top-color: var(--red); }
+.player-script-team-heading { min-height: 45px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
+.player-script-team-heading h3 { margin: 0; font-size: 15px; }
+.player-script-team-heading span { color: var(--dim); font-size: 10px; }
+.player-script-role-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; }
+.player-script-role { min-width: 0; min-height: 72px; display: grid; grid-template-columns: 42px minmax(0, 1fr); align-items: center; gap: 10px; border-bottom: 1px solid var(--line); padding: 9px 2px; }
+.player-script-role-icon { width: 38px; height: 38px; display: grid; place-items: center; overflow: hidden; }
+.player-script-role > div { min-width: 0; }
+.player-script-role strong { font-size: 13px; }
+.player-script-role p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.player-message-view { min-height: 380px; }
+.player-pinned-message { margin-top: 20px; padding: 14px 16px; border-left: 3px solid var(--gold); background: rgba(213,166,110,.08); }
+.player-pinned-message span { color: var(--gold); font-size: 10px; font-weight: 800; }
+.player-pinned-message p { margin: 7px 0 0; color: var(--ink); font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.player-message-timeline { margin-top: 20px; border-top: 1px solid var(--line); }
+.player-message-item { padding: 17px 4px; border-bottom: 1px solid var(--line); }
+.player-message-item.latest { padding-left: 14px; border-left: 3px solid var(--gold); background: rgba(213,166,110,.04); }
+.player-message-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.player-message-meta span { color: var(--muted); font-size: 10px; font-weight: 700; }
+.player-message-item.latest .player-message-meta span { color: var(--gold); }
+.player-message-meta time { color: var(--dim); font-size: 9px; white-space: nowrap; }
+.player-message-item > p { margin: 9px 0 0; color: var(--ink); font-size: 15px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+.player-message-empty { min-height: 260px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; color: var(--dim); }
+.player-message-empty h3 { margin: 13px 0 6px; color: var(--ink); font-size: 17px; }
+.player-message-empty p { margin: 0; color: var(--muted); font-size: 11px; }
 .identity-envelope { width: min(100%, 480px); border: 1px solid var(--line-light); border-top: 3px solid var(--red); background: #1c1c1f; padding: 36px; text-align: center; box-shadow: 0 24px 65px rgba(0,0,0,.34); }
 .identity-envelope.revealed { text-align: left; }
 .identity-seal { width: 64px; height: 64px; margin: 0 auto 25px; border: 1px solid var(--red); color: var(--red); display: grid; place-items: center; transform: rotate(-7deg); font-family: Georgia, serif; font-size: 27px; }
@@ -298,20 +342,6 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .identity-message-panel p { color: var(--gold); }
 .identity-room-code { display: flex; align-items: center; justify-content: center; gap: 5px; color: var(--green); font-size: 10px; margin-bottom: 20px; }
 .night-message-alert { margin: 20px auto -12px; display: flex; align-items: center; justify-content: center; gap: 7px; color: var(--gold); font-size: 12px; font-weight: 700; }
-.player-night-messages { margin-top: 25px; padding-top: 19px; border-top: 1px solid var(--line); }
-.player-night-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 5px; }
-.player-night-heading > div { display: flex; align-items: center; gap: 8px; }
-.player-night-heading span { color: var(--ink); font-size: 14px; font-weight: 800; }
-.player-night-heading strong { min-width: 20px; height: 20px; display: grid; place-items: center; border-radius: 10px; background: var(--panel-raised); color: var(--gold); font-size: 9px; }
-.player-night-heading > svg { color: var(--gold); }
-.player-night-list { border-top: 1px solid var(--line); }
-.player-night-message { padding: 14px 2px; border-bottom: 1px solid var(--line); }
-.player-night-message.latest { padding-left: 12px; border-left: 2px solid var(--gold); }
-.player-night-message > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.player-night-message span { color: var(--muted); font-size: 10px; font-weight: 700; }
-.player-night-message.latest span { color: var(--gold); }
-.player-night-message time { color: var(--dim); font-size: 9px; white-space: nowrap; }
-.player-night-message p { margin: 8px 0 0; color: var(--ink); font-size: 15px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .player-room-page { min-height: 100vh; min-height: 100dvh; width: min(100% - 28px, 620px); margin: 0 auto; padding: 34px 0 48px; }
 .centered-page { display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; color: var(--muted); }
@@ -415,10 +445,21 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .mobile-nav-item.active { color: var(--ink); }
   .mobile-nav-item.active svg { color: var(--red); }
   .identity-page { padding: 18px 12px; }
+  .player-hub-page { width: calc(100% - 24px); padding: 14px 0 86px; }
+  .player-hub-header { min-height: 54px; }
+  .player-hub-header h1 { font-size: 17px; }
+  .player-hub-nav { position: fixed; top: auto; left: 0; right: 0; bottom: 0; height: 66px; margin: 0; border-width: 1px 0 0; }
+  .player-hub-nav button { min-height: 65px; flex-direction: column; gap: 4px; font-size: 10px; }
+  .player-hub-nav button.active { box-shadow: inset 0 2px var(--red); }
+  .player-hub-nav button strong { top: 6px; right: calc(50% - 30px); }
+  .player-view-panel { padding: 18px 16px; }
+  .player-view-heading h2 { font-size: 20px; }
+  .player-script-role-list { grid-template-columns: 1fr; }
+  .player-script-role { min-height: 68px; }
+  .player-message-item > p { font-size: 14px; }
   .identity-envelope { padding: 29px 22px; }
   .identity-envelope h1 { font-size: 21px; }
   .identity-role-card h2 { font-size: 24px; }
-  .player-night-message p { font-size: 14px; }
   .player-room-page { width: calc(100% - 24px); padding-top: 20px; }
   .seat-claim-panel { padding: 17px; }
   .seat-choice { grid-template-columns: 34px minmax(0, 1fr) 64px; }

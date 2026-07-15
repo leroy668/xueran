@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   CheckCircle2,
+  Eye,
   LoaderCircle,
   MessageSquareText,
   MoonStar,
   RefreshCw,
+  ScrollText,
   ShieldCheck,
   UserRoundCheck,
   Users,
 } from "lucide-react";
-import { getRole } from "./data";
+import { getRole, roles, scripts } from "./data";
 import {
   claimSeat,
   findRoomByCode,
@@ -23,7 +25,11 @@ import {
 } from "./room";
 import { RoleIcon } from "./RoleIcon";
 import { ensureAnonymousSession, supabase } from "./supabase";
-import type { IdentityPayload } from "./types";
+import type { IdentityPayload, Team } from "./types";
+
+type PlayerView = "identity" | "script" | "messages";
+
+const scriptTeams: Team[] = ["镇民", "外来者", "爪牙", "恶魔"];
 
 export function PlayerRoom({ roomCode }: { roomCode: string }) {
   const [room, setRoom] = useState<SharedRoom | null>(null);
@@ -190,8 +196,10 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
     };
     return (
       <ClaimedIdentity
+        key={`${payload.seat}-${payload.roleId}`}
         identity={payload}
         roomCode={room.code}
+        scriptId={room.script_id}
         nightMessages={nightMessages}
       />
     );
@@ -270,18 +278,160 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
 function ClaimedIdentity({
   identity,
   roomCode,
+  scriptId,
   nightMessages,
 }: {
   identity: IdentityPayload;
   roomCode: string;
+  scriptId: string;
   nightMessages: NightMessage[];
 }) {
   const [revealed, setRevealed] = useState(false);
+  const identitySeenKey = `xueran-identity-seen-${roomCode}-${identity.seat}-${identity.roleId}`;
+  const messageReadKey = `xueran-message-read-${roomCode}-${identity.seat}`;
+  const [identitySeen, setIdentitySeen] = useState(
+    () => localStorage.getItem(identitySeenKey) === "true",
+  );
+  const [activeView, setActiveView] = useState<PlayerView>("identity");
+  const [lastReadAt, setLastReadAt] = useState(
+    () => localStorage.getItem(messageReadKey) ?? "",
+  );
   const role = getRole(identity.roleId);
+  const script = scripts.find((item) => item.id === scriptId) ?? scripts[0];
+  const lastReadTime = lastReadAt ? new Date(lastReadAt).getTime() : 0;
+  const unreadCount = nightMessages.filter(
+    (message) => new Date(message.created_at).getTime() > lastReadTime,
+  ).length;
+
+  useEffect(() => {
+    if (activeView !== "messages" || !nightMessages[0]) return;
+    const latestMessageAt = nightMessages[0].created_at;
+    localStorage.setItem(messageReadKey, latestMessageAt);
+    setLastReadAt(latestMessageAt);
+  }, [activeView, messageReadKey, nightMessages]);
+
+  const revealIdentity = () => {
+    setRevealed(true);
+    setIdentitySeen(true);
+    localStorage.setItem(identitySeenKey, "true");
+  };
 
   return (
-    <main className="identity-page">
-      <section className={revealed ? "identity-envelope revealed" : "identity-envelope"}>
+    <main className={identitySeen ? "player-hub-page" : "identity-page"}>
+      {identitySeen ? (
+        <header className="player-hub-header">
+          <div>
+            <p className="eyebrow">PLAYER ROOM · {roomCode}</p>
+            <h1>{identity.playerName}</h1>
+          </div>
+          <span>座位 {String(identity.seat).padStart(2, "0")}</span>
+        </header>
+      ) : null}
+
+      {identitySeen ? (
+        <nav className="player-hub-nav" aria-label="玩家页面导航">
+          <button
+            className={activeView === "identity" ? "active" : ""}
+            onClick={() => setActiveView("identity")}
+          >
+            <Eye size={18} />
+            <span>我的身份</span>
+          </button>
+          <button
+            className={activeView === "script" ? "active" : ""}
+            onClick={() => setActiveView("script")}
+          >
+            <ScrollText size={18} />
+            <span>剧本角色</span>
+          </button>
+          <button
+            className={activeView === "messages" ? "active" : ""}
+            onClick={() => setActiveView("messages")}
+          >
+            <MessageSquareText size={18} />
+            <span>上帝消息</span>
+            {unreadCount ? <strong>{Math.min(unreadCount, 99)}</strong> : null}
+          </button>
+        </nav>
+      ) : null}
+
+      {activeView === "identity" ? (
+        <IdentityView
+          identity={identity}
+          role={role}
+          roomCode={roomCode}
+          revealed={revealed}
+          unreadCount={unreadCount}
+          onReveal={revealIdentity}
+          onHide={() => setRevealed(false)}
+        />
+      ) : null}
+
+      {activeView === "script" ? (
+        <section className="player-view-panel">
+          <div className="player-view-heading">
+            <div>
+              <p className="eyebrow">SCRIPT REFERENCE</p>
+              <h2>{script.name}</h2>
+            </div>
+            <ScrollText size={22} />
+          </div>
+          <div className="player-script-groups">
+            {scriptTeams.map((team) => {
+              const teamRoles = roles.filter((item) => item.team === team);
+              return (
+                <section className={`player-script-group ${teamClass(team)}`} key={team}>
+                  <div className="player-script-team-heading">
+                    <h3>{team}</h3>
+                    <span>{teamRoles.length}</span>
+                  </div>
+                  <div className="player-script-role-list">
+                    {teamRoles.map((item) => (
+                      <article className="player-script-role" key={item.id}>
+                        <span className="player-script-role-icon">
+                          <RoleIcon roleId={item.id} size={22} />
+                        </span>
+                        <div>
+                          <strong>{item.name}</strong>
+                          <p>{item.short}</p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {activeView === "messages" ? (
+        <PlayerMessages identityMessage={identity.message} messages={nightMessages} />
+      ) : null}
+
+    </main>
+  );
+}
+
+function IdentityView({
+  identity,
+  role,
+  roomCode,
+  revealed,
+  unreadCount,
+  onReveal,
+  onHide,
+}: {
+  identity: IdentityPayload;
+  role: ReturnType<typeof getRole>;
+  roomCode: string;
+  revealed: boolean;
+  unreadCount: number;
+  onReveal: () => void;
+  onHide: () => void;
+}) {
+  return (
+    <section className={revealed ? "identity-envelope revealed" : "identity-envelope"}>
         <div className="identity-room-code">
           <CheckCircle2 size={14} />
           房间 {roomCode} · 已入座
@@ -315,42 +465,9 @@ function ClaimedIdentity({
                 <p>{identity.message}</p>
               </div>
             ) : null}
-            {nightMessages.length ? (
-              <section className="player-night-messages">
-                <div className="player-night-heading">
-                  <div>
-                    <span>夜间信息</span>
-                    <strong>{nightMessages.length} 条</strong>
-                  </div>
-                  <MessageSquareText size={18} />
-                </div>
-                <div className="player-night-list">
-                  {nightMessages.map((message, index) => {
-                    const messageRole = getRole(message.role_id);
-                    return (
-                      <article
-                        className={index === 0 ? "player-night-message latest" : "player-night-message"}
-                        key={message.id}
-                      >
-                        <div>
-                          <span>第 {message.round} 回合 · {messageRole.name}</span>
-                          <time>
-                            {new Date(message.created_at).toLocaleTimeString("zh-CN", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </time>
-                        </div>
-                        <p>{message.body}</p>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-            ) : null}
             <button
               className="identity-reveal-button secondary"
-              onClick={() => setRevealed(false)}
+              onClick={onHide}
             >
               隐藏身份
             </button>
@@ -359,23 +476,80 @@ function ClaimedIdentity({
           <>
             <ShieldCheck size={27} className="identity-shield" />
             <p className="identity-intro">请确认周围没有其他玩家，然后独自揭示你的身份。</p>
-            {nightMessages.length ? (
+            {unreadCount ? (
               <div className="night-message-alert">
                 <MoonStar size={16} />
-                已收到 {nightMessages.length} 条夜间信息
+                有 {unreadCount} 条未读上帝消息
               </div>
             ) : null}
-            <button className="identity-reveal-button" onClick={() => setRevealed(true)}>
+            <button className="identity-reveal-button" onClick={onReveal}>
               查看我的身份
             </button>
           </>
         )}
       </section>
-    </main>
   );
 }
 
-const teamClass = (team: string) =>
+function PlayerMessages({
+  identityMessage,
+  messages,
+}: {
+  identityMessage: string;
+  messages: NightMessage[];
+}) {
+  return (
+    <section className="player-view-panel player-message-view">
+      <div className="player-view-heading">
+        <div>
+          <p className="eyebrow">STORYTELLER MESSAGES</p>
+          <h2>上帝消息</h2>
+        </div>
+        <MessageSquareText size={22} />
+      </div>
+
+      {identityMessage ? (
+        <div className="player-pinned-message">
+          <span>身份附言</span>
+          <p>{identityMessage}</p>
+        </div>
+      ) : null}
+
+      {messages.length ? (
+        <div className="player-message-timeline">
+          {messages.map((message, index) => {
+            const messageRole = getRole(message.role_id);
+            return (
+              <article
+                className={index === 0 ? "player-message-item latest" : "player-message-item"}
+                key={message.id}
+              >
+                <div className="player-message-meta">
+                  <span>第 {message.round} 回合 · {messageRole.name}</span>
+                  <time>
+                    {new Date(message.created_at).toLocaleTimeString("zh-CN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </time>
+                </div>
+                <p>{message.body}</p>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="player-message-empty">
+          <MessageSquareText size={25} />
+          <h3>暂无上帝消息</h3>
+          <p>主持人发送的新信息会自动出现在这里。</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+const teamClass = (team: Team) =>
   team === "镇民"
     ? "townsfolk"
     : team === "外来者"
