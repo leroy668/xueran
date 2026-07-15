@@ -185,7 +185,8 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .player-notes-heading > span { color: var(--muted); font-size: 10px; }
 .player-notes-heading > strong { min-width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--line); color: var(--gold); font-size: 8px; }
 .player-note-composer { padding: 9px; border: 1px solid var(--line); background: #19191c; }
-.player-note-composer textarea { min-height: 54px; padding: 8px; font-size: 11px; }
+.player-note-composer textarea { width: 100%; min-height: 66px; padding: 10px; resize: vertical; border: 1px solid var(--line-light); background: #222226; color: var(--ink); font-size: 11px; line-height: 1.55; }
+.player-note-composer textarea::placeholder { color: #858287; opacity: 1; }
 .player-note-composer > div { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-top: 7px; }
 .player-note-composer > div > span { color: var(--dim); font-size: 8px; }
 .player-note-add { min-height: 30px; padding: 0 9px; font-size: 9px; }
@@ -197,7 +198,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .player-note-meta time { margin-left: auto; color: var(--dim); font-size: 8px; }
 .player-note-meta button { width: 24px; height: 24px; display: grid; place-items: center; border: 0; background: transparent; color: var(--dim); }
 .player-note-meta button:hover { color: var(--red); }
-.player-note-item textarea { min-height: 46px; padding: 7px; border-color: transparent; background: #222226; font-size: 11px; line-height: 1.45; }
+.player-note-item textarea { width: 100%; min-height: 46px; padding: 8px 9px; resize: vertical; border: 1px solid #303036; background: #202024; color: #eee9e2; caret-color: var(--gold); font-size: 11px; line-height: 1.55; }
 .player-note-item textarea:focus { border-color: var(--line-light); }
 .player-note-empty { min-height: 48px; display: grid; place-items: center; border: 1px dashed var(--line); color: var(--dim); font-size: 9px; }
 .player-message-history { margin-top: 15px; border-top: 1px solid var(--line); padding-top: 13px; }
