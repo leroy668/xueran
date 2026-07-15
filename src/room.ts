@@ -11,6 +11,7 @@ export type SharedRoom = {
   phase: GameState["phase"];
   round: number;
   status: "open" | "closed";
+  simulation_enabled: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -22,6 +23,7 @@ export type PublicRoomPlayer = {
   name: string;
   alive: boolean;
   is_claimed: boolean;
+  is_simulated: boolean;
   updated_at: string;
 };
 
@@ -369,6 +371,17 @@ export const claimSeat = async (
 export const revokeClaim = async (playerId: string) => {
   const { error } = await supabase.rpc("xueran_revoke_claim", {
     p_player_id: playerId,
+  });
+  if (error) throw error;
+};
+
+export const setRoomSimulation = async (
+  roomId: string,
+  enabled: boolean,
+) => {
+  const { error } = await supabase.rpc("xueran_set_simulated_players", {
+    p_room_id: roomId,
+    p_enabled: enabled,
   });
   if (error) throw error;
 };

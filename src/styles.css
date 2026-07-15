@@ -92,8 +92,20 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .room-scan-copy { text-align: center; color: var(--muted); font-size: 10px; margin: 0 0 10px; }
 .room-copy-button { width: 100%; min-height: 34px; font-size: 11px; }
 .claim-section { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--line); }
+.simulation-toggle { min-height: 48px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid rgba(55,55,61,.7); display: grid; grid-template-columns: minmax(0,1fr) 34px; align-items: center; gap: 10px; cursor: pointer; }
+.simulation-toggle-copy { min-width: 0; }
+.simulation-toggle-copy strong, .simulation-toggle-copy small { display: block; }
+.simulation-toggle-copy strong { color: var(--ink); font-size: 11px; }
+.simulation-toggle-copy small { margin-top: 4px; color: var(--dim); font-size: 9px; line-height: 1.4; }
+.simulation-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.simulation-toggle-track { position: relative; width: 34px; height: 19px; border: 1px solid var(--line-light); border-radius: 10px; background: #242428; transition: border-color .18s ease, background .18s ease; }
+.simulation-toggle-track > span { position: absolute; top: 3px; left: 3px; width: 11px; height: 11px; border-radius: 50%; background: var(--muted); transition: transform .18s ease, background .18s ease; }
+.simulation-toggle input:checked + .simulation-toggle-track { border-color: rgba(121,181,138,.55); background: rgba(121,181,138,.18); }
+.simulation-toggle input:checked + .simulation-toggle-track > span { transform: translateX(15px); background: var(--green); }
+.simulation-toggle input:focus-visible + .simulation-toggle-track { outline: 2px solid var(--gold); outline-offset: 2px; }
+.simulation-toggle input:disabled + .simulation-toggle-track { opacity: .55; }
 .claim-section-heading { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 11px; }
-.claim-section-heading strong { min-width: 20px; height: 20px; display: grid; place-items: center; color: var(--ink); background: var(--panel-raised); border-radius: 10px; }
+.claim-section-heading strong { min-width: 36px; height: 20px; padding: 0 6px; display: grid; place-items: center; color: var(--ink); background: var(--panel-raised); border-radius: 10px; }
 .claim-empty { color: var(--dim); font-size: 10px; line-height: 1.5; margin: 10px 0 0; }
 .claimed-list { margin-top: 10px; }
 .claimed-list-title { display: flex; align-items: center; gap: 6px; color: var(--green); font-size: 10px; margin-bottom: 7px; }

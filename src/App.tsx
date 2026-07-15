@@ -54,6 +54,7 @@ import {
   revokeClaim,
   sendEvilMessage,
   sendNightMessage,
+  setRoomSimulation,
   syncRoom,
   type EvilMessage,
   type NightMessage,
@@ -640,6 +641,27 @@ function GrimoireApp() {
     }
   };
 
+  const handleToggleSimulation = async (enabled: boolean) => {
+    if (!room) return;
+    setRoomBusy(true);
+    try {
+      await setRoomSimulation(room.id, enabled);
+      setRoom((current) =>
+        current ? { ...current, simulation_enabled: enabled } : current,
+      );
+      await refreshRoomAdmin(room);
+      setToast(
+        enabled
+          ? "模拟模式已开启，所有空座均视为已入座"
+          : "模拟模式已关闭，真实玩家保持入座",
+      );
+    } catch {
+      setToast("模拟开关启用失败，请检查 Supabase 数据库配置");
+    } finally {
+      setRoomBusy(false);
+    }
+  };
+
   const endSharedRoom = async () => {
     if (!room || !window.confirm("结束共享房间？所有玩家将无法继续查看身份。")) return;
     try {
@@ -780,6 +802,9 @@ function GrimoireApp() {
                 onCreate={() => void startSharedRoom()}
                 onCopy={() => void shareRoom()}
                 onRevoke={(playerId) => void handleRevokeClaim(playerId)}
+                onToggleSimulation={(enabled) =>
+                  void handleToggleSimulation(enabled)
+                }
                 onClose={() => void endSharedRoom()}
               />
             }

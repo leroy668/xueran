@@ -20,6 +20,7 @@ type Props = {
   onCreate: () => void;
   onCopy: () => void;
   onRevoke: (playerId: string) => void;
+  onToggleSimulation: (enabled: boolean) => void;
   onClose: () => void;
 };
 
@@ -32,6 +33,7 @@ export function HostRoomPanel({
   onCreate,
   onCopy,
   onRevoke,
+  onToggleSimulation,
   onClose,
 }: Props) {
   if (!room) {
@@ -53,6 +55,9 @@ export function HostRoomPanel({
   }
 
   const claimedPlayers = players.filter((player) => player.is_claimed);
+  const simulationEnabled =
+    room.simulation_enabled ||
+    players.some((player) => player.is_simulated);
 
   return (
     <section className="host-room-panel">
@@ -96,9 +101,26 @@ export function HostRoomPanel({
       </button>
 
       <div className="claim-section">
+        <label className="simulation-toggle">
+          <span className="simulation-toggle-copy">
+            <strong>模拟全员入座</strong>
+            <small>空座使用测试玩家，可随时恢复真实状态</small>
+          </span>
+          <input
+            type="checkbox"
+            checked={simulationEnabled}
+            disabled={busy}
+            onChange={(event) => onToggleSimulation(event.target.checked)}
+          />
+          <span className="simulation-toggle-track" aria-hidden="true">
+            <span />
+          </span>
+        </label>
         <div className="claim-section-heading">
           <span>已入座玩家</span>
-          <strong>{claimedPlayers.length}</strong>
+          <strong>
+            {claimedPlayers.length}/{players.length}
+          </strong>
         </div>
         {claimedPlayers.length ? (
           <div className="claimed-list">
@@ -110,7 +132,10 @@ export function HostRoomPanel({
               <div className="claimed-row" key={player.id}>
                 <span>
                   <strong>{player.name || `座位 ${player.seat}`}</strong>
-                  <small>座位 {player.seat}</small>
+                  <small>
+                    座位 {player.seat}
+                    {player.is_simulated ? " · 模拟" : ""}
+                  </small>
                 </span>
                 <button onClick={() => onRevoke(player.id)}>撤销</button>
               </div>
