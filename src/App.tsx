@@ -684,7 +684,7 @@ function GrimoirePanel({
                       <span className="table-role-icon">
                         <RoleIcon
                           roleId={role.id}
-                          size={state.players.length > 10 ? 18 : 21}
+                          size={state.players.length > 10 ? 18 : 22}
                         />
                       </span>
                       <span className="table-player-name">{getTableName(player)}</span>
