@@ -226,7 +226,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 
 .night-layout { grid-template-columns: minmax(0, 1fr); }
 .night-nav { gap: 6px; }
-.current-action { position: relative; display: flex; align-items: center; gap: 17px; margin: 22px 0; border: 1px solid var(--line); border-left: 3px solid var(--gold); padding: 20px; background: #222226; }
+.current-action { position: relative; display: flex; align-items: center; gap: 17px; margin: 0 0 22px; border: 1px solid var(--line); border-left: 3px solid var(--gold); padding: 20px; background: #222226; }
 .current-action.townsfolk { border-left-color: var(--blue); }
 .current-action.outsider { border-left-color: var(--green); }
 .current-action.minion { border-left-color: var(--purple); }
@@ -236,6 +236,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .current-action p:not(.eyebrow) { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .current-role-team { margin-left: auto; align-self: flex-start; color: var(--dim); font-size: 11px; }
 .night-message-composer { margin: 0 0 24px; padding: 18px 0 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.night-action-heading { margin-bottom: 12px; }
 .night-message-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .night-message-heading h3 { margin: 0; font-size: 17px; }
 .night-message-heading > svg { color: var(--gold); }

@@ -1334,16 +1334,6 @@ function NightPanel({
   return (
     <div className="night-layout">
       <section className="night-main">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">NIGHT ORDER · 第 {state.round} 回合</p>
-            <h2>夜晚行动台</h2>
-          </div>
-          <div className="night-nav">
-            <button className="icon-button" onClick={() => onChangeNight(-1)} disabled={!nightRoles.length} title="上一个行动"><ChevronLeft size={17} /></button>
-            <button className="icon-button" onClick={() => onChangeNight(1)} disabled={!nightRoles.length} title="下一个行动"><ChevronRight size={17} /></button>
-          </div>
-        </div>
         {currentRole ? (
           <div className={`current-action ${teamLabels[currentRole.team]}`}>
             <div className="current-role-icon">
@@ -1356,13 +1346,7 @@ function NightPanel({
             </div>
             <div className="current-role-team">{currentRole.team}</div>
           </div>
-        ) : (
-          <div className="empty-state compact">
-            <div className="empty-glyph"><MoonStar size={26} /></div>
-            <h3>还没有可执行的夜晚行动</h3>
-            <p>在魔典里添加玩家并分配角色，夜晚顺序会自动生成。</p>
-          </div>
-        )}
+        ) : null}
         {currentRole ? (
           <section className="night-message-composer">
             <div className="night-message-heading">
@@ -1424,23 +1408,41 @@ function NightPanel({
             {sendError ? <div className="inline-error">{sendError}</div> : null}
           </section>
         ) : null}
-        <div className="night-list">
-          {nightRoles.map((role, index) => (
-            <button
-              className={currentRole?.id === role.id ? "night-row active" : "night-row"}
-              key={role.id}
-              onClick={() => onSelectNight(index)}
-            >
-              <span className="night-index">{String(index + 1).padStart(2, "0")}</span>
-              <span className={`mini-role-icon ${teamLabels[role.team]}`}>
-                <RoleIcon roleId={role.id} size={16} />
-              </span>
-              <span className="night-role-name">{role.name}</span>
-              <span className="night-role-team">{role.team}</span>
-              {currentRole?.id === role.id ? <span className="on-air">进行中</span> : null}
-            </button>
-          ))}
+        <div className="panel-heading night-action-heading">
+          <div>
+            <p className="eyebrow">NIGHT ORDER · 第 {state.round} 回合</p>
+            <h2>夜晚行动台</h2>
+          </div>
+          <div className="night-nav">
+            <button className="icon-button" onClick={() => onChangeNight(-1)} disabled={!nightRoles.length} title="上一个行动"><ChevronLeft size={17} /></button>
+            <button className="icon-button" onClick={() => onChangeNight(1)} disabled={!nightRoles.length} title="下一个行动"><ChevronRight size={17} /></button>
+          </div>
         </div>
+        {currentRole ? (
+          <div className="night-list">
+            {nightRoles.map((role, index) => (
+              <button
+                className={currentRole.id === role.id ? "night-row active" : "night-row"}
+                key={role.id}
+                onClick={() => onSelectNight(index)}
+              >
+                <span className="night-index">{String(index + 1).padStart(2, "0")}</span>
+                <span className={`mini-role-icon ${teamLabels[role.team]}`}>
+                  <RoleIcon roleId={role.id} size={16} />
+                </span>
+                <span className="night-role-name">{role.name}</span>
+                <span className="night-role-team">{role.team}</span>
+                {currentRole.id === role.id ? <span className="on-air">进行中</span> : null}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state compact">
+            <div className="empty-glyph"><MoonStar size={26} /></div>
+            <h3>还没有可执行的夜晚行动</h3>
+            <p>在魔典里添加玩家并分配角色，夜晚顺序会自动生成。</p>
+          </div>
+        )}
       </section>
     </div>
   );
