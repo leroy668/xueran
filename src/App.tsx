@@ -4,7 +4,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   Dices,
   MoonStar,
   MessageSquareText,
@@ -462,7 +461,7 @@ function GrimoireApp() {
       <header className="topbar">
         <div className="brand-lockup">
           <div className="brand-seal" aria-hidden="true">
-            <Clock3 size={21} strokeWidth={1.8} />
+            <RoleIcon roleId="imp" size={24} className="brand-game-icon" />
           </div>
           <h1>儿戏的血染钟楼</h1>
         </div>
