@@ -155,13 +155,13 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .table-seat.dense .table-role-name { margin-top: 2px; font-size: 8px; }
 .table-seat.very-dense { width: 62px; height: 50px; grid-template-columns: 22px minmax(0, 1fr); }
 .table-seat.very-dense .table-role-icon { width: 21px; height: 21px; }
-.grimoire-workbench.crowded .grimoire-table { width: min(100%, 650px); aspect-ratio: auto; border-radius: 0; box-shadow: inset 0 0 0 1px var(--line); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 10px; }
+.grimoire-workbench.crowded .grimoire-table { width: min(100%, 650px); aspect-ratio: auto; border-radius: 0; box-shadow: inset 0 0 0 1px var(--line); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 8px; }
 .grimoire-workbench.crowded .grimoire-table::before, .grimoire-workbench.crowded .table-center { display: none; }
-.grimoire-workbench.crowded .table-seat { position: relative; left: auto !important; top: auto !important; width: 100%; height: 66px; transform: none; grid-template-columns: 34px minmax(0, 1fr); grid-template-rows: 1fr 1fr; column-gap: 6px; padding: 9px 6px 6px; }
+.grimoire-workbench.crowded .table-seat { position: relative; left: auto !important; top: auto !important; width: 100%; height: 56px; transform: none; grid-template-columns: 34px minmax(0, 1fr); grid-template-rows: 1fr 1fr; column-gap: 6px; padding: 6px 5px 4px; }
 .grimoire-workbench.crowded .table-seat.selected { transform: none; }
-.grimoire-workbench.crowded .table-seat .table-role-icon { width: 32px; height: 32px; }
+.grimoire-workbench.crowded .table-seat .table-role-icon { width: 33px; height: 33px; }
 .grimoire-workbench.crowded .table-seat .table-player-name { padding-right: 14px; font-size: 10px; }
-.grimoire-workbench.crowded .table-seat .table-role-name { margin-top: 3px; font-size: 9px; }
+.grimoire-workbench.crowded .table-seat .table-role-name { margin-top: 1px; font-size: 9px; }
 
 .player-editor { min-width: 0; border: 1px solid var(--line); border-top: 3px solid var(--gold); background: #202023; padding: 16px; }
 .player-editor.dead { border-top-color: var(--dim); }
@@ -391,13 +391,13 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .table-seat.dense .table-role-icon { width: 23px; height: 23px; font-size: 8px; }
   .table-seat.dense .table-player-name { font-size: 8px; }
   .table-seat.dense .table-role-name { font-size: 7px; }
-  .grimoire-workbench.large .grimoire-table { width: 100%; aspect-ratio: auto; border-radius: 0; box-shadow: inset 0 0 0 1px var(--line); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 8px; }
+  .grimoire-workbench.large .grimoire-table { width: 100%; aspect-ratio: auto; border-radius: 0; box-shadow: inset 0 0 0 1px var(--line); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 6px; }
   .grimoire-workbench.large .grimoire-table::before, .grimoire-workbench.large .table-center { display: none; }
-  .grimoire-workbench.large .table-seat { position: relative; left: auto !important; top: auto !important; width: 100%; height: 64px; transform: none; grid-template-columns: 29px minmax(0, 1fr); grid-template-rows: 1fr 1fr; column-gap: 5px; padding: 8px 4px 6px; }
+  .grimoire-workbench.large .table-seat { position: relative; left: auto !important; top: auto !important; width: 100%; height: 52px; transform: none; grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: 1fr 1fr; column-gap: 4px; padding: 5px 4px 3px; }
   .grimoire-workbench.large .table-seat.selected { transform: none; }
-  .grimoire-workbench.large .table-seat .table-role-icon { width: 28px; height: 28px; font-size: 8px; }
-  .grimoire-workbench.large .table-seat .table-player-name { padding-right: 12px; font-size: 9px; }
-  .grimoire-workbench.large .table-seat .table-role-name { display: inline; margin-top: 2px; font-size: 8px; }
+  .grimoire-workbench.large .table-seat .table-role-icon { width: 30px; height: 30px; font-size: 8px; }
+  .grimoire-workbench.large .table-seat .table-player-name { padding-right: 8px; font-size: 9px; }
+  .grimoire-workbench.large .table-seat .table-role-name { display: inline; margin-top: 0; font-size: 8px; }
   .player-editor { padding: 14px; }
   .empty-state { min-height: 290px; }
   .empty-actions { flex-direction: column; width: 100%; max-width: 220px; }
