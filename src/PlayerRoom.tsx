@@ -17,6 +17,7 @@ import {
   type PublicRoomPlayer,
   type SharedRoom,
 } from "./room";
+import { RoleIcon } from "./RoleIcon";
 import { ensureAnonymousSession, supabase } from "./supabase";
 import type { IdentityPayload } from "./types";
 
@@ -265,7 +266,7 @@ function ClaimedIdentity({
           房间 {roomCode} · 已入座
         </div>
         <div className="identity-seal" aria-hidden="true">
-          {revealed ? role.icon : "血"}
+          {revealed ? <RoleIcon roleId={role.id} size={29} /> : "血"}
         </div>
         <p className="eyebrow">
           PRIVATE IDENTITY · 座位 {String(identity.seat).padStart(2, "0")}
@@ -275,7 +276,9 @@ function ClaimedIdentity({
         {revealed ? (
           <>
             <div className={`identity-role-card ${teamClass(role.team)}`}>
-              <span className="identity-role-icon">{role.icon}</span>
+              <span className="identity-role-icon">
+                <RoleIcon roleId={role.id} size={30} />
+              </span>
               <div>
                 <span className="identity-team">{role.team}</span>
                 <h2>{role.name}</h2>

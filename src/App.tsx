@@ -24,6 +24,7 @@ import {
 import { getNightRoles, getRole, roles, scripts } from "./data";
 import { HostRoomPanel } from "./HostRoomPanel";
 import { PlayerRoom } from "./PlayerRoom";
+import { RoleIcon } from "./RoleIcon";
 import {
   activeRoomStorageKey,
   buildRoomUrl,
@@ -718,7 +719,9 @@ function GrimoirePanel({
                       <span className="table-seat-number">
                         {String(player.seat).padStart(2, "0")}
                       </span>
-                      <span className="table-role-icon">{role.icon}</span>
+                      <span className="table-role-icon">
+                        <RoleIcon roleId={role.id} size={15} />
+                      </span>
                       <span className="table-player-name">{getDisplayName(player)}</span>
                       <span className="table-role-name">{role.name}</span>
                       {roomPlayer?.is_claimed ? (
@@ -808,7 +811,9 @@ function PlayerEditor({
       </label>
 
       <div className={`selected-role-summary ${teamLabels[role.team]}`}>
-        <span className="selected-role-icon">{role.icon}</span>
+        <span className="selected-role-icon">
+          <RoleIcon roleId={role.id} size={20} />
+        </span>
         <div>
           <strong>{role.name}</strong>
           <small>{role.team}</small>
@@ -880,7 +885,7 @@ function IdentityReveal({ identity }: { identity: IdentityPayload }) {
     <main className="identity-page">
       <section className={revealed ? "identity-envelope revealed" : "identity-envelope"}>
         <div className="identity-seal" aria-hidden="true">
-          {revealed ? role.icon : "血"}
+          {revealed ? <RoleIcon roleId={role.id} size={29} /> : "血"}
         </div>
         <p className="eyebrow">PRIVATE IDENTITY · 座位 {String(identity.seat).padStart(2, "0")}</p>
         <h1>{identity.playerName}的身份密函</h1>
@@ -888,7 +893,9 @@ function IdentityReveal({ identity }: { identity: IdentityPayload }) {
         {revealed ? (
           <>
             <div className={`identity-role-card ${teamLabels[role.team]}`}>
-              <span className="identity-role-icon">{role.icon}</span>
+              <span className="identity-role-icon">
+                <RoleIcon roleId={role.id} size={30} />
+              </span>
               <div>
                 <span className="identity-team">{role.team}</span>
                 <h2>{role.name}</h2>
@@ -952,7 +959,9 @@ function NightPanel({
         </div>
         {currentRole ? (
           <div className={`current-action ${teamLabels[currentRole.team]}`}>
-            <div className="current-role-icon">{currentRole.icon}</div>
+            <div className="current-role-icon">
+              <RoleIcon roleId={currentRole.id} size={29} />
+            </div>
             <div>
               <p className="eyebrow">CURRENT ACTION</p>
               <h3>{currentRole.name}</h3>
@@ -975,7 +984,9 @@ function NightPanel({
               onClick={() => onSelectNight(index)}
             >
               <span className="night-index">{String(index + 1).padStart(2, "0")}</span>
-              <span className={`mini-role-icon ${teamLabels[role.team]}`}>{role.icon}</span>
+              <span className={`mini-role-icon ${teamLabels[role.team]}`}>
+                <RoleIcon roleId={role.id} size={16} />
+              </span>
               <span className="night-role-name">{role.name}</span>
               <span className="night-role-team">{role.team}</span>
               {currentRole?.id === role.id ? <span className="on-air">进行中</span> : null}
@@ -1048,7 +1059,9 @@ function ScriptPanel({
         <div className="role-table">
           {filteredRoles.map((role) => (
             <div className="role-row" key={role.id}>
-              <span className={`mini-role-icon ${teamLabels[role.team]}`}>{role.icon}</span>
+              <span className={`mini-role-icon ${teamLabels[role.team]}`}>
+                <RoleIcon roleId={role.id} size={16} />
+              </span>
               <strong>{role.name}</strong>
               <span className={`team-label ${teamLabels[role.team]}`}>{role.team}</span>
               <p>{role.short}</p>
