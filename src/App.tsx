@@ -377,7 +377,7 @@ function GrimoireApp() {
     try {
       if (navigator.share) {
         await navigator.share({
-          title: `血染钟楼房间 ${room.code}`,
+          title: `儿戏的血染钟楼房间 ${room.code}`,
           text: "打开链接，填写你的名字并选择现场座位号。",
           url,
         });
@@ -465,7 +465,7 @@ function GrimoireApp() {
           </div>
           <div>
             <p className="eyebrow">STORYTELLER'S TOOL</p>
-            <h1>血染钟楼 · 上帝魔典</h1>
+            <h1>儿戏的血染钟楼</h1>
           </div>
         </div>
         <div className="top-actions">
