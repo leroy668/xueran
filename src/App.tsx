@@ -1166,78 +1166,17 @@ function NightPanel({
           </div>
         </div>
         {currentRole ? (
-          <>
-            <div className={`current-action ${teamLabels[currentRole.team]}`}>
-              <div className="current-role-icon">
-                <RoleIcon roleId={currentRole.id} size={29} />
-              </div>
-              <div>
-                <p className="eyebrow">CURRENT ACTION</p>
-                <h3>{currentRole.name}</h3>
-                <p>{currentRole.reminder}</p>
-              </div>
-              <div className="current-role-team">{currentRole.team}</div>
+          <div className={`current-action ${teamLabels[currentRole.team]}`}>
+            <div className="current-role-icon">
+              <RoleIcon roleId={currentRole.id} size={29} />
             </div>
-            <section className="night-message-composer">
-              <div className="night-message-heading">
-                <div>
-                  <p className="eyebrow">PRIVATE NIGHT MESSAGE</p>
-                  <h3>发送夜间信息</h3>
-                </div>
-                <MessageSquareText size={20} />
-              </div>
-              <div className="night-message-controls">
-                <label>
-                  <span>接收玩家</span>
-                  <select
-                    value={targetPlayerId}
-                    onChange={(event) => setTargetPlayerId(event.target.value)}
-                    disabled={!rolePlayers.length || sending}
-                  >
-                    {rolePlayers.map((player) => {
-                      const roomPlayer = roomPlayersById.get(player.id);
-                      return (
-                        <option key={player.id} value={player.id}>
-                          座位 {String(player.seat).padStart(2, "0")}
-                          {roomPlayer?.name ? ` · ${roomPlayer.name}` : ""}
-                          {roomPlayer?.is_claimed ? "" : " · 未入座"}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </label>
-                <label>
-                  <span>告知内容</span>
-                  <textarea
-                    value={messageBody}
-                    onChange={(event) => setMessageBody(event.target.value)}
-                    placeholder={`输入需要告知${currentRole.name}的信息`}
-                    maxLength={500}
-                    rows={3}
-                    disabled={sending}
-                  />
-                </label>
-              </div>
-              <div className="night-message-footer">
-                <span>
-                  {!room
-                    ? "请先在魔典页创建共享房间"
-                    : !selectedRoomPlayer?.is_claimed
-                      ? "该座位入座后才可接收"
-                      : `${messageBody.length}/500`}
-                </span>
-                <button
-                  className="primary-button night-send-button"
-                  disabled={!canSend}
-                  onClick={() => void submitMessage()}
-                >
-                  <Send size={15} />
-                  {sending ? "发送中" : "发送"}
-                </button>
-              </div>
-              {sendError ? <div className="inline-error">{sendError}</div> : null}
-            </section>
-          </>
+            <div>
+              <p className="eyebrow">CURRENT ACTION</p>
+              <h3>{currentRole.name}</h3>
+              <p>{currentRole.reminder}</p>
+            </div>
+            <div className="current-role-team">{currentRole.team}</div>
+          </div>
         ) : (
           <div className="empty-state compact">
             <div className="empty-glyph"><MoonStar size={26} /></div>
@@ -1262,6 +1201,67 @@ function NightPanel({
             </button>
           ))}
         </div>
+        {currentRole ? (
+          <section className="night-message-composer">
+            <div className="night-message-heading">
+              <div>
+                <p className="eyebrow">PRIVATE NIGHT MESSAGE</p>
+                <h3>发送夜间信息</h3>
+              </div>
+              <MessageSquareText size={20} />
+            </div>
+            <div className="night-message-controls">
+              <label>
+                <span>接收玩家</span>
+                <select
+                  value={targetPlayerId}
+                  onChange={(event) => setTargetPlayerId(event.target.value)}
+                  disabled={!rolePlayers.length || sending}
+                >
+                  {rolePlayers.map((player) => {
+                    const roomPlayer = roomPlayersById.get(player.id);
+                    return (
+                      <option key={player.id} value={player.id}>
+                        座位 {String(player.seat).padStart(2, "0")}
+                        {roomPlayer?.name ? ` · ${roomPlayer.name}` : ""}
+                        {roomPlayer?.is_claimed ? "" : " · 未入座"}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+              <label>
+                <span>告知内容</span>
+                <textarea
+                  value={messageBody}
+                  onChange={(event) => setMessageBody(event.target.value)}
+                  placeholder={`输入需要告知${currentRole.name}的信息`}
+                  maxLength={500}
+                  rows={3}
+                  disabled={sending}
+                />
+              </label>
+            </div>
+            <div className="night-message-footer">
+              <span>
+                {!room
+                  ? "请先在魔典页创建共享房间"
+                  : !selectedRoomPlayer?.is_claimed
+                    ? "该座位入座后才可接收"
+                    : `${messageBody.length}/500`}
+              </span>
+              <button
+                className="primary-button night-send-button"
+                disabled={!canSend}
+                onClick={() => void submitMessage()}
+              >
+                <Send size={15} />
+                {sending ? "发送中" : "发送"}
+              </button>
+            </div>
+            {sendError ? <div className="inline-error">{sendError}</div> : null}
+          </section>
+        ) : null}
       </section>
     </div>
   );
