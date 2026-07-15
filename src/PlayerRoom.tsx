@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   Eye,
@@ -535,6 +535,7 @@ function PlayerMessages({
   const [messageBody, setMessageBody] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
+  const timelineRef = useRef<HTMLDivElement>(null);
   const timeline = [
     ...hostMessages.map((message) => ({
       ...message,
@@ -550,6 +551,18 @@ function PlayerMessages({
     (left, right) =>
       new Date(left.created_at).getTime() - new Date(right.created_at).getTime(),
   );
+  const latestMessageKey = timeline.length
+    ? `${timeline[timeline.length - 1].direction}-${timeline[timeline.length - 1].id}`
+    : "";
+
+  useEffect(() => {
+    const timelineElement = timelineRef.current;
+    if (!timelineElement) return;
+    const frame = requestAnimationFrame(() => {
+      timelineElement.scrollTop = timelineElement.scrollHeight;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [latestMessageKey]);
 
   const submitMessage = async () => {
     const body = messageBody.trim();
@@ -577,29 +590,36 @@ function PlayerMessages({
     <section className="player-view-panel player-message-view">
       <div className="player-view-heading">
         <div>
-          <p className="eyebrow">STORYTELLER MESSAGES</p>
-          <h2>上帝消息</h2>
+          <p className="eyebrow">PRIVATE CHAT</p>
+          <h2>与上帝聊天</h2>
         </div>
         <MessageSquareText size={22} />
       </div>
 
       {timeline.length ? (
-        <div className="player-message-timeline">
+        <div className="player-message-timeline" ref={timelineRef}>
           {timeline.map((message) => (
             <article
               className={`player-message-item ${message.direction}`}
               key={`${message.direction}-${message.id}`}
             >
-              <div className="player-message-meta">
-                <span>{message.label}</span>
-                <time>
-                  {new Date(message.created_at).toLocaleTimeString("zh-CN", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </time>
+              <span className="player-message-avatar" aria-hidden="true">
+                {message.direction === "incoming" ? "上" : "我"}
+              </span>
+              <div className="player-message-content">
+                <div className="player-message-meta">
+                  <span>{message.label}</span>
+                  <time>
+                    {new Date(message.created_at).toLocaleTimeString("zh-CN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </time>
+                </div>
+                <div className="player-message-bubble">
+                  <p>{message.body}</p>
+                </div>
               </div>
-              <p>{message.body}</p>
             </article>
           ))}
         </div>
@@ -612,25 +632,33 @@ function PlayerMessages({
       )}
 
       <div className="player-chat-composer">
-        <textarea
-          value={messageBody}
-          onChange={(event) => setMessageBody(event.target.value)}
-          placeholder="给上帝发送私密信息"
-          maxLength={500}
-          rows={2}
-          disabled={sending}
-        />
-        <div>
-          <span>{messageBody.length}/500</span>
+        <div className="player-chat-composer-row">
+          <textarea
+            value={messageBody}
+            onChange={(event) => setMessageBody(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                void submitMessage();
+              }
+            }}
+            placeholder="发送消息"
+            aria-label="发送给上帝的消息"
+            maxLength={500}
+            rows={1}
+            disabled={sending}
+          />
           <button
             className="primary-button"
+            aria-label="发送消息"
             disabled={!messageBody.trim() || sending}
             onClick={() => void submitMessage()}
           >
-            <Send size={14} />
-            {sending ? "发送中" : "发送"}
+            <Send size={18} />
+            <span>{sending ? "发送中" : "发送"}</span>
           </button>
         </div>
+        <span className="player-message-count">{messageBody.length}/500</span>
         {sendError ? <div className="inline-error">{sendError}</div> : null}
       </div>
     </section>
