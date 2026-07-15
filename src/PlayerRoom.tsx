@@ -406,7 +406,7 @@ function ClaimedIdentity({
       ) : null}
 
       {activeView === "messages" ? (
-        <PlayerMessages identityMessage={identity.message} messages={nightMessages} />
+        <PlayerMessages messages={nightMessages} />
       ) : null}
 
     </main>
@@ -459,12 +459,6 @@ function IdentityView({
               <span>角色能力</span>
               <p>{role.short}</p>
             </div>
-            {identity.message ? (
-              <div className="identity-message-panel">
-                <span>主持人私信</span>
-                <p>{identity.message}</p>
-              </div>
-            ) : null}
             <button
               className="identity-reveal-button secondary"
               onClick={onHide}
@@ -492,10 +486,8 @@ function IdentityView({
 }
 
 function PlayerMessages({
-  identityMessage,
   messages,
 }: {
-  identityMessage: string;
   messages: NightMessage[];
 }) {
   return (
@@ -507,13 +499,6 @@ function PlayerMessages({
         </div>
         <MessageSquareText size={22} />
       </div>
-
-      {identityMessage ? (
-        <div className="player-pinned-message">
-          <span>身份附言</span>
-          <p>{identityMessage}</p>
-        </div>
-      ) : null}
 
       {messages.length ? (
         <div className="player-message-timeline">

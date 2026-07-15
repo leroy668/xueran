@@ -73,7 +73,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .notes-field > span { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
 textarea, input, select { outline: none; }
 textarea:focus, input:focus, select:focus { border-color: var(--red) !important; }
-.notes-field textarea, .identity-message, .player-notes, .role-library-heading input { width: 100%; background: #17171a; border: 1px solid var(--line); color: var(--ink); padding: 10px; resize: vertical; }
+.notes-field textarea, .player-notes, .role-library-heading input { width: 100%; background: #17171a; border: 1px solid var(--line); color: var(--ink); padding: 10px; resize: vertical; }
 .notes-field textarea { min-height: 105px; }
 .privacy-note { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 11px; margin-top: 22px; }
 .room-launcher { margin-top: 24px; padding: 15px; border: 1px solid rgba(213,166,110,.34); background: rgba(213,166,110,.05); }
@@ -166,8 +166,6 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .player-editor-topline h3 { margin: 0; min-width: 0; font-size: 18px; overflow-wrap: anywhere; }
 .life-toggle { margin-left: auto; border: 1px solid var(--line); background: transparent; color: var(--muted); min-height: 24px; padding: 0 7px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
 .life-toggle.alive { color: var(--green); border-color: rgba(121,181,138,.3); }
-.player-claim-state { min-height: 34px; margin: 12px 0; display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
-.player-claim-state svg { color: var(--green); }
 .role-select-field, .player-editor-field { display: block; }
 .role-select-field > span, .player-editor-field > span { display: block; color: var(--muted); font-size: 10px; margin-bottom: 7px; }
 .role-select-field select { width: 100%; min-height: 39px; border: 1px solid var(--line); background: #17171a; color: var(--ink); padding: 0 10px; font-size: 12px; }
@@ -183,8 +181,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .selected-role-summary small { color: var(--muted); font-size: 9px; }
 .selected-role-summary p { color: var(--muted); font-size: 10px; line-height: 1.5; margin: 5px 0 0; }
 .player-editor-field { margin-top: 10px; }
-.identity-message, .player-notes { padding: 8px; font-size: 11px; min-height: 45px; }
-.identity-message { margin-bottom: 0; border-left: 2px solid var(--gold); }
+.player-notes { padding: 8px; font-size: 11px; min-height: 45px; }
 .player-notes { border-left: 2px solid var(--line-light); }
 .player-editor-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
 .remove-player-button { width: 38px; height: 38px; border: 1px solid var(--line); background: transparent; color: var(--dim); display: grid; place-items: center; }
@@ -307,9 +304,6 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .player-script-role strong { font-size: 13px; }
 .player-script-role p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .player-message-view { min-height: 380px; }
-.player-pinned-message { margin-top: 20px; padding: 14px 16px; border-left: 3px solid var(--gold); background: rgba(213,166,110,.08); }
-.player-pinned-message span { color: var(--gold); font-size: 10px; font-weight: 800; }
-.player-pinned-message p { margin: 7px 0 0; color: var(--ink); font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .player-message-timeline { margin-top: 20px; border-top: 1px solid var(--line); }
 .player-message-item { padding: 17px 4px; border-bottom: 1px solid var(--line); }
 .player-message-item.latest { padding-left: 14px; border-left: 3px solid var(--gold); background: rgba(213,166,110,.04); }
@@ -339,11 +333,9 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .identity-role-icon { width: 58px; height: 58px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid var(--line-light); color: var(--gold); font-family: Georgia, serif; font-size: 23px; }
 .identity-team { color: var(--muted); font-size: 11px; }
 .identity-role-card h2 { margin: 4px 0 0; font-size: 28px; }
-.identity-ability, .identity-message-panel { margin-top: 21px; }
-.identity-ability > span, .identity-message-panel > span { color: var(--dim); font-size: 10px; font-weight: 800; letter-spacing: .12em; }
-.identity-ability p, .identity-message-panel p { margin: 7px 0 0; color: var(--ink); font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
-.identity-message-panel { padding-left: 13px; border-left: 2px solid var(--gold); }
-.identity-message-panel p { color: var(--gold); }
+.identity-ability { margin-top: 21px; }
+.identity-ability > span { color: var(--dim); font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+.identity-ability p { margin: 7px 0 0; color: var(--ink); font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .identity-room-code { display: flex; align-items: center; justify-content: center; gap: 5px; color: var(--green); font-size: 10px; margin-bottom: 20px; }
 .night-message-alert { margin: 20px auto -12px; display: flex; align-items: center; justify-content: center; gap: 7px; color: var(--gold); font-size: 12px; font-weight: 700; }
 

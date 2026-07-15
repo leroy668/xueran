@@ -18,7 +18,6 @@ import {
   Sun,
   Trash2,
   UserMinus,
-  UserRound,
   Users,
 } from "lucide-react";
 import { getNightRoles, getRole, roles, scripts } from "./data";
@@ -814,9 +813,6 @@ function GrimoirePanel({
               <PlayerEditor
                 player={selectedPlayer}
                 displayName={getDisplayName(selectedPlayer)}
-                claimed={Boolean(
-                  roomPlayersBySeat.get(selectedPlayer.seat)?.is_claimed,
-                )}
                 onUpdate={onUpdatePlayer}
                 onRemove={onRemovePlayer}
               />
@@ -831,13 +827,11 @@ function GrimoirePanel({
 function PlayerEditor({
   player,
   displayName,
-  claimed,
   onUpdate,
   onRemove,
 }: {
   player: Player;
   displayName: string;
-  claimed: boolean;
   onUpdate: (id: string, patch: Partial<Player>) => void;
   onRemove: (id: string) => void;
 }) {
@@ -859,11 +853,6 @@ function PlayerEditor({
           {player.alive ? <Check size={13} /> : <Skull size={13} />}
           {player.alive ? "存活" : "死亡"}
         </button>
-      </div>
-
-      <div className="player-claim-state">
-        <UserRound size={15} />
-        <span>{claimed ? "玩家已入座" : "等待玩家入座"}</span>
       </div>
 
       <label className="role-select-field">
@@ -892,18 +881,6 @@ function PlayerEditor({
         </div>
       </div>
 
-      <label className="player-editor-field">
-        <span>给玩家的身份信息</span>
-        <textarea
-          className="identity-message"
-          value={player.identityMessage}
-          onChange={(event) =>
-            onUpdate(player.id, { identityMessage: event.target.value })
-          }
-          placeholder="可选的额外身份信息…"
-          rows={2}
-        />
-      </label>
       <label className="player-editor-field">
         <span>主持人私密备注</span>
         <textarea
