@@ -51,8 +51,8 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .tab-count { min-width: 20px; height: 20px; display: grid; place-items: center; background: var(--panel-raised); border-radius: 10px; font-size: 11px; }
 
 .dashboard-grid, .night-layout, .script-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; }
-.side-panel, .main-panel, .night-main, .night-help, .script-main, .script-aside { border: 1px solid var(--line); background: var(--panel); }
-.side-panel, .main-panel, .night-main, .night-help, .script-main, .script-aside { padding: 23px; }
+.side-panel, .main-panel, .night-main, .script-main, .script-aside { border: 1px solid var(--line); background: var(--panel); }
+.side-panel, .main-panel, .night-main, .script-main, .script-aside { padding: 23px; }
 .panel-heading { justify-content: space-between; gap: 16px; }
 .panel-heading h2, .panel-heading h3 { margin: 0; font-size: 20px; }
 .muted-icon { color: var(--dim); }
@@ -193,7 +193,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .empty-state p { max-width: 370px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .empty-actions { display: flex; gap: 8px; margin-top: 20px; }
 
-.night-layout { grid-template-columns: minmax(0, 1fr) 265px; }
+.night-layout { grid-template-columns: minmax(0, 1fr); }
 .night-nav { gap: 6px; }
 .current-action { position: relative; display: flex; align-items: center; gap: 17px; margin: 22px 0; border: 1px solid var(--line); border-left: 3px solid var(--gold); padding: 20px; background: #222226; }
 .current-action.townsfolk { border-left-color: var(--blue); }
@@ -237,10 +237,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-role-name { font-size: 13px; font-weight: 700; }
 .night-role-team { color: var(--dim); font-size: 11px; }
 .on-air { color: var(--red); font-size: 10px; white-space: nowrap; }
-.night-help { align-self: start; }
-.night-help h3, .script-aside h3 { margin: 0 0 10px; font-size: 18px; }
-.night-help ol { padding-left: 20px; color: var(--muted); line-height: 1.8; font-size: 12px; }
-.night-tip { border-top: 1px solid var(--line); padding-top: 15px; margin-top: 20px; display: flex; gap: 8px; color: var(--gold); font-size: 11px; line-height: 1.5; }
+.script-aside h3 { margin: 0 0 10px; font-size: 18px; }
 
 .host-messages-empty { min-height: 520px; border: 1px dashed var(--line-light); background: var(--panel); padding: 40px 20px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; }
 .host-messages-empty h2 { margin: 0 0 8px; font-size: 20px; }
@@ -449,7 +446,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 
 @media (max-width: 980px) {
   .dashboard-grid, .night-layout, .script-layout { grid-template-columns: 1fr; }
-  .side-panel, .night-help, .script-aside { order: 2; }
+  .side-panel, .script-aside { order: 2; }
   .grimoire-workbench { grid-template-columns: 1fr; }
   .player-editor { width: min(100%, 650px); margin: 0 auto; }
   .workspace { width: min(100% - 32px, 760px); }
@@ -465,7 +462,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .icon-button { width: 35px; padding: 0; }
   .workspace { width: calc(100% - 22px); padding: 16px 0 86px; }
   .tab-bar { display: none; }
-  .side-panel, .main-panel, .night-main, .night-help, .script-main, .script-aside { padding: 16px; }
+  .side-panel, .main-panel, .night-main, .script-main, .script-aside { padding: 16px; }
   .panel-heading h2 { font-size: 18px; }
   .players-heading { align-items: stretch; flex-direction: column; gap: 12px; }
   .heading-actions { width: 100%; flex-direction: row; align-items: center; gap: 5px; }

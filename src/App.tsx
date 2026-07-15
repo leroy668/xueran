@@ -1237,16 +1237,6 @@ function NightPanel({
           ))}
         </div>
       </section>
-      <aside className="night-help">
-        <p className="eyebrow">HOST NOTES</p>
-        <h3>主持人节奏</h3>
-        <ol>
-          <li>先按顺序唤醒夜晚角色。</li>
-          <li>每完成一个行动，点击下一项。</li>
-          <li>白天开始前，把公共信息写进局面备注。</li>
-        </ol>
-        <div className="night-tip"><MoonStar size={17} /><span>死亡角色不会出现在夜晚行动列表里。</span></div>
-      </aside>
     </div>
   );
 }
