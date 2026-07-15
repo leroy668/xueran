@@ -9,6 +9,7 @@ import {
   ScrollText,
   Send,
   ShieldCheck,
+  Skull,
   UserRoundCheck,
   Users,
 } from "lucide-react";
@@ -16,11 +17,14 @@ import { getRole, roles, scripts } from "./data";
 import {
   claimSeat,
   findRoomByCode,
+  getMyEvilMessages,
   getMyIdentity,
   getMyNightMessages,
   getMyPlayerMessages,
   getRoomPlayers,
+  sendEvilMessage,
   sendPlayerMessage,
+  type EvilMessage,
   type NightMessage,
   type PlayerMessage,
   type PrivateIdentity,
@@ -29,9 +33,9 @@ import {
 } from "./room";
 import { RoleIcon } from "./RoleIcon";
 import { ensureAnonymousSession, supabase } from "./supabase";
-import type { IdentityPayload, Team } from "./types";
+import type { IdentityPayload, Phase, Team } from "./types";
 
-type PlayerView = "identity" | "script" | "messages";
+type PlayerView = "identity" | "script" | "messages" | "evil";
 
 const scriptTeams: Team[] = ["镇民", "外来者", "爪牙", "恶魔"];
 
@@ -41,6 +45,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
   const [identity, setIdentity] = useState<PrivateIdentity | null>(null);
   const [nightMessages, setNightMessages] = useState<NightMessage[]>([]);
   const [playerMessages, setPlayerMessages] = useState<PlayerMessage[]>([]);
+  const [evilMessages, setEvilMessages] = useState<EvilMessage[]>([]);
   const [playerName, setPlayerName] = useState("");
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState("");
@@ -54,12 +59,14 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       nextIdentity,
       nextNightMessages,
       nextPlayerMessages,
+      nextEvilMessages,
     ] = await Promise.all([
       findRoomByCode(targetRoom.code),
       getRoomPlayers(targetRoom.id),
       getMyIdentity(targetRoom.id),
       getMyNightMessages(targetRoom.id),
       getMyPlayerMessages(targetRoom.id),
+      getMyEvilMessages(targetRoom.id),
     ]);
 
     if (!latestRoom) throw new Error("房间已不存在");
@@ -69,13 +76,16 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       setIdentity(null);
       setNightMessages([]);
       setPlayerMessages([]);
+      setEvilMessages([]);
       return;
     }
 
+    setRoom(latestRoom);
     setPlayers(nextPlayers);
     setIdentity(nextIdentity);
     setNightMessages(nextNightMessages);
     setPlayerMessages(nextPlayerMessages);
+    setEvilMessages(nextEvilMessages);
   }, []);
 
   useEffect(() => {
@@ -138,6 +148,11 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
         { event: "INSERT", schema: "public", table: "xueran_player_messages", filter: `room_id=eq.${room.id}` },
         () => void refresh(room),
       )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "xueran_evil_messages", filter: `room_id=eq.${room.id}` },
+        () => void refresh(room),
+      )
       .subscribe();
 
     return () => {
@@ -173,6 +188,15 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
     if (!room) throw new Error("房间尚未加载");
     const message = await sendPlayerMessage({ roomId: room.id, body });
     setPlayerMessages((current) => [
+      message,
+      ...current.filter((item) => item.id !== message.id),
+    ]);
+  };
+
+  const sendMessageToEvilTeam = async (body: string) => {
+    if (!room) throw new Error("房间尚未加载");
+    const message = await sendEvilMessage({ roomId: room.id, body });
+    setEvilMessages((current) => [
       message,
       ...current.filter((item) => item.id !== message.id),
     ]);
@@ -228,9 +252,14 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
         identity={payload}
         roomCode={room.code}
         scriptId={room.script_id}
+        roomPhase={room.phase}
+        playerId={identity.player_id}
+        players={players}
         nightMessages={nightMessages}
         playerMessages={playerMessages}
+        evilMessages={evilMessages}
         onSendPlayerMessage={sendMessageToHost}
+        onSendEvilMessage={sendMessageToEvilTeam}
       />
     );
   }
@@ -309,20 +338,31 @@ function ClaimedIdentity({
   identity,
   roomCode,
   scriptId,
+  roomPhase,
+  playerId,
+  players,
   nightMessages,
   playerMessages,
+  evilMessages,
   onSendPlayerMessage,
+  onSendEvilMessage,
 }: {
   identity: IdentityPayload;
   roomCode: string;
   scriptId: string;
+  roomPhase: Phase;
+  playerId: string;
+  players: PublicRoomPlayer[];
   nightMessages: NightMessage[];
   playerMessages: PlayerMessage[];
+  evilMessages: EvilMessage[];
   onSendPlayerMessage: (body: string) => Promise<void>;
+  onSendEvilMessage: (body: string) => Promise<void>;
 }) {
   const [revealed, setRevealed] = useState(false);
   const identitySeenKey = `xueran-identity-seen-${roomCode}-${identity.seat}-${identity.roleId}`;
   const messageReadKey = `xueran-message-read-${roomCode}-${identity.seat}`;
+  const evilMessageReadKey = `xueran-evil-message-read-${roomCode}-${identity.seat}`;
   const [identitySeen, setIdentitySeen] = useState(
     () => localStorage.getItem(identitySeenKey) === "true",
   );
@@ -330,11 +370,24 @@ function ClaimedIdentity({
   const [lastReadAt, setLastReadAt] = useState(
     () => localStorage.getItem(messageReadKey) ?? "",
   );
+  const [lastEvilReadAt, setLastEvilReadAt] = useState(
+    () => localStorage.getItem(evilMessageReadKey) ?? "",
+  );
   const role = getRole(identity.roleId);
   const script = scripts.find((item) => item.id === scriptId) ?? scripts[0];
+  const evilChatAvailable =
+    roomPhase !== "准备" && (role.team === "爪牙" || role.team === "恶魔");
   const lastReadTime = lastReadAt ? new Date(lastReadAt).getTime() : 0;
   const unreadCount = nightMessages.filter(
     (message) => new Date(message.created_at).getTime() > lastReadTime,
+  ).length;
+  const lastEvilReadTime = lastEvilReadAt
+    ? new Date(lastEvilReadAt).getTime()
+    : 0;
+  const unreadEvilCount = evilMessages.filter(
+    (message) =>
+      message.sender_player_id !== playerId &&
+      new Date(message.created_at).getTime() > lastEvilReadTime,
   ).length;
 
   useEffect(() => {
@@ -343,6 +396,19 @@ function ClaimedIdentity({
     localStorage.setItem(messageReadKey, latestMessageAt);
     setLastReadAt(latestMessageAt);
   }, [activeView, messageReadKey, nightMessages]);
+
+  useEffect(() => {
+    if (activeView !== "evil" || !evilMessages[0]) return;
+    const latestMessageAt = evilMessages[0].created_at;
+    localStorage.setItem(evilMessageReadKey, latestMessageAt);
+    setLastEvilReadAt(latestMessageAt);
+  }, [activeView, evilMessageReadKey, evilMessages]);
+
+  useEffect(() => {
+    if (!evilChatAvailable && activeView === "evil") {
+      setActiveView("identity");
+    }
+  }, [activeView, evilChatAvailable]);
 
   const revealIdentity = () => {
     setRevealed(true);
@@ -363,7 +429,14 @@ function ClaimedIdentity({
       ) : null}
 
       {identitySeen ? (
-        <nav className="player-hub-nav" aria-label="玩家页面导航">
+        <nav
+          className={
+            evilChatAvailable
+              ? "player-hub-nav with-evil-chat"
+              : "player-hub-nav"
+          }
+          aria-label="玩家页面导航"
+        >
           <button
             className={activeView === "identity" ? "active" : ""}
             onClick={() => setActiveView("identity")}
@@ -386,6 +459,18 @@ function ClaimedIdentity({
             <span>上帝消息</span>
             {unreadCount ? <strong>{Math.min(unreadCount, 99)}</strong> : null}
           </button>
+          {evilChatAvailable ? (
+            <button
+              className={activeView === "evil" ? "active" : ""}
+              onClick={() => setActiveView("evil")}
+            >
+              <Skull size={18} />
+              <span>邪恶群聊</span>
+              {unreadEvilCount ? (
+                <strong>{Math.min(unreadEvilCount, 99)}</strong>
+              ) : null}
+            </button>
+          ) : null}
         </nav>
       ) : null}
 
@@ -444,6 +529,15 @@ function ClaimedIdentity({
           hostMessages={nightMessages}
           playerMessages={playerMessages}
           onSend={onSendPlayerMessage}
+        />
+      ) : null}
+
+      {activeView === "evil" && evilChatAvailable ? (
+        <EvilTeamMessages
+          currentPlayerId={playerId}
+          players={players}
+          messages={evilMessages}
+          onSend={onSendEvilMessage}
         />
       ) : null}
 
@@ -651,6 +745,164 @@ function PlayerMessages({
           <button
             className="primary-button"
             aria-label="发送消息"
+            disabled={!messageBody.trim() || sending}
+            onClick={() => void submitMessage()}
+          >
+            <Send size={18} />
+            <span>{sending ? "发送中" : "发送"}</span>
+          </button>
+        </div>
+        <span className="player-message-count">{messageBody.length}/500</span>
+        {sendError ? <div className="inline-error">{sendError}</div> : null}
+      </div>
+    </section>
+  );
+}
+
+function EvilTeamMessages({
+  currentPlayerId,
+  players,
+  messages,
+  onSend,
+}: {
+  currentPlayerId: string;
+  players: PublicRoomPlayer[];
+  messages: EvilMessage[];
+  onSend: (body: string) => Promise<void>;
+}) {
+  const [messageBody, setMessageBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const playersById = new Map(players.map((player) => [player.id, player]));
+  const timeline = messages
+    .map((message) => {
+      const sender = message.sender_player_id
+        ? playersById.get(message.sender_player_id)
+        : null;
+      const isMine = message.sender_player_id === currentPlayerId;
+      return {
+        ...message,
+        direction: isMine ? ("outgoing" as const) : ("incoming" as const),
+        label:
+          message.sender_kind === "host"
+            ? `上帝 · 第 ${message.round} 回合`
+            : `${isMine ? "我" : sender?.name || `座位 ${sender?.seat ?? "?"}`} · 第 ${message.round} 回合`,
+        avatar:
+          message.sender_kind === "host"
+            ? "上"
+            : isMine
+              ? "我"
+              : String(sender?.seat ?? "?").padStart(2, "0"),
+      };
+    })
+    .sort(
+      (left, right) =>
+        new Date(left.created_at).getTime() -
+        new Date(right.created_at).getTime(),
+    );
+  const latestMessageKey = timeline.length
+    ? `${timeline[timeline.length - 1].direction}-${timeline[timeline.length - 1].id}`
+    : "";
+
+  useEffect(() => {
+    const timelineElement = timelineRef.current;
+    if (!timelineElement) return;
+    const frame = requestAnimationFrame(() => {
+      timelineElement.scrollTop = timelineElement.scrollHeight;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [latestMessageKey]);
+
+  const submitMessage = async () => {
+    const body = messageBody.trim();
+    if (!body || sending) return;
+    setSending(true);
+    setSendError("");
+    try {
+      await onSend(body);
+      setMessageBody("");
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "";
+      setSendError(
+        /game has not started/i.test(message)
+          ? "游戏尚未正式开始"
+          : /evil player access/i.test(message)
+            ? "当前身份无权发送群聊消息"
+            : /function|evil_messages|schema cache/i.test(message)
+              ? "邪恶群聊数据库尚未配置"
+              : "发送失败，请稍后重试",
+      );
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <section className="player-view-panel player-message-view evil-team-view">
+      <div className="player-view-heading">
+        <div>
+          <p className="eyebrow">EVIL TEAM CHAT</p>
+          <h2>邪恶阵营群聊</h2>
+        </div>
+        <Skull size={22} />
+      </div>
+
+      {timeline.length ? (
+        <div className="player-message-timeline" ref={timelineRef}>
+          {timeline.map((message) => (
+            <article
+              className={`player-message-item ${message.direction}`}
+              key={message.id}
+            >
+              <span className="player-message-avatar" aria-hidden="true">
+                {message.avatar}
+              </span>
+              <div className="player-message-content">
+                <div className="player-message-meta">
+                  <span>{message.label}</span>
+                  <time>
+                    {new Date(message.created_at).toLocaleTimeString("zh-CN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </time>
+                </div>
+                <div className="player-message-bubble">
+                  <p>{message.body}</p>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="player-message-empty">
+          <Skull size={25} />
+          <h3>群聊已开启</h3>
+          <p>爪牙、恶魔和上帝可以在这里商量战术。</p>
+        </div>
+      )}
+
+      <div className="player-chat-composer">
+        <div className="player-chat-composer-row">
+          <textarea
+            value={messageBody}
+            onChange={(event) => setMessageBody(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                void submitMessage();
+              }
+            }}
+            placeholder="发送到邪恶阵营群聊"
+            aria-label="发送到邪恶阵营群聊"
+            maxLength={500}
+            rows={1}
+            disabled={sending}
+          />
+          <button
+            className="primary-button"
+            aria-label="发送群聊消息"
             disabled={!messageBody.trim() || sending}
             onClick={() => void submitMessage()}
           >
