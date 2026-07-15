@@ -4,6 +4,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Clock3,
   Dices,
   MoonStar,
   MessageSquareText,
@@ -461,12 +462,9 @@ function GrimoireApp() {
       <header className="topbar">
         <div className="brand-lockup">
           <div className="brand-seal" aria-hidden="true">
-            <span>血</span>
+            <Clock3 size={21} strokeWidth={1.8} />
           </div>
-          <div>
-            <p className="eyebrow">STORYTELLER'S TOOL</p>
-            <h1>儿戏的血染钟楼</h1>
-          </div>
+          <h1>儿戏的血染钟楼</h1>
         </div>
         <div className="top-actions">
           <span className={room ? "local-badge cloud-badge" : "local-badge"}>
