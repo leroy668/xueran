@@ -541,13 +541,14 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .player-chat-composer button span { display: none; }
   .host-messages-page { min-height: calc(100dvh - 166px); grid-template-columns: 1fr; }
   .host-conversation-list { border-right: 0; border-bottom: 1px solid var(--line); }
-  .host-conversation-heading { min-height: 64px; padding: 12px 14px; }
-  .host-conversation-heading h2 { font-size: 18px; }
-  .host-player-tabs { max-height: none; display: flex; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
-  .host-player-tabs button { width: 142px; min-width: 142px; min-height: 58px; grid-template-columns: 27px minmax(0, 1fr) 16px; gap: 6px; padding: 7px 8px; border-right: 1px solid var(--line); border-bottom: 0; }
-  .host-player-tabs button.active { box-shadow: inset 0 -3px var(--red); }
-  .host-player-summary strong { font-size: 11px; }
-  .host-player-summary small { font-size: 8px; }
+  .host-conversation-heading { min-height: 56px; padding: 9px 12px; }
+  .host-conversation-heading .eyebrow { display: none; }
+  .host-conversation-heading h2 { font-size: 17px; }
+  .host-player-tabs { max-height: 174px; display: block; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; }
+  .host-player-tabs button { width: 100%; min-width: 0; min-height: 58px; grid-template-columns: 34px minmax(0, 1fr) 24px; gap: 8px; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .host-player-tabs button.active { box-shadow: inset 3px 0 var(--red); }
+  .host-player-summary strong { font-size: 12px; }
+  .host-player-summary small { margin-top: 4px; font-size: 9px; }
   .host-chat-header { min-height: 65px; padding: 10px 13px; }
   .host-chat-role { width: 38px; height: 38px; }
   .host-chat-timeline { min-height: 280px; max-height: none; padding: 14px 11px; }

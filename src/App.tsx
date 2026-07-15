@@ -1347,12 +1347,41 @@ function HostMessagesPanel({
     return counts;
   }, [playerMessages]);
 
+  const conversationPlayers = useMemo(
+    () =>
+      [...availablePlayers].sort((left, right) => {
+        const leftLatest = latestByPlayer.get(left.player.id);
+        const rightLatest = latestByPlayer.get(right.player.id);
+        if (leftLatest && rightLatest) {
+          return (
+            new Date(rightLatest.createdAt).getTime() -
+            new Date(leftLatest.createdAt).getTime()
+          );
+        }
+        if (leftLatest) return -1;
+        if (rightLatest) return 1;
+        if (
+          Boolean(left.roomPlayer?.is_claimed) !==
+          Boolean(right.roomPlayer?.is_claimed)
+        ) {
+          return left.roomPlayer?.is_claimed ? -1 : 1;
+        }
+        return left.player.seat - right.player.seat;
+      }),
+    [availablePlayers, latestByPlayer],
+  );
+
   const selectedEntry = availablePlayers.find(
     ({ player }) => player.id === selectedPlayerId,
   );
   const selectedPlayer = selectedEntry?.player;
   const selectedRoomPlayer = selectedEntry?.roomPlayer;
   const selectedRole = selectedPlayer ? getRole(selectedPlayer.roleId) : null;
+  const selectedSenderName =
+    selectedRoomPlayer?.name ||
+    (selectedPlayer
+      ? `座位 ${String(selectedPlayer.seat).padStart(2, "0")}`
+      : "玩家");
   const timeline = [
     ...nightMessages
       .filter((message) => message.player_id === selectedPlayerId)
@@ -1366,7 +1395,7 @@ function HostMessagesPanel({
       .map((message) => ({
         ...message,
         direction: "incoming" as const,
-        label: `玩家 · 第 ${message.round} 回合`,
+        label: `${selectedSenderName} · 第 ${message.round} 回合`,
       })),
   ].sort(
     (left, right) =>
@@ -1441,9 +1470,14 @@ function HostMessagesPanel({
           <strong>{playerMessages.length}</strong>
         </div>
         <div className="host-player-tabs">
-          {availablePlayers.map(({ player, roomPlayer }) => {
+          {conversationPlayers.map(({ player, roomPlayer }) => {
             const latest = latestByPlayer.get(player.id);
             const incomingCount = incomingCountByPlayer.get(player.id) ?? 0;
+            const playerLabel =
+              roomPlayer?.name ||
+              (latest
+                ? `座位 ${String(player.seat).padStart(2, "0")}`
+                : "等待玩家入座");
             return (
               <button
                 className={player.id === selectedPlayerId ? "active" : ""}
@@ -1458,7 +1492,7 @@ function HostMessagesPanel({
                   {String(player.seat).padStart(2, "0")}
                 </span>
                 <span className="host-player-summary">
-                  <strong>{roomPlayer?.name || "等待玩家入座"}</strong>
+                  <strong>{playerLabel}</strong>
                   <small>
                     {latest
                       ? `${latest.direction === "outgoing" ? "我：" : ""}${latest.body}`
