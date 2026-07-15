@@ -195,29 +195,30 @@ const isMissingNightMessagesTable = (error: { code?: string; message?: string })
   error.code === "PGRST205" ||
   /xueran_night_messages/i.test(error.message ?? "");
 
-export const getRoomNightMessages = async (roomId: string) => {
-  const { data, error } = await supabase
-    .from("xueran_night_messages")
-    .select("*")
-    .eq("room_id", roomId)
-    .order("created_at", { ascending: false })
-    .limit(100);
-  if (error && isMissingNightMessagesTable(error)) return [];
-  if (error) throw error;
-  return data as NightMessage[];
+const getAllNightMessages = async (roomId: string) => {
+  const pageSize = 500;
+  const messages: NightMessage[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("xueran_night_messages")
+      .select("*")
+      .eq("room_id", roomId)
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error && isMissingNightMessagesTable(error)) return [];
+    if (error) throw error;
+
+    const page = data as NightMessage[];
+    messages.push(...page);
+    if (page.length < pageSize) return messages;
+  }
 };
 
-export const getMyNightMessages = async (roomId: string) => {
-  const { data, error } = await supabase
-    .from("xueran_night_messages")
-    .select("*")
-    .eq("room_id", roomId)
-    .order("created_at", { ascending: false })
-    .limit(50);
-  if (error && isMissingNightMessagesTable(error)) return [];
-  if (error) throw error;
-  return data as NightMessage[];
-};
+export const getRoomNightMessages = getAllNightMessages;
+
+export const getMyNightMessages = getAllNightMessages;
 
 export const sendNightMessage = async ({
   roomId,

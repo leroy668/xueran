@@ -986,15 +986,6 @@ function NightPanel({
   const selectedRoomPlayer = selectedPlayer
     ? roomPlayersById.get(selectedPlayer.id)
     : undefined;
-  const recentMessages = currentRole
-    ? nightMessages
-        .filter(
-          (message) =>
-            message.role_id === currentRole.id &&
-            message.round === state.round,
-        )
-        .slice(0, 5)
-    : [];
   const canSend =
     Boolean(room) &&
     Boolean(currentRole) &&
@@ -1111,16 +1102,23 @@ function NightPanel({
                 </button>
               </div>
               {sendError ? <div className="inline-error">{sendError}</div> : null}
-              {recentMessages.length ? (
+              {nightMessages.length ? (
                 <div className="night-sent-history">
-                  <span>本回合已发送</span>
-                  {recentMessages.map((message) => {
+                  <div className="night-sent-history-heading">
+                    <span>全部发送记录</span>
+                    <strong>{nightMessages.length} 条</strong>
+                  </div>
+                  {nightMessages.map((message) => {
                     const recipient = roomPlayersById.get(message.player_id);
+                    const messageRole = getRole(message.role_id);
                     return (
                       <div className="night-sent-row" key={message.id}>
-                        <strong>
-                          座位 {String(recipient?.seat ?? "?").padStart(2, "0")}
-                        </strong>
+                        <div className="night-sent-meta">
+                          <strong>
+                            座位 {String(recipient?.seat ?? "?").padStart(2, "0")}
+                          </strong>
+                          <span>第 {message.round} 回合 · {messageRole.name}</span>
+                        </div>
                         <p>{message.body}</p>
                         <time>
                           {new Date(message.created_at).toLocaleTimeString("zh-CN", {
