@@ -18,6 +18,7 @@ import {
   Sparkles,
   Sun,
   Trash2,
+  UserRound,
   Users,
 } from "lucide-react";
 import { getNightRoles, getRole, roles, scripts } from "./data";
@@ -233,6 +234,10 @@ function GrimoireApp() {
   };
 
   const addPlayer = () => {
+    if (state.players.length >= 20) {
+      setToast("魔典最多支持 20 个座位");
+      return;
+    }
     setState((current) => ({
       ...current,
       players: [...current.players, newPlayer(current.players.length + 1)],
@@ -460,6 +465,7 @@ function GrimoireApp() {
             onAddPlayer={addPlayer}
             onQuickStart={quickStart}
             onShareIdentity={shareIdentity}
+            roomPlayers={roomPlayers}
             roomPanel={
               <HostRoomPanel
                 room={room}
@@ -525,6 +531,7 @@ function GrimoirePanel({
   onAddPlayer,
   onQuickStart,
   onShareIdentity,
+  roomPlayers,
   roomPanel,
 }: {
   state: GameState;
@@ -535,8 +542,40 @@ function GrimoirePanel({
   onAddPlayer: () => void;
   onQuickStart: () => void;
   onShareIdentity: (player: Player) => void;
+  roomPlayers: PublicRoomPlayer[];
   roomPanel: ReactNode;
 }) {
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(
+    state.players[0]?.id ?? null,
+  );
+
+  useEffect(() => {
+    if (!state.players.length) {
+      setSelectedPlayerId(null);
+      return;
+    }
+    if (!state.players.some((player) => player.id === selectedPlayerId)) {
+      setSelectedPlayerId(state.players[0].id);
+    }
+  }, [selectedPlayerId, state.players]);
+
+  const roomPlayersBySeat = useMemo(
+    () => new Map(roomPlayers.map((player) => [player.seat, player])),
+    [roomPlayers],
+  );
+  const selectedPlayer =
+    state.players.find((player) => player.id === selectedPlayerId) ??
+    state.players[0];
+
+  const getDisplayName = (player: Player) => {
+    const roomPlayer = roomPlayersBySeat.get(player.seat);
+    return (
+      roomPlayer?.name.trim() ||
+      player.name.trim() ||
+      `座位 ${String(player.seat).padStart(2, "0")}`
+    );
+  };
+
   return (
     <div className="dashboard-grid">
       <aside className="side-panel">
@@ -603,7 +642,7 @@ function GrimoirePanel({
         <div className="panel-heading players-heading">
           <div>
             <p className="eyebrow">GRIMOIRE</p>
-            <h2>玩家座位</h2>
+            <h2>环桌魔典</h2>
           </div>
           <div className="heading-actions">
             {state.players.length === 0 ? (
@@ -629,16 +668,83 @@ function GrimoirePanel({
             </div>
           </div>
         ) : (
-          <div className="player-grid">
-            {state.players.map((player) => (
-              <PlayerCard
-                key={player.id}
-                player={player}
+          <div
+            className={[
+              "grimoire-workbench",
+              state.players.length > 10 ? "large" : "",
+              state.players.length > 15 ? "crowded" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            <div className="table-stage">
+              <div className="grimoire-table">
+                <div className="table-center" aria-hidden="true">
+                  <span>{state.phase}</span>
+                  <strong>
+                    {aliveCount}
+                    <small> / {state.players.length}</small>
+                  </strong>
+                  <p>第 {state.round} 回合</p>
+                </div>
+                {state.players.map((player, index) => {
+                  const role = getRole(player.roleId);
+                  const roomPlayer = roomPlayersBySeat.get(player.seat);
+                  const angle =
+                    (index / state.players.length) * Math.PI * 2 - Math.PI / 2;
+                  const radius = state.players.length > 15 ? 42 : 40;
+                  const left = 50 + Math.cos(angle) * radius;
+                  const top = 50 + Math.sin(angle) * radius;
+                  const isSelected = selectedPlayer?.id === player.id;
+
+                  return (
+                    <button
+                      className={[
+                        "table-seat",
+                        teamLabels[role.team],
+                        player.alive ? "" : "dead",
+                        isSelected ? "selected" : "",
+                        state.players.length > 10 ? "dense" : "",
+                        state.players.length > 15 ? "very-dense" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      style={{ left: `${left}%`, top: `${top}%` }}
+                      key={player.id}
+                      onClick={() => setSelectedPlayerId(player.id)}
+                      aria-label={`座位 ${player.seat}，${getDisplayName(player)}，${role.name}，${player.alive ? "存活" : "死亡"}`}
+                      aria-pressed={isSelected}
+                    >
+                      <span className="table-seat-number">
+                        {String(player.seat).padStart(2, "0")}
+                      </span>
+                      <span className="table-role-icon">{role.icon}</span>
+                      <span className="table-player-name">{getDisplayName(player)}</span>
+                      <span className="table-role-name">{role.name}</span>
+                      {roomPlayer?.is_claimed ? (
+                        <span className="table-claimed-dot" title="玩家已入座" />
+                      ) : null}
+                      {!player.alive ? (
+                        <span className="table-dead-mark" aria-hidden="true" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {selectedPlayer ? (
+              <PlayerEditor
+                player={selectedPlayer}
+                displayName={getDisplayName(selectedPlayer)}
+                claimed={Boolean(
+                  roomPlayersBySeat.get(selectedPlayer.seat)?.is_claimed,
+                )}
                 onUpdate={onUpdatePlayer}
                 onRemove={onRemovePlayer}
                 onShare={onShareIdentity}
               />
-            ))}
+            ) : null}
           </div>
         )}
       </section>
@@ -646,23 +752,31 @@ function GrimoirePanel({
   );
 }
 
-function PlayerCard({
+function PlayerEditor({
   player,
+  displayName,
+  claimed,
   onUpdate,
   onRemove,
   onShare,
 }: {
   player: Player;
+  displayName: string;
+  claimed: boolean;
   onUpdate: (id: string, patch: Partial<Player>) => void;
   onRemove: (id: string) => void;
   onShare: (player: Player) => void;
 }) {
   const role = getRole(player.roleId);
-  const roleOptions = roles.filter((item) => item.name.toLowerCase().includes(""));
   return (
-    <article className={player.alive ? "player-card" : "player-card dead"}>
-      <div className="card-topline">
-        <span className="seat-number">{String(player.seat).padStart(2, "0")}</span>
+    <aside className={player.alive ? "player-editor" : "player-editor dead"}>
+      <div className="player-editor-topline">
+        <div>
+          <p className="eyebrow">
+            SEAT {String(player.seat).padStart(2, "0")}
+          </p>
+          <h3>{displayName}</h3>
+        </div>
         <button
           className={player.alive ? "life-toggle alive" : "life-toggle"}
           onClick={() => onUpdate(player.id, { alive: !player.alive })}
@@ -671,45 +785,82 @@ function PlayerCard({
           {player.alive ? <Check size={13} /> : <Skull size={13} />}
           {player.alive ? "存活" : "死亡"}
         </button>
-        <button className="card-delete" onClick={() => onRemove(player.id)} title="移除玩家">
-          <Trash2 size={15} />
-        </button>
       </div>
-      <div className="player-seat-label">座位 {String(player.seat).padStart(2, "0")}</div>
-      <div className={`role-chip ${teamLabels[role.team]}`}>
-        <span>{role.icon}</span>
+
+      <div className="player-claim-state">
+        <UserRound size={15} />
+        <span>{claimed ? "玩家已入座" : "等待玩家入座"}</span>
+      </div>
+
+      <label className="role-select-field">
+        <span>角色身份</span>
         <select
           value={player.roleId}
           onChange={(event) => onUpdate(player.id, { roleId: event.target.value })}
           aria-label={`座位 ${player.seat} 角色`}
         >
-          {roleOptions.map((option) => (
+          {roles.map((option) => (
             <option value={option.id} key={option.id}>
               {option.name} · {option.team}
             </option>
           ))}
         </select>
+      </label>
+
+      <div className={`selected-role-summary ${teamLabels[role.team]}`}>
+        <span className="selected-role-icon">{role.icon}</span>
+        <div>
+          <strong>{role.name}</strong>
+          <small>{role.team}</small>
+          <p>{role.short}</p>
+        </div>
       </div>
-      <p className="role-summary">{role.short}</p>
-      <textarea
-        className="identity-message"
-        value={player.identityMessage}
-        onChange={(event) => onUpdate(player.id, { identityMessage: event.target.value })}
-        placeholder="发给这位玩家的身份信息（可选）…"
-        rows={2}
-      />
-      <textarea
-        className="player-notes"
-        value={player.notes}
-        onChange={(event) => onUpdate(player.id, { notes: event.target.value })}
-        placeholder="仅主持人可见的私密备注…"
-        rows={2}
-      />
-      <button className="identity-share-button" onClick={() => onShare(player)}>
-        <Send size={14} />
-        分享身份
-      </button>
-    </article>
+
+      <label className="player-editor-field">
+        <span>给玩家的身份信息</span>
+        <textarea
+          className="identity-message"
+          value={player.identityMessage}
+          onChange={(event) =>
+            onUpdate(player.id, { identityMessage: event.target.value })
+          }
+          placeholder="可选的额外身份信息…"
+          rows={2}
+        />
+      </label>
+      <label className="player-editor-field">
+        <span>主持人私密备注</span>
+        <textarea
+          className="player-notes"
+          value={player.notes}
+          onChange={(event) => onUpdate(player.id, { notes: event.target.value })}
+          placeholder="记录中毒、保护、红鲱鱼等状态…"
+          rows={3}
+        />
+      </label>
+
+      <div className="player-editor-actions">
+        <button
+          className="identity-share-button"
+          onClick={() => onShare({ ...player, name: displayName })}
+        >
+          <Send size={14} />
+          分享身份
+        </button>
+        <button
+          className="remove-player-button"
+          onClick={() => {
+            if (window.confirm(`移除座位 ${player.seat}？`)) {
+              onRemove(player.id);
+            }
+          }}
+          title="移除玩家"
+          aria-label={`移除座位 ${player.seat}`}
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </aside>
   );
 }
 
