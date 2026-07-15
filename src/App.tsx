@@ -1184,23 +1184,6 @@ function NightPanel({
             <p>在魔典里添加玩家并分配角色，夜晚顺序会自动生成。</p>
           </div>
         )}
-        <div className="night-list">
-          {nightRoles.map((role, index) => (
-            <button
-              className={currentRole?.id === role.id ? "night-row active" : "night-row"}
-              key={role.id}
-              onClick={() => onSelectNight(index)}
-            >
-              <span className="night-index">{String(index + 1).padStart(2, "0")}</span>
-              <span className={`mini-role-icon ${teamLabels[role.team]}`}>
-                <RoleIcon roleId={role.id} size={16} />
-              </span>
-              <span className="night-role-name">{role.name}</span>
-              <span className="night-role-team">{role.team}</span>
-              {currentRole?.id === role.id ? <span className="on-air">进行中</span> : null}
-            </button>
-          ))}
-        </div>
         {currentRole ? (
           <section className="night-message-composer">
             <div className="night-message-heading">
@@ -1262,6 +1245,23 @@ function NightPanel({
             {sendError ? <div className="inline-error">{sendError}</div> : null}
           </section>
         ) : null}
+        <div className="night-list">
+          {nightRoles.map((role, index) => (
+            <button
+              className={currentRole?.id === role.id ? "night-row active" : "night-row"}
+              key={role.id}
+              onClick={() => onSelectNight(index)}
+            >
+              <span className="night-index">{String(index + 1).padStart(2, "0")}</span>
+              <span className={`mini-role-icon ${teamLabels[role.team]}`}>
+                <RoleIcon roleId={role.id} size={16} />
+              </span>
+              <span className="night-role-name">{role.name}</span>
+              <span className="night-role-team">{role.team}</span>
+              {currentRole?.id === role.id ? <span className="on-air">进行中</span> : null}
+            </button>
+          ))}
+        </div>
       </section>
     </div>
   );

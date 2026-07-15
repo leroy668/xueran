@@ -204,7 +204,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .current-action h3 { margin: 0 0 5px; font-size: 24px; }
 .current-action p:not(.eyebrow) { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .current-role-team { margin-left: auto; align-self: flex-start; color: var(--dim); font-size: 11px; }
-.night-message-composer { margin: 24px 0 0; padding: 20px 0 0; border-top: 1px solid var(--line); }
+.night-message-composer { margin: 0 0 24px; padding: 18px 0 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .night-message-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .night-message-heading h3 { margin: 0; font-size: 17px; }
 .night-message-heading > svg { color: var(--gold); }
