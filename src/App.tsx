@@ -31,7 +31,6 @@ import {
   getRole,
   getScriptRoles,
   scripts,
-  type NightAction,
 } from "./data";
 import { DemonBluffMessage } from "./DemonBluffMessage";
 import {
@@ -499,8 +498,7 @@ function GrimoireApp() {
   const currentNightAction =
     nightActions[state.nightIndex] ?? nightActions[0];
   const aliveCount = state.players.filter((player) => player.alive).length;
-  const selectedRole =
-    currentNightAction?.kind === "role" ? currentNightAction.role : null;
+  const selectedRole = currentNightAction?.role ?? null;
 
   const update = (patch: Partial<GameState>) => {
     setState((current) => ({
@@ -1590,7 +1588,7 @@ function NightPanel({
 }: {
   state: GameState;
   nightActions: ReturnType<typeof getNightActions>;
-  currentAction: NightAction | undefined;
+  currentAction: ReturnType<typeof getNightActions>[number] | undefined;
   currentRole: ReturnType<typeof getRole> | null;
   room: SharedRoom | null;
   roomPlayers: PublicRoomPlayer[];
@@ -1753,22 +1751,11 @@ function NightPanel({
                   onClick={() => onSelectNight(index)}
                 >
                   <span className="night-index">{String(index + 1).padStart(2, "0")}</span>
-                  {action.kind === "role" ? (
-                    <span className={`mini-role-icon ${teamLabels[action.role.team]}`}>
-                      <RoleIcon roleId={action.role.id} size={16} />
-                    </span>
-                  ) : (
-                    <span className={`night-system-icon ${action.id}`}>
-                      {action.id === "dusk" ? <MoonStar size={17} /> : null}
-                      {action.id === "minion-info" ? <Users size={17} /> : null}
-                      {action.id === "demon-info" ? <Skull size={17} /> : null}
-                      {action.id === "dawn" ? <Sun size={17} /> : null}
-                    </span>
-                  )}
-                  <span className="night-role-name">{action.name}</span>
-                  <span className="night-role-team">
-                    {action.kind === "role" ? action.role.team : "流程"}
+                  <span className={`mini-role-icon ${teamLabels[action.role.team]}`}>
+                    <RoleIcon roleId={action.role.id} size={16} />
                   </span>
+                  <span className="night-role-name">{action.name}</span>
+                  <span className="night-role-team">{action.role.team}</span>
                   {state.nightIndex === index ? <span className="on-air">进行中</span> : null}
                 </button>
               ))}
@@ -1900,21 +1887,6 @@ function NightPanel({
               <p>{currentRole.reminder}</p>
             </div>
             <div className="current-role-team">{currentRole.team}</div>
-          </div>
-        ) : currentAction?.kind === "system" ? (
-          <div className={`current-action night-system-action ${currentAction.id}`}>
-            <div className="current-role-icon">
-              {currentAction.id === "dusk" ? <MoonStar size={30} /> : null}
-              {currentAction.id === "minion-info" ? <Users size={30} /> : null}
-              {currentAction.id === "demon-info" ? <Skull size={30} /> : null}
-              {currentAction.id === "dawn" ? <Sun size={30} /> : null}
-            </div>
-            <div>
-              <p className="eyebrow">当前流程</p>
-              <h3>{currentAction.name}</h3>
-              <p>{currentAction.reminder}</p>
-            </div>
-            <div className="current-role-team">流程</div>
           </div>
         ) : null}
       </section>

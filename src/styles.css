@@ -282,20 +282,9 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-row:hover, .night-row.active { background: #25252a; color: var(--ink); }
 .night-index { color: var(--dim); font-size: 11px; }
 .mini-role-icon { width: 27px; height: 27px; display: grid; place-items: center; border-left: 2px solid var(--gold); background: #2a2a2e; font-family: Georgia, serif; font-size: 11px; }
-.night-system-icon { width: 27px; height: 27px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #4d4d54; background: #202024; color: #c9c9d1; }
-.night-system-icon.dusk { color: #b9a7dc; border-color: #5f5275; background: #27222f; }
-.night-system-icon.minion-info { color: #d8848c; border-color: #70444a; background: #2c2023; }
-.night-system-icon.demon-info { color: #e36d74; border-color: #7c3c42; background: #301e21; }
-.night-system-icon.dawn { color: #dfb95d; border-color: #705d32; background: #2d281c; }
 .night-role-name { font-size: 13px; font-weight: 700; }
 .night-role-team { color: var(--dim); font-size: 11px; }
 .on-air { color: var(--red); font-size: 10px; white-space: nowrap; }
-.night-system-action { border-color: #4d4d54; background: #202024; }
-.night-system-action .current-role-icon { color: #c9c9d1; border-color: #4d4d54; background: #18181b; }
-.night-system-action.dusk .current-role-icon { color: #b9a7dc; }
-.night-system-action.minion-info .current-role-icon { color: #d8848c; }
-.night-system-action.demon-info .current-role-icon { color: #e36d74; }
-.night-system-action.dawn .current-role-icon { color: #dfb95d; }
 .script-aside h3 { margin: 0 0 10px; font-size: 18px; }
 
 .host-messages-empty { min-height: 520px; border: 1px dashed var(--line-light); background: var(--panel); padding: 40px 20px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; }
