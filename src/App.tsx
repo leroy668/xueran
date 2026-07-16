@@ -978,6 +978,12 @@ function GrimoirePanel({
   const currentStageLabel = getGameStageLabel(state.phase, state.round);
   const nextStage = getNextGameStage(state.phase, state.round);
   const nextStageLabel = getGameStageLabel(nextStage.phase, nextStage.round);
+  const StageIcon =
+    state.phase === "白天"
+      ? Sun
+      : state.phase === "夜晚"
+        ? MoonStar
+        : Sparkles;
 
   return (
     <div className="dashboard-grid">
@@ -1001,28 +1007,6 @@ function GrimoirePanel({
           <div className="stat-cell">
             <span>阶段</span>
             <strong className="stage-stat">{currentStageLabel}</strong>
-          </div>
-        </div>
-        <div className="phase-control">
-          <div className="section-label">当前阶段</div>
-          <div className="segmented-control">
-            {(["准备", "白天", "夜晚"] as Phase[]).map((phase) => (
-              <button
-                className={state.phase === phase ? "selected" : ""}
-                key={phase}
-                onClick={() => onUpdate({ phase })}
-              >
-                {phase === "白天" ? <Sun size={14} /> : phase === "夜晚" ? <MoonStar size={14} /> : <Sparkles size={14} />}
-                {phase}
-              </button>
-            ))}
-          </div>
-          <div className="round-stepper">
-            <span>{currentStageLabel}</span>
-            <div>
-              <button aria-label="减少回合" onClick={() => onUpdate({ round: Math.max(1, state.round - 1) })}>−</button>
-              <button aria-label="增加回合" onClick={() => onUpdate({ round: state.round + 1 })}>＋</button>
-            </div>
           </div>
         </div>
         {roomPanel}
@@ -1066,8 +1050,13 @@ function GrimoirePanel({
                 onClick={() => onUpdate({ ...nextStage, nightIndex: 0 })}
                 title={`切换到${nextStageLabel}`}
               >
-                <span>回合</span>
-                <b>{currentStageLabel}</b>
+                <span className={`stage-advance-icon phase-${state.phase}`}>
+                  <StageIcon size={15} />
+                </span>
+                <span className="stage-advance-copy">
+                  <small>当前回合</small>
+                  <b>{currentStageLabel}</b>
+                </span>
                 <ChevronRight size={14} />
               </button>
             ) : null}
