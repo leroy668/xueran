@@ -185,8 +185,12 @@ export const getNightActions = (
   firstNight: boolean,
   scriptId: string,
 ) => {
+  const scriptRoleIds = new Set(
+    getScriptRoles(scriptId).map((role) => role.id),
+  );
   const roleActions: NightAction[] = players
     .filter((player) => {
+      if (!scriptRoleIds.has(player.roleId)) return false;
       const role = getRole(player.roleId);
       const order = firstNight
         ? role.firstNightOrder
