@@ -26,7 +26,12 @@ import {
   UserMinus,
   Users,
 } from "lucide-react";
-import { getNightRoles, getRole, roles, scripts } from "./data";
+import {
+  getNightRoles,
+  getRole,
+  getScriptRoles,
+  scripts,
+} from "./data";
 import { DemonBluffMessage } from "./DemonBluffMessage";
 import {
   buildDemonBluffMessage,
@@ -67,7 +72,14 @@ import {
   loadState,
 } from "./storage";
 import { ensureAnonymousSession, supabase } from "./supabase";
-import type { GameState, Phase, Player, TabId, Team } from "./types";
+import type {
+  GameState,
+  Phase,
+  Player,
+  RoleDefinition,
+  TabId,
+  Team,
+} from "./types";
 
 const tabs: { id: TabId; label: string; icon: typeof BookOpen }[] = [
   { id: "grimoire", label: "魔典", icon: BookOpen },
@@ -174,9 +186,10 @@ const sampleRoles = [
   "imp",
 ];
 
-const getDrunkDisguiseRoleId = (
+const getDisguiseRoleId = (
   players: Player[],
   playerId: string,
+  rolePool: RoleDefinition[],
   preferredRoleId = "",
 ) => {
   const occupiedRoleIds = new Set(
@@ -185,7 +198,7 @@ const getDrunkDisguiseRoleId = (
       .flatMap((player) => [player.roleId, player.drunkRoleId])
       .filter(Boolean),
   );
-  const preferredRole = roles.find((role) => role.id === preferredRoleId);
+  const preferredRole = rolePool.find((role) => role.id === preferredRoleId);
   if (
     preferredRole?.team === "镇民" &&
     !occupiedRoleIds.has(preferredRole.id)
@@ -193,7 +206,7 @@ const getDrunkDisguiseRoleId = (
     return preferredRole.id;
   }
   return (
-    roles.find(
+    rolePool.find(
       (role) => role.team === "镇民" && !occupiedRoleIds.has(role.id),
     )?.id ?? ""
   );
@@ -475,7 +488,13 @@ function GrimoireApp() {
     };
   }, [refreshRoomAdmin, room]);
 
-  const nightRoles = useMemo(() => getNightRoles(state.players), [state.players]);
+  const isFirstNight =
+    state.phase === "准备" ||
+    (state.phase === "夜晚" && state.round <= 1);
+  const nightRoles = useMemo(
+    () => getNightRoles(state.players, isFirstNight),
+    [isFirstNight, state.players],
+  );
   const currentNightRole = nightRoles[state.nightIndex] ?? nightRoles[0];
   const aliveCount = state.players.filter((player) => player.alive).length;
   const selectedRole = currentNightRole ? getRole(currentNightRole.id) : null;
@@ -546,7 +565,7 @@ function GrimoireApp() {
     }
 
     try {
-      const distribution = distributeRoles(playerCount);
+      const distribution = distributeRoles(playerCount, state.scriptId);
       setState((current) => ({
         ...current,
         phase: "准备",
@@ -558,6 +577,8 @@ function GrimoireApp() {
           drunkRoleId:
             distribution.roleIds[index] === "drunk"
               ? distribution.drunkRoleId
+              : distribution.roleIds[index] === "marionette"
+                ? distribution.marionetteRoleId
               : "",
           alive: true,
           identityMessage: "",
@@ -566,8 +587,11 @@ function GrimoireApp() {
         updatedAt: new Date().toISOString(),
       }));
       const { counts } = distribution;
+      const setupCopy = distribution.setupNotes.length
+        ? `（${distribution.setupNotes.join("、")}）`
+        : "";
       setToast(
-        `已分配：${counts.镇民}镇民 · ${counts.外来者}外来者 · ${counts.爪牙}爪牙 · ${counts.恶魔}恶魔${distribution.hasBaron ? "（男爵修正）" : ""}`,
+        `已分配：${counts.镇民}镇民 · ${counts.外来者}外来者 · ${counts.爪牙}爪牙 · ${counts.恶魔}恶魔${setupCopy}`,
       );
     } catch (reason) {
       setToast(reason instanceof Error ? reason.message : "角色分配失败");
@@ -980,6 +1004,7 @@ function GrimoirePanel({
   nightMessages: NightMessage[];
   roomPanel: ReactNode;
 }) {
+  const scriptRoles = getScriptRoles(state.scriptId);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(
     state.players[0]?.id ?? null,
   );
@@ -1179,7 +1204,9 @@ function GrimoirePanel({
                       <span className="table-player-name">{getTableName(player)}</span>
                       <span className="table-role-name">
                         {role.name}
-                        {player.roleId === "drunk" && player.drunkRoleId
+                        {(player.roleId === "drunk" ||
+                          player.roleId === "marionette") &&
+                        player.drunkRoleId
                           ? ` / ${getRole(player.drunkRoleId).name}`
                           : ""}
                       </span>
@@ -1200,6 +1227,7 @@ function GrimoirePanel({
                 key={selectedPlayer.id}
                 player={selectedPlayer}
                 players={state.players}
+                roleOptions={scriptRoles}
                 displayName={getDisplayName(selectedPlayer)}
                 stageLabel={currentStageLabel}
                 messages={nightMessages.filter(
@@ -1219,6 +1247,7 @@ function GrimoirePanel({
 function PlayerEditor({
   player,
   players,
+  roleOptions,
   displayName,
   stageLabel,
   messages,
@@ -1227,6 +1256,7 @@ function PlayerEditor({
 }: {
   player: Player;
   players: Player[];
+  roleOptions: RoleDefinition[];
   displayName: string;
   stageLabel: string;
   messages: NightMessage[];
@@ -1234,7 +1264,7 @@ function PlayerEditor({
   onRemove: (id: string) => void;
 }) {
   const role = getRole(player.roleId);
-  const drunkRole = player.drunkRoleId
+  const disguiseRole = player.drunkRoleId
     ? getRole(player.drunkRoleId)
     : null;
   const occupiedDrunkRoleIds = new Set(
@@ -1319,10 +1349,11 @@ function PlayerEditor({
             onUpdate(player.id, {
               roleId,
               drunkRoleId:
-                roleId === "drunk"
-                  ? getDrunkDisguiseRoleId(
+                roleId === "drunk" || roleId === "marionette"
+                  ? getDisguiseRoleId(
                       players,
                       player.id,
+                      roleOptions,
                       player.drunkRoleId,
                     )
                   : "",
@@ -1330,7 +1361,7 @@ function PlayerEditor({
           }}
           aria-label={`座位 ${player.seat} 角色`}
         >
-          {roles.map((option) => (
+          {roleOptions.map((option) => (
             <option value={option.id} key={option.id}>
               {option.name} · {option.team}
             </option>
@@ -1338,13 +1369,17 @@ function PlayerEditor({
         </select>
       </label>
 
-      {player.roleId === "drunk" ? (
+      {player.roleId === "drunk" || player.roleId === "marionette" ? (
         <label className="drunk-disguise-field">
           <span className="drunk-disguise-icon">
-            <RoleIcon roleId={drunkRole?.id ?? "washerwoman"} size={24} />
+            <RoleIcon roleId={disguiseRole?.id ?? "washerwoman"} size={24} />
           </span>
           <span className="drunk-disguise-copy">
-            <strong>展示给玩家</strong>
+            <strong>
+              {player.roleId === "drunk"
+                ? "酒鬼展示身份"
+                : "提线木偶展示身份"}
+            </strong>
             <small>玩家只会看到这个镇民身份</small>
           </span>
           <select
@@ -1352,9 +1387,11 @@ function PlayerEditor({
             onChange={(event) =>
               onUpdate(player.id, { drunkRoleId: event.target.value })
             }
-            aria-label={`座位 ${player.seat} 酒鬼展示身份`}
+            aria-label={`座位 ${player.seat} ${
+              player.roleId === "drunk" ? "酒鬼" : "提线木偶"
+            }展示身份`}
           >
-            {roles
+            {roleOptions
               .filter((option) => option.team === "镇民")
               .map((option) => (
                 <option
@@ -1380,9 +1417,11 @@ function PlayerEditor({
           <strong>{role.name}</strong>
           <small>{role.team}</small>
           <p>{role.short}</p>
-          {player.roleId === "drunk" && drunkRole ? (
+          {(player.roleId === "drunk" ||
+            player.roleId === "marionette") &&
+          disguiseRole ? (
             <span className="drunk-host-summary">
-              玩家看到：{drunkRole.name} · {drunkRole.short}
+              玩家看到：{disguiseRole.name} · {disguiseRole.short}
             </span>
           ) : null}
         </div>
@@ -1917,12 +1956,12 @@ function HostMessagesPanel({
     const assignedRoleIds = new Set(
       state.players.map((player) => player.roleId),
     );
-    return roles.filter(
+    return getScriptRoles(state.scriptId).filter(
       (role) =>
         (role.team === "镇民" || role.team === "外来者") &&
         !assignedRoleIds.has(role.id),
     );
-  }, [state.players]);
+  }, [state.players, state.scriptId]);
   const assignedRoleSignature = useMemo(
     () =>
       [...state.players]
@@ -2646,7 +2685,8 @@ function ScriptPanel({
   onSelectScript: (id: string) => void;
   onFilter: (value: string) => void;
 }) {
-  const filteredRoles = roles.filter((role) => {
+  const scriptRoles = getScriptRoles(scriptId);
+  const filteredRoles = scriptRoles.filter((role) => {
     const query = roleFilter.trim().toLowerCase();
     return !query || `${role.name}${role.team}${role.short}`.toLowerCase().includes(query);
   });

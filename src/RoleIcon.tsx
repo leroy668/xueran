@@ -5,6 +5,23 @@ const roleIconAliases: Record<string, string> = {
   "scarlet-woman": "scarletwoman",
 };
 
+const pngRoleIds = new Set([
+  "grandmother",
+  "gambler",
+  "chambermaid",
+  "philosopher",
+  "juggler",
+  "oracle",
+  "nightwatchman",
+  "moonchild",
+  "goon",
+  "godfather",
+  "marionette",
+  "pukka",
+  "vigormortis",
+  "nodashii",
+]);
+
 const iconBaseUrl = `${import.meta.env.BASE_URL}role-icons/`;
 const fallbackIconUrl = `${iconBaseUrl}custom.webp`;
 
@@ -25,12 +42,15 @@ export function RoleIcon({
   size?: number;
   className?: string;
 }) {
-  const fileName = roleIconAliases[roleId] ?? roleId;
+  const normalizedRoleId = roleIconAliases[roleId] ?? roleId;
+  const fileName = `${normalizedRoleId}.${
+    pngRoleIds.has(roleId) ? "png" : "webp"
+  }`;
   const renderedSize = Math.round(size * 1.7);
 
   return (
     <img
-      src={`${iconBaseUrl}${fileName}.webp`}
+      src={`${iconBaseUrl}${fileName}`}
       width={renderedSize}
       height={renderedSize}
       className={["role-icon-image", className].filter(Boolean).join(" ")}

@@ -8,7 +8,8 @@ export type RoleDefinition = {
   team: Team;
   icon: string;
   short: string;
-  nightOrder: number;
+  firstNightOrder: number;
+  otherNightOrder: number;
   reminder: string;
 };
 

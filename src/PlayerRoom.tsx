@@ -13,7 +13,7 @@ import {
   UserRoundCheck,
   Users,
 } from "lucide-react";
-import { getRole, roles, scripts } from "./data";
+import { getRole, getScriptRoles, scripts } from "./data";
 import { DemonBluffMessage } from "./DemonBluffMessage";
 import { parseDemonBluffMessage } from "./demonBluffs";
 import {
@@ -242,7 +242,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
   if (identity) {
     const player = players.find((item) => item.id === identity.player_id);
     const displayedRoleId =
-      identity.role_id === "drunk"
+      identity.role_id === "drunk" || identity.role_id === "marionette"
         ? identity.drunk_role_id || "washerwoman"
         : identity.role_id;
     const payload: IdentityPayload = {
@@ -381,6 +381,7 @@ function ClaimedIdentity({
   );
   const role = getRole(identity.roleId);
   const script = scripts.find((item) => item.id === scriptId) ?? scripts[0];
+  const scriptRoles = getScriptRoles(scriptId);
   const evilChatAvailable =
     roomPhase !== "准备" && (role.team === "爪牙" || role.team === "恶魔");
   const lastReadTime = lastReadAt ? new Date(lastReadAt).getTime() : 0;
@@ -503,7 +504,9 @@ function ClaimedIdentity({
           </div>
           <div className="player-script-groups">
             {scriptTeams.map((team) => {
-              const teamRoles = roles.filter((item) => item.team === team);
+              const teamRoles = scriptRoles.filter(
+                (item) => item.team === team,
+              );
               return (
                 <section className={`player-script-group ${teamClass(team)}`} key={team}>
                   <div className="player-script-team-heading">
