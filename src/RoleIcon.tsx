@@ -6,6 +6,12 @@ const roleIconAliases: Record<string, string> = {
 };
 
 const pngRoleIds = new Set([
+  "washerwoman",
+  "librarian",
+  "investigator",
+  "fortune-teller",
+  "monk",
+  "ravenkeeper",
   "grandmother",
   "gambler",
   "chambermaid",
@@ -13,10 +19,15 @@ const pngRoleIds = new Set([
   "juggler",
   "oracle",
   "nightwatchman",
+  "recluse",
+  "drunk",
   "moonchild",
   "goon",
+  "poisoner",
+  "scarlet-woman",
   "godfather",
   "marionette",
+  "imp",
   "pukka",
   "vigormortis",
   "nodashii",
