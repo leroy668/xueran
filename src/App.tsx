@@ -146,33 +146,13 @@ const getGameStageLabel = (phase: Phase, round: number) => {
   return `第${chineseNumber(sequence)}${phase === "白天" ? "天" : "晚"}`;
 };
 
-const buildGameStageOptions = (maxSequence: number) => {
-  const options: Array<{
-    value: string;
-    label: string;
-    phase: Phase;
-    round: number;
-  }> = [
-    { value: "准备", label: "准备", phase: "准备", round: 1 },
-    { value: "夜晚:1", label: "首夜", phase: "夜晚", round: 1 },
-  ];
-  for (let sequence = 1; sequence <= maxSequence; sequence += 1) {
-    options.push(
-      {
-        value: `白天:${sequence}`,
-        label: `第${chineseNumber(sequence)}天`,
-        phase: "白天",
-        round: sequence,
-      },
-      {
-        value: `夜晚:${sequence + 1}`,
-        label: `第${chineseNumber(sequence)}晚`,
-        phase: "夜晚",
-        round: sequence + 1,
-      },
-    );
-  }
-  return options;
+const getNextGameStage = (
+  phase: Phase,
+  round: number,
+): Pick<GameState, "phase" | "round"> => {
+  if (phase === "准备") return { phase: "夜晚", round: 1 };
+  if (phase === "夜晚") return { phase: "白天", round: Math.max(1, round) };
+  return { phase: "夜晚", round: round + 1 };
 };
 
 const sampleRoles = [
@@ -996,9 +976,8 @@ function GrimoirePanel({
     return roomPlayer?.name.trim() || player.name.trim() || "待入座";
   };
   const currentStageLabel = getGameStageLabel(state.phase, state.round);
-  const stageOptions = buildGameStageOptions(Math.max(20, state.round + 2));
-  const currentStageValue =
-    state.phase === "准备" ? "准备" : `${state.phase}:${state.round}`;
+  const nextStage = getNextGameStage(state.phase, state.round);
+  const nextStageLabel = getGameStageLabel(nextStage.phase, nextStage.round);
 
   return (
     <div className="dashboard-grid">
@@ -1082,30 +1061,15 @@ function GrimoirePanel({
               </button>
             ) : null}
             {state.players.length > 0 ? (
-              <label className="stage-select-control">
+              <button
+                className="secondary-button stage-advance-button"
+                onClick={() => onUpdate({ ...nextStage, nightIndex: 0 })}
+                title={`切换到${nextStageLabel}`}
+              >
                 <span>回合</span>
-                <select
-                  aria-label="选择当前阶段"
-                  value={currentStageValue}
-                  onChange={(event) => {
-                    const selectedStage = stageOptions.find(
-                      (stage) => stage.value === event.target.value,
-                    );
-                    if (!selectedStage) return;
-                    onUpdate({
-                      phase: selectedStage.phase,
-                      round: selectedStage.round,
-                      nightIndex: 0,
-                    });
-                  }}
-                >
-                  {stageOptions.map((stage) => (
-                    <option key={stage.value} value={stage.value}>
-                      {stage.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <b>{currentStageLabel}</b>
+                <ChevronRight size={14} />
+              </button>
             ) : null}
             {state.players.length > 0 ? (
               <button
