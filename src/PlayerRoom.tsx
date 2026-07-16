@@ -241,11 +241,15 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
 
   if (identity) {
     const player = players.find((item) => item.id === identity.player_id);
+    const displayedRoleId =
+      identity.role_id === "drunk"
+        ? identity.drunk_role_id || "washerwoman"
+        : identity.role_id;
     const payload: IdentityPayload = {
       version: 1,
       playerName: player?.name.trim() || `座位 ${player?.seat ?? "?"}`,
       seat: player?.seat ?? 0,
-      roleId: identity.role_id,
+      roleId: displayedRoleId,
       message: identity.identity_message,
     };
     return (

@@ -31,6 +31,7 @@ export type PrivateIdentity = {
   player_id: string;
   room_id: string;
   role_id: string;
+  drunk_role_id: string;
   identity_message: string;
   host_notes?: string;
   claimed_by?: string | null;
@@ -174,6 +175,7 @@ export const loadHostRoom = async (room: SharedRoom, user: User) => {
         name: "",
         alive: player.alive,
         roleId: identity?.role_id ?? "washerwoman",
+        drunkRoleId: identity?.drunk_role_id ?? "",
         identityMessage: identity?.identity_message ?? "",
         notes: identity?.host_notes ?? "",
       };
@@ -204,7 +206,7 @@ export const getRoomPlayers = async (roomId: string) => {
 export const getMyIdentity = async (roomId: string) => {
   const { data, error } = await supabase
     .from("xueran_identities")
-    .select("player_id, room_id, role_id, identity_message")
+    .select("player_id, room_id, role_id, drunk_role_id, identity_message")
     .eq("room_id", roomId)
     .maybeSingle();
   if (error) throw error;

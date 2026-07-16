@@ -17,6 +17,7 @@ export type Player = {
   seat: number;
   name: string;
   roleId: string;
+  drunkRoleId: string;
   alive: boolean;
   identityMessage: string;
   notes: string;

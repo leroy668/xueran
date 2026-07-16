@@ -3,6 +3,7 @@ import type { Team } from "./types";
 
 export type RoleDistribution = {
   roleIds: string[];
+  drunkRoleId: string;
   counts: Record<Team, number>;
   hasBaron: boolean;
 };
@@ -66,6 +67,15 @@ export const distributeRoles = (
     ],
     random,
   );
+  const assignedRoleIds = new Set(roleIds);
+  const drunkRoleId = roleIds.includes("drunk")
+    ? shuffle(
+        roles.filter(
+          (role) => role.team === "镇民" && !assignedRoleIds.has(role.id),
+        ),
+        random,
+      )[0]?.id ?? ""
+    : "";
 
-  return { roleIds, counts, hasBaron };
+  return { roleIds, drunkRoleId, counts, hasBaron };
 };

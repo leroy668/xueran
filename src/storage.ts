@@ -22,6 +22,7 @@ export const loadState = (): GameState => {
       ...saved,
       players: (saved.players ?? []).map((player) => ({
         ...player,
+        drunkRoleId: player.drunkRoleId ?? "",
         identityMessage: player.identityMessage ?? "",
       })),
     };
@@ -55,6 +56,7 @@ export const getSharedState = (): SharedState | null => {
       ...shared,
       players: shared.players.map((player) => ({
         ...player,
+        drunkRoleId: player.drunkRoleId ?? "",
         identityMessage: "",
         notes: "",
       })),

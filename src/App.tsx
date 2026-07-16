@@ -165,11 +165,37 @@ const sampleRoles = [
   "imp",
 ];
 
+const getDrunkDisguiseRoleId = (
+  players: Player[],
+  playerId: string,
+  preferredRoleId = "",
+) => {
+  const occupiedRoleIds = new Set(
+    players
+      .filter((player) => player.id !== playerId)
+      .flatMap((player) => [player.roleId, player.drunkRoleId])
+      .filter(Boolean),
+  );
+  const preferredRole = roles.find((role) => role.id === preferredRoleId);
+  if (
+    preferredRole?.team === "镇民" &&
+    !occupiedRoleIds.has(preferredRole.id)
+  ) {
+    return preferredRole.id;
+  }
+  return (
+    roles.find(
+      (role) => role.team === "镇民" && !occupiedRoleIds.has(role.id),
+    )?.id ?? ""
+  );
+};
+
 const newPlayer = (seat: number, name = ""): Player => ({
   id: makeId(),
   seat,
   name,
   roleId: "washerwoman",
+  drunkRoleId: "",
   alive: true,
   identityMessage: "",
   notes: "",
@@ -520,6 +546,10 @@ function GrimoireApp() {
         players: current.players.map((player, index) => ({
           ...player,
           roleId: distribution.roleIds[index],
+          drunkRoleId:
+            distribution.roleIds[index] === "drunk"
+              ? distribution.drunkRoleId
+              : "",
           alive: true,
           identityMessage: "",
           notes: "",
@@ -1152,7 +1182,12 @@ function GrimoirePanel({
                         />
                       </span>
                       <span className="table-player-name">{getTableName(player)}</span>
-                      <span className="table-role-name">{role.name}</span>
+                      <span className="table-role-name">
+                        {role.name}
+                        {player.roleId === "drunk" && player.drunkRoleId
+                          ? ` / ${getRole(player.drunkRoleId).name}`
+                          : ""}
+                      </span>
                       {roomPlayer?.is_claimed ? (
                         <span className="table-claimed-dot" title="玩家已入座" />
                       ) : null}
@@ -1169,6 +1204,7 @@ function GrimoirePanel({
               <PlayerEditor
                 key={selectedPlayer.id}
                 player={selectedPlayer}
+                players={state.players}
                 displayName={getDisplayName(selectedPlayer)}
                 stageLabel={currentStageLabel}
                 messages={nightMessages.filter(
@@ -1187,6 +1223,7 @@ function GrimoirePanel({
 
 function PlayerEditor({
   player,
+  players,
   displayName,
   stageLabel,
   messages,
@@ -1194,6 +1231,7 @@ function PlayerEditor({
   onRemove,
 }: {
   player: Player;
+  players: Player[];
   displayName: string;
   stageLabel: string;
   messages: NightMessage[];
@@ -1201,6 +1239,15 @@ function PlayerEditor({
   onRemove: (id: string) => void;
 }) {
   const role = getRole(player.roleId);
+  const drunkRole = player.drunkRoleId
+    ? getRole(player.drunkRoleId)
+    : null;
+  const occupiedDrunkRoleIds = new Set(
+    players
+      .filter((item) => item.id !== player.id)
+      .flatMap((item) => [item.roleId, item.drunkRoleId])
+      .filter(Boolean),
+  );
   const [noteDraft, setNoteDraft] = useState("");
   const noteEntries = parsePlayerNotes(player.notes);
   const messageHistory = [...messages].sort(
@@ -1272,7 +1319,20 @@ function PlayerEditor({
         <span>角色身份</span>
         <select
           value={player.roleId}
-          onChange={(event) => onUpdate(player.id, { roleId: event.target.value })}
+          onChange={(event) => {
+            const roleId = event.target.value;
+            onUpdate(player.id, {
+              roleId,
+              drunkRoleId:
+                roleId === "drunk"
+                  ? getDrunkDisguiseRoleId(
+                      players,
+                      player.id,
+                      player.drunkRoleId,
+                    )
+                  : "",
+            });
+          }}
           aria-label={`座位 ${player.seat} 角色`}
         >
           {roles.map((option) => (
@@ -1283,6 +1343,40 @@ function PlayerEditor({
         </select>
       </label>
 
+      {player.roleId === "drunk" ? (
+        <label className="drunk-disguise-field">
+          <span className="drunk-disguise-icon">
+            <RoleIcon roleId={drunkRole?.id ?? "washerwoman"} size={24} />
+          </span>
+          <span className="drunk-disguise-copy">
+            <strong>展示给玩家</strong>
+            <small>玩家只会看到这个镇民身份</small>
+          </span>
+          <select
+            value={player.drunkRoleId}
+            onChange={(event) =>
+              onUpdate(player.id, { drunkRoleId: event.target.value })
+            }
+            aria-label={`座位 ${player.seat} 酒鬼展示身份`}
+          >
+            {roles
+              .filter((option) => option.team === "镇民")
+              .map((option) => (
+                <option
+                  value={option.id}
+                  key={option.id}
+                  disabled={
+                    occupiedDrunkRoleIds.has(option.id) &&
+                    option.id !== player.drunkRoleId
+                  }
+                >
+                  {option.name}
+                </option>
+              ))}
+          </select>
+        </label>
+      ) : null}
+
       <div className={`selected-role-summary ${teamLabels[role.team]}`}>
         <span className="selected-role-icon">
           <RoleIcon roleId={role.id} size={20} />
@@ -1291,6 +1385,11 @@ function PlayerEditor({
           <strong>{role.name}</strong>
           <small>{role.team}</small>
           <p>{role.short}</p>
+          {player.roleId === "drunk" && drunkRole ? (
+            <span className="drunk-host-summary">
+              玩家看到：{drunkRole.name} · {drunkRole.short}
+            </span>
+          ) : null}
         </div>
       </div>
 
