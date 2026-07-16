@@ -201,29 +201,29 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .player-notes-heading { min-height: 25px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .player-notes-heading > span { color: var(--muted); font-size: 10px; }
 .player-notes-heading > strong { min-width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--line); color: var(--gold); font-size: 8px; }
-.player-note-composer { padding: 9px; border: 1px solid var(--line); background: #19191c; }
-.player-note-composer textarea { width: 100%; min-height: 66px; padding: 10px; resize: vertical; border: 1px solid var(--line-light); background: #222226; color: var(--ink); font-size: 11px; line-height: 1.55; }
+.player-note-composer { padding: 7px; border: 1px solid var(--line); background: #19191c; }
+.player-note-composer textarea { width: 100%; min-height: 50px; padding: 8px; resize: vertical; border: 1px solid var(--line-light); background: #222226; color: var(--ink); font-size: 11px; line-height: 1.45; }
 .player-note-composer textarea::placeholder { color: #858287; opacity: 1; }
-.player-note-composer > div { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-top: 7px; }
+.player-note-composer > div { display: flex; align-items: center; justify-content: space-between; gap: 7px; margin-top: 5px; }
 .player-note-composer > div > span { color: var(--dim); font-size: 8px; }
-.player-note-add { min-height: 30px; padding: 0 9px; font-size: 9px; }
-.player-note-list { max-height: 260px; margin-top: 8px; overflow-y: auto; border: 1px solid var(--line); background: #19191c; scrollbar-width: thin; }
-.player-note-item { padding: 8px; border-bottom: 1px solid var(--line); }
+.player-note-add { min-height: 28px; padding: 0 8px; font-size: 9px; }
+.player-note-list { max-height: 220px; margin-top: 6px; overflow-y: auto; border: 1px solid var(--line); background: #19191c; scrollbar-width: thin; }
+.player-note-item { padding: 5px 6px 6px; border-bottom: 1px solid var(--line); }
 .player-note-item:last-child { border-bottom: 0; }
-.player-note-meta { min-height: 22px; display: flex; align-items: center; gap: 7px; }
-.player-note-meta > span { color: var(--gold); font-size: 9px; font-weight: 800; }
-.player-note-stage { padding: 2px 5px; border: 1px solid rgba(141,170,195,.28); color: var(--blue); font-size: 8px; white-space: nowrap; }
+.player-note-meta { min-height: 20px; display: flex; align-items: center; gap: 4px; }
+.player-note-meta > span { color: var(--gold); font-size: 8px; font-weight: 800; }
+.player-note-stage { padding: 1px 5px; border: 1px solid rgba(141,170,195,.28); color: var(--blue) !important; white-space: nowrap; }
 .player-note-meta time { margin-left: auto; color: var(--dim); font-size: 8px; }
-.player-note-meta button { width: 24px; height: 24px; display: grid; place-items: center; border: 0; background: transparent; color: var(--dim); }
+.player-note-meta button { width: 22px; height: 22px; display: grid; place-items: center; border: 0; background: transparent; color: var(--dim); }
 .player-note-meta button:hover { color: var(--red); }
 .player-note-meta .player-note-resolve { color: var(--green); }
 .player-note-meta .player-note-resolve:hover { color: #a8cfaa; }
-.player-note-item textarea { width: 100%; min-height: 46px; padding: 8px 9px; resize: vertical; border: 1px solid #303036; background: #202024; color: #eee9e2; caret-color: var(--gold); font-size: 11px; line-height: 1.55; }
+.player-note-item textarea { width: 100%; min-height: 34px; padding: 6px 8px; resize: vertical; border: 1px solid #303036; background: #202024; color: #eee9e2; caret-color: var(--gold); font-size: 11px; line-height: 1.4; }
 .player-note-item textarea:focus { border-color: var(--line-light); }
 .player-note-item.resolved { opacity: .68; }
-.player-note-item.resolved .player-note-meta > span { color: var(--green); }
+.player-note-item.resolved .player-note-stage { border-color: rgba(121,181,138,.32); color: var(--green) !important; }
 .player-note-item.resolved textarea { color: var(--muted); }
-.player-note-empty { min-height: 48px; display: grid; place-items: center; border: 1px dashed var(--line); color: var(--dim); font-size: 9px; }
+.player-note-empty { min-height: 42px; display: grid; place-items: center; border: 1px dashed var(--line); color: var(--dim); font-size: 9px; }
 .player-message-history { margin-top: 15px; border-top: 1px solid var(--line); padding-top: 13px; }
 .player-history-heading { min-height: 34px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .player-history-heading span { display: block; color: var(--ink); font-size: 11px; font-weight: 800; }

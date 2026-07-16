@@ -1344,13 +1344,10 @@ function PlayerEditor({
                 key={note.id}
               >
                 <div className="player-note-meta">
-                  <span>
-                    备注 {noteEntries.length - index}
+                  <span className="player-note-stage">
+                    {note.stage ?? "阶段未记录"}
                     {note.resolved ? " · 已处理" : ""}
                   </span>
-                  <small className="player-note-stage">
-                    {note.stage ?? "阶段未记录"}
-                  </small>
                   {note.createdAt ? (
                     <time>
                       {new Date(note.createdAt).toLocaleString("zh-CN", {
@@ -1383,7 +1380,7 @@ function PlayerEditor({
                   value={note.body}
                   onChange={(event) => updateNote(note.id, event.target.value)}
                   aria-label={`备注 ${noteEntries.length - index}`}
-                  rows={2}
+                  rows={1}
                 />
               </article>
             ))}
