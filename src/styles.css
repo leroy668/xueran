@@ -248,21 +248,25 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .current-action h3 { margin: 0 0 5px; font-size: 24px; }
 .current-action p:not(.eyebrow) { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .current-role-team { margin-left: auto; align-self: flex-start; color: var(--dim); font-size: 11px; }
-.night-message-composer { margin: 0 0 24px; padding: 18px 0 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .night-action-section { margin-bottom: 24px; }
 .night-action-heading { margin-bottom: 12px; }
-.night-message-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.night-message-chat { margin: 0 0 24px; border: 1px solid var(--line); background: #19191c; overflow: hidden; }
+.night-message-chat-header { min-height: 78px; padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); }
+.night-message-heading { display: flex; align-items: center; gap: 11px; }
 .night-message-heading h3 { margin: 0; font-size: 17px; }
-.night-message-heading > svg { color: var(--gold); }
-.night-message-controls { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 12px; margin-top: 15px; }
-.night-message-controls label { display: block; min-width: 0; }
-.night-message-controls label > span { display: block; color: var(--muted); font-size: 10px; margin-bottom: 7px; }
-.night-message-controls select, .night-message-controls textarea { width: 100%; border: 1px solid var(--line); background: #17171a; color: var(--ink); padding: 10px; font-size: 12px; }
-.night-message-controls select { min-height: 42px; }
-.night-message-controls textarea { min-height: 88px; resize: vertical; line-height: 1.6; }
-.night-message-controls textarea::placeholder { color: var(--dim); }
-.night-message-footer { min-height: 36px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
-.night-message-footer > span { color: var(--dim); font-size: 10px; line-height: 1.5; }
+.night-message-heading > svg { flex: 0 0 auto; color: var(--gold); }
+.night-chat-recipient { width: min(310px, 46%); min-width: 220px; }
+.night-chat-recipient > span { display: block; margin-bottom: 5px; color: var(--muted); font-size: 9px; }
+.night-chat-recipient select { width: 100%; min-height: 40px; border: 1px solid var(--line); background: #141416; color: var(--ink); padding: 8px 10px; font-size: 12px; }
+.night-chat-timeline { min-height: 260px; max-height: 430px; padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; background: #151517; overscroll-behavior: contain; scrollbar-width: thin; }
+.night-chat-empty { min-height: 260px; padding: 30px 18px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; background: #151517; color: var(--dim); }
+.night-chat-empty strong { margin: 10px 0 5px; color: var(--ink); font-size: 15px; }
+.night-chat-empty span { color: var(--muted); font-size: 10px; }
+.night-chat-composer { padding: 12px 16px 14px; border-top: 1px solid var(--line); background: #1a1a1d; }
+.night-chat-composer textarea { width: 100%; min-height: 58px; max-height: 120px; resize: vertical; border: 1px solid var(--line); background: #111113; color: var(--ink); padding: 10px 11px; font-size: 13px; line-height: 1.55; }
+.night-chat-composer textarea::placeholder { color: var(--dim); }
+.night-chat-composer-footer { min-height: 36px; margin-top: 7px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.night-chat-composer-footer > span { color: var(--dim); font-size: 9px; line-height: 1.5; }
 .night-send-button { min-width: 92px; }
 .night-list { border-top: 1px solid var(--line); }
 .night-row { width: 100%; display: grid; grid-template-columns: 32px 31px minmax(90px, 1fr) 55px 50px; align-items: center; gap: 8px; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--muted); padding: 12px 5px; }
@@ -562,8 +566,13 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .current-role-icon { width: 42px; height: 42px; font-size: 16px; }
   .current-action h3 { font-size: 19px; }
   .current-role-team { display: none; }
-  .night-message-controls { grid-template-columns: 1fr; }
-  .night-message-footer { align-items: flex-end; }
+  .night-message-chat-header { align-items: stretch; flex-direction: column; gap: 10px; padding: 12px; }
+  .night-chat-recipient { width: 100%; min-width: 0; }
+  .night-chat-timeline, .night-chat-empty { min-height: 250px; }
+  .night-chat-timeline { max-height: 46vh; padding: 14px 10px; }
+  .night-chat-composer { padding: 10px; }
+  .night-chat-composer textarea { min-height: 54px; resize: none; }
+  .night-chat-composer-footer { align-items: flex-end; }
   .night-send-button { min-width: 98px; }
   .night-row { grid-template-columns: 28px 29px minmax(0, 1fr) 42px; }
   .night-role-team { display: none; }

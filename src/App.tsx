@@ -818,8 +818,12 @@ function GrimoireApp() {
             currentRole={selectedRole}
             room={room}
             roomPlayers={roomPlayers}
+            nightMessages={nightMessages}
+            playerMessages={playerMessages}
+            unreadPlayerMessages={unreadPlayerMessages}
             onChangeNight={changeNight}
             onSelectNight={(index) => update({ nightIndex: index })}
+            onReadPlayerMessages={markPlayerMessagesRead}
             onSendMessage={handleSendNightMessage}
           />
         ) : null}
@@ -1376,8 +1380,12 @@ function NightPanel({
   currentRole,
   room,
   roomPlayers,
+  nightMessages,
+  playerMessages,
+  unreadPlayerMessages,
   onChangeNight,
   onSelectNight,
+  onReadPlayerMessages,
   onSendMessage,
 }: {
   state: GameState;
@@ -1385,8 +1393,12 @@ function NightPanel({
   currentRole: ReturnType<typeof getRole> | null;
   room: SharedRoom | null;
   roomPlayers: PublicRoomPlayer[];
+  nightMessages: NightMessage[];
+  playerMessages: PlayerMessage[];
+  unreadPlayerMessages: PlayerMessage[];
   onChangeNight: (offset: number) => void;
   onSelectNight: (index: number) => void;
+  onReadPlayerMessages: (playerId: string) => void;
   onSendMessage: (message: {
     playerId: string;
     roleId: string;
@@ -1397,6 +1409,7 @@ function NightPanel({
   const [messageBody, setMessageBody] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
+  const timelineRef = useRef<HTMLDivElement>(null);
   const rolePlayers = useMemo(
     () =>
       currentRole
@@ -1422,6 +1435,68 @@ function NightPanel({
   const selectedRoomPlayer = selectedPlayer
     ? roomPlayersById.get(selectedPlayer.id)
     : undefined;
+  const selectedPlayerName = selectedPlayer
+    ? selectedRoomPlayer?.name ||
+      `座位 ${String(selectedPlayer.seat).padStart(2, "0")}`
+    : "玩家";
+  const conversation = useMemo(
+    () =>
+      [
+        ...nightMessages
+          .filter((message) => message.player_id === targetPlayerId)
+          .map((message) => ({
+            ...message,
+            direction: "outgoing" as const,
+            label: `上帝 · 第 ${message.round} 回合 · ${getRole(message.role_id).name}`,
+            avatar: "上",
+          })),
+        ...playerMessages
+          .filter((message) => message.player_id === targetPlayerId)
+          .map((message) => ({
+            ...message,
+            direction: "incoming" as const,
+            label: `${selectedPlayerName} · 第 ${message.round} 回合`,
+            avatar: selectedPlayer
+              ? String(selectedPlayer.seat).padStart(2, "0")
+              : "?",
+          })),
+      ].sort(
+        (left, right) =>
+          new Date(left.created_at).getTime() -
+          new Date(right.created_at).getTime(),
+      ),
+    [
+      nightMessages,
+      playerMessages,
+      selectedPlayer,
+      selectedPlayerName,
+      targetPlayerId,
+    ],
+  );
+  const latestMessageKey = conversation.length
+    ? `${targetPlayerId}-${conversation[conversation.length - 1].direction}-${conversation[conversation.length - 1].id}`
+    : targetPlayerId;
+
+  useEffect(() => {
+    const timelineElement = timelineRef.current;
+    if (!timelineElement) return;
+    const frame = requestAnimationFrame(() => {
+      timelineElement.scrollTop = timelineElement.scrollHeight;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [latestMessageKey]);
+
+  useEffect(() => {
+    if (
+      targetPlayerId &&
+      unreadPlayerMessages.some(
+        (message) => message.player_id === targetPlayerId,
+      )
+    ) {
+      onReadPlayerMessages(targetPlayerId);
+    }
+  }, [onReadPlayerMessages, targetPlayerId, unreadPlayerMessages]);
+
   const canSend =
     Boolean(room) &&
     Boolean(currentRole) &&
@@ -1495,17 +1570,17 @@ function NightPanel({
           )}
         </section>
         {currentRole ? (
-          <section className="night-message-composer">
-            <div className="night-message-heading">
-              <div>
-                <p className="eyebrow">PRIVATE NIGHT MESSAGE</p>
-                <h3>发送夜间信息</h3>
+          <section className="night-message-chat">
+            <div className="night-message-chat-header">
+              <div className="night-message-heading">
+                <MessageSquareText size={20} />
+                <div>
+                  <p className="eyebrow">PRIVATE NIGHT MESSAGE</p>
+                  <h3>发送夜间信息</h3>
+                </div>
               </div>
-              <MessageSquareText size={20} />
-            </div>
-            <div className="night-message-controls">
-              <label>
-                <span>接收玩家</span>
+              <label className="night-chat-recipient">
+                <span>对话玩家</span>
                 <select
                   value={targetPlayerId}
                   onChange={(event) => setTargetPlayerId(event.target.value)}
@@ -1523,36 +1598,83 @@ function NightPanel({
                   })}
                 </select>
               </label>
-              <label>
-                <span>告知内容</span>
-                <textarea
-                  value={messageBody}
-                  onChange={(event) => setMessageBody(event.target.value)}
-                  placeholder={`输入需要告知${currentRole.name}的信息`}
-                  maxLength={500}
-                  rows={3}
-                  disabled={sending}
-                />
-              </label>
             </div>
-            <div className="night-message-footer">
-              <span>
-                {!room
-                  ? "请先在魔典页创建共享房间"
-                  : !selectedRoomPlayer?.is_claimed
-                    ? "该座位入座后才可接收"
-                    : `${messageBody.length}/500`}
-              </span>
-              <button
-                className="primary-button night-send-button"
-                disabled={!canSend}
-                onClick={() => void submitMessage()}
-              >
-                <Send size={15} />
-                {sending ? "发送中" : "发送"}
-              </button>
+
+            {conversation.length ? (
+              <div className="night-chat-timeline" ref={timelineRef}>
+                {conversation.map((message) => (
+                  <article
+                    className={`host-chat-message ${message.direction}`}
+                    key={`${message.direction}-${message.id}`}
+                  >
+                    <span className="host-chat-avatar" aria-hidden="true">
+                      {message.avatar}
+                    </span>
+                    <div className="host-chat-message-content">
+                      <div className="host-chat-message-meta">
+                        <span>{message.label}</span>
+                        <time>
+                          {new Date(message.created_at).toLocaleString("zh-CN", {
+                            month: "numeric",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </time>
+                      </div>
+                      <div className="host-chat-bubble">
+                        <p>{message.body}</p>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="night-chat-empty">
+                <MessageSquareText size={24} />
+                <strong>暂无聊天记录</strong>
+                <span>你和该玩家发送的信息会显示在这里</span>
+              </div>
+            )}
+
+            <div className="night-chat-composer">
+              <textarea
+                value={messageBody}
+                onChange={(event) => setMessageBody(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void submitMessage();
+                  }
+                }}
+                placeholder={
+                  selectedRoomPlayer?.is_claimed
+                    ? `发送信息给${selectedPlayerName}`
+                    : "该玩家入座后即可发送"
+                }
+                maxLength={500}
+                rows={2}
+                disabled={!selectedRoomPlayer?.is_claimed || sending}
+              />
+              <div className="night-chat-composer-footer">
+                <span>
+                  {!room
+                    ? "请先在魔典页创建共享房间"
+                    : !selectedRoomPlayer?.is_claimed
+                      ? "该座位入座后才可接收"
+                      : `${messageBody.length}/500`}
+                </span>
+                <button
+                  className="primary-button night-send-button"
+                  disabled={!canSend}
+                  onClick={() => void submitMessage()}
+                >
+                  <Send size={15} />
+                  {sending ? "发送中" : "发送"}
+                </button>
+              </div>
+              {sendError ? <div className="inline-error">{sendError}</div> : null}
             </div>
-            {sendError ? <div className="inline-error">{sendError}</div> : null}
           </section>
         ) : null}
         {currentRole ? (
