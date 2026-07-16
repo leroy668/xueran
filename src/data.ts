@@ -1,5 +1,21 @@
 import type { RoleDefinition } from "./types";
 
+export type NightAction =
+  | {
+      kind: "role";
+      id: string;
+      name: string;
+      order: number;
+      role: RoleDefinition;
+    }
+  | {
+      kind: "system";
+      id: "dusk" | "minion-info" | "demon-info" | "dawn";
+      name: string;
+      order: number;
+      reminder: string;
+    };
+
 const troubleBrewingRoleIds = [
   "washerwoman",
   "librarian",
@@ -131,19 +147,77 @@ export const getScriptRoles = (scriptId: string) => {
   return roles.filter((role) => roleIds.has(role.id));
 };
 
-export const getNightRoles = (
+const missingGodSystemActions: NightAction[] = [
+  {
+    kind: "system",
+    id: "dusk",
+    name: "黄昏",
+    order: 0,
+    reminder: "确认所有玩家闭眼，处理持续至黄昏的效果，准备开始夜间行动。",
+  },
+  {
+    kind: "system",
+    id: "minion-info",
+    name: "爪牙信息",
+    order: 25,
+    reminder: "若本局有七名或更多玩家，唤醒爪牙，让他们确认彼此并得知恶魔。",
+  },
+  {
+    kind: "system",
+    id: "demon-info",
+    name: "恶魔信息",
+    order: 26,
+    reminder: "若本局有七名或更多玩家，向恶魔展示爪牙，并准备三个不在场的善良角色。",
+  },
+  {
+    kind: "system",
+    id: "dawn",
+    name: "拂晓",
+    order: 100,
+    reminder: "确认夜间死亡和状态变化，随后唤醒所有玩家并进入白天。",
+  },
+];
+
+const actsAfterDeathRoleIds = new Set(["ravenkeeper", "moonchild"]);
+
+export const getNightActions = (
   players: { roleId: string; alive: boolean }[],
   firstNight: boolean,
-) =>
-  players
+  scriptId: string,
+) => {
+  const roleActions: NightAction[] = players
     .filter((player) => {
-      if (!player.alive) return false;
       const role = getRole(player.roleId);
-      return (firstNight ? role.firstNightOrder : role.otherNightOrder) > 0;
+      const order = firstNight
+        ? role.firstNightOrder
+        : role.otherNightOrder;
+      return (
+        order > 0 &&
+        (player.alive || actsAfterDeathRoleIds.has(player.roleId))
+      );
     })
-    .map((player) => getRole(player.roleId))
-    .sort(
-      (a, b) =>
-        (firstNight ? a.firstNightOrder : a.otherNightOrder) -
-        (firstNight ? b.firstNightOrder : b.otherNightOrder),
-    );
+    .map((player) => {
+      const role = getRole(player.roleId);
+      return {
+        kind: "role",
+        id: role.id,
+        name: role.name,
+        order: firstNight ? role.firstNightOrder : role.otherNightOrder,
+        role,
+      };
+    });
+
+  const systemActions =
+    scriptId === "missing-god"
+      ? missingGodSystemActions.filter(
+          (action) =>
+            action.kind === "system" &&
+            (firstNight ||
+              (action.id !== "minion-info" && action.id !== "demon-info")),
+        )
+      : [];
+
+  return [...systemActions, ...roleActions].sort(
+    (left, right) => left.order - right.order,
+  );
+};
