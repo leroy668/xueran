@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Dices,
+  ListChecks,
   MoonStar,
   MessageSquareText,
   NotebookPen,
@@ -93,6 +94,7 @@ type PlayerNoteEntry = {
   id: string;
   body: string;
   createdAt?: string;
+  resolved?: boolean;
 };
 
 const playerNotesPrefix = "__xueran_notes_v1__";
@@ -111,7 +113,8 @@ const parsePlayerNotes = (value: string): PlayerNoteEntry[] => {
         Boolean(note) &&
         typeof note.id === "string" &&
         typeof note.body === "string" &&
-        (note.createdAt === undefined || typeof note.createdAt === "string"),
+        (note.createdAt === undefined || typeof note.createdAt === "string") &&
+        (note.resolved === undefined || typeof note.resolved === "boolean"),
     );
   } catch {
     return [{ id: "legacy", body: value }];
@@ -912,6 +915,13 @@ function GrimoirePanel({
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(
     state.players[0]?.id ?? null,
   );
+  const [grimoireView, setGrimoireView] = useState<"table" | "overview">(
+    "table",
+  );
+  const [overviewFilter, setOverviewFilter] = useState<
+    "all" | "noted" | "dead"
+  >("all");
+  const editorSlotRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!state.players.length) {
@@ -930,6 +940,67 @@ function GrimoirePanel({
   const selectedPlayer =
     state.players.find((player) => player.id === selectedPlayerId) ??
     state.players[0];
+  const overviewRows = useMemo(
+    () =>
+      [...state.players]
+        .sort((left, right) => left.seat - right.seat)
+        .map((player) => {
+          const role = getRole(player.roleId);
+          const roomPlayer = roomPlayersBySeat.get(player.seat);
+          const notes = parsePlayerNotes(player.notes);
+          const activeNotes = notes.filter((note) => !note.resolved);
+          const messages = nightMessages.filter(
+            (message) => message.player_id === player.id,
+          );
+          const latestMessage = messages.reduce<NightMessage | null>(
+            (latest, message) =>
+              !latest ||
+              new Date(message.created_at).getTime() >
+                new Date(latest.created_at).getTime()
+                ? message
+                : latest,
+            null,
+          );
+          return {
+            player,
+            role,
+            displayName:
+              roomPlayer?.name.trim() ||
+              player.name.trim() ||
+              "等待玩家入座",
+            notes,
+            activeNotes,
+            messageCount: messages.length,
+            latestMessage,
+          };
+        }),
+    [nightMessages, roomPlayersBySeat, state.players],
+  );
+  const overviewByPlayerId = useMemo(
+    () => new Map(overviewRows.map((row) => [row.player.id, row])),
+    [overviewRows],
+  );
+  const filteredOverviewRows = overviewRows.filter((row) =>
+    overviewFilter === "noted"
+      ? row.activeNotes.length > 0
+      : overviewFilter === "dead"
+        ? !row.player.alive
+        : true,
+  );
+  const playersWithNotes = overviewRows.filter(
+    (row) => row.activeNotes.length > 0,
+  ).length;
+
+  const openPlayerEditor = (playerId: string) => {
+    setSelectedPlayerId(playerId);
+    setGrimoireView("table");
+    requestAnimationFrame(() => {
+      editorSlotRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
 
   const getDisplayName = (player: Player) => {
     const roomPlayer = roomPlayersBySeat.get(player.seat);
@@ -1006,7 +1077,7 @@ function GrimoirePanel({
         </div>
       </aside>
 
-      <section className="main-panel">
+      <section className="main-panel" data-grimoire-view={grimoireView}>
         <div className="panel-heading players-heading">
           <div className="heading-actions">
             {state.players.length === 0 ? (
@@ -1049,6 +1120,125 @@ function GrimoirePanel({
             </button>
           </div>
         </div>
+        {state.players.length ? (
+          <>
+            <div className="grimoire-view-switch" aria-label="魔典视图">
+              <button
+                className={grimoireView === "table" ? "active" : ""}
+                onClick={() => setGrimoireView("table")}
+                aria-pressed={grimoireView === "table"}
+              >
+                <BookOpen size={15} />
+                环桌魔典
+              </button>
+              <button
+                className={grimoireView === "overview" ? "active" : ""}
+                onClick={() => setGrimoireView("overview")}
+                aria-pressed={grimoireView === "overview"}
+              >
+                <ListChecks size={15} />
+                状态总览
+              </button>
+            </div>
+
+            <section className="grimoire-overview" aria-label="全局状态总览">
+              <header className="grimoire-overview-header">
+                <div>
+                  <p className="eyebrow">STORYTELLER OVERVIEW</p>
+                  <h3>全局状态总览</h3>
+                </div>
+                <div className="grimoire-overview-counts">
+                  <span><NotebookPen size={13} />有效备注 {playersWithNotes}</span>
+                  <span><MessageSquareText size={13} />已传达 {nightMessages.length}</span>
+                </div>
+              </header>
+              <div className="grimoire-overview-filters" aria-label="状态筛选">
+                {([
+                  ["all", "全部"],
+                  ["noted", "有备注"],
+                  ["dead", "死亡"],
+                ] as const).map(([filter, label]) => (
+                  <button
+                    className={overviewFilter === filter ? "active" : ""}
+                    key={filter}
+                    onClick={() => setOverviewFilter(filter)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="grimoire-overview-columns" aria-hidden="true">
+                <span>玩家</span>
+                <span>角色</span>
+                <span>状态</span>
+                <span>有效备注</span>
+                <span>最近传达</span>
+              </div>
+              {filteredOverviewRows.length ? (
+                <div className="grimoire-overview-list">
+                  {filteredOverviewRows.map((row) => (
+                    <button
+                      className={[
+                        "grimoire-overview-row",
+                        selectedPlayer?.id === row.player.id ? "selected" : "",
+                        row.player.alive ? "" : "dead",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      key={row.player.id}
+                      onClick={() => openPlayerEditor(row.player.id)}
+                      aria-label={`打开座位 ${row.player.seat}，${row.displayName}的详情`}
+                    >
+                      <span className="overview-player-cell">
+                        <b>{String(row.player.seat).padStart(2, "0")}</b>
+                        <span>{row.displayName}</span>
+                      </span>
+                      <span className="overview-role-cell">
+                        <i className={teamLabels[row.role.team]}>
+                          <RoleIcon roleId={row.role.id} size={24} />
+                        </i>
+                        <span>
+                          <b>{row.role.name}</b>
+                          <small>{row.role.team}</small>
+                        </span>
+                      </span>
+                      <span className={row.player.alive ? "overview-life alive" : "overview-life"}>
+                        {row.player.alive ? <Check size={13} /> : <Skull size={13} />}
+                        {row.player.alive ? "存活" : "死亡"}
+                      </span>
+                      <span className="overview-notes-cell">
+                        {row.activeNotes.length ? (
+                          <>
+                            <b>{row.activeNotes[0].body}</b>
+                            <small>
+                              {row.activeNotes.length > 1
+                                ? `另有 ${row.activeNotes.length - 1} 条有效备注`
+                                : "1 条有效备注"}
+                            </small>
+                          </>
+                        ) : (
+                          <em>{row.notes.length ? "备注均已处理" : "无有效备注"}</em>
+                        )}
+                      </span>
+                      <span className="overview-message-cell">
+                        {row.latestMessage ? (
+                          <>
+                            <b>{row.latestMessage.body}</b>
+                            <small>第 {row.latestMessage.round} 回合 · 共 {row.messageCount} 条</small>
+                          </>
+                        ) : (
+                          <em>尚未传达</em>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="grimoire-overview-empty">当前筛选下没有玩家</div>
+              )}
+            </section>
+          </>
+        ) : null}
         {state.players.length === 0 ? (
           <div className="empty-state">
             <div className="empty-glyph"><Users size={30} /></div>
@@ -1089,6 +1279,8 @@ function GrimoirePanel({
                   const left = 50 + Math.cos(angle) * radius;
                   const top = 50 + Math.sin(angle) * radius;
                   const isSelected = selectedPlayer?.id === player.id;
+                  const overview = overviewByPlayerId.get(player.id);
+                  const activeNotes = overview?.activeNotes ?? [];
 
                   return (
                     <button
@@ -1097,6 +1289,7 @@ function GrimoirePanel({
                         teamLabels[role.team],
                         player.alive ? "" : "dead",
                         isSelected ? "selected" : "",
+                        activeNotes.length ? "has-notes" : "",
                         state.players.length > 10 ? "dense" : "",
                         state.players.length > 15 ? "very-dense" : "",
                       ]
@@ -1105,7 +1298,7 @@ function GrimoirePanel({
                       style={{ left: `${left}%`, top: `${top}%` }}
                       key={player.id}
                       onClick={() => setSelectedPlayerId(player.id)}
-                      aria-label={`座位 ${player.seat}，${getDisplayName(player)}，${role.name}，${player.alive ? "存活" : "死亡"}`}
+                      aria-label={`座位 ${player.seat}，${getDisplayName(player)}，${role.name}，${player.alive ? "存活" : "死亡"}${activeNotes.length ? `，${activeNotes.length} 条有效备注` : ""}`}
                       aria-pressed={isSelected}
                     >
                       <span className="table-seat-number">
@@ -1119,6 +1312,16 @@ function GrimoirePanel({
                       </span>
                       <span className="table-player-name">{getTableName(player)}</span>
                       <span className="table-role-name">{role.name}</span>
+                      {activeNotes.length ? (
+                        <span
+                          className="table-note-preview"
+                          title={activeNotes.map((note) => note.body).join("\n")}
+                        >
+                          <NotebookPen size={9} />
+                          <span>{activeNotes[0].body}</span>
+                          <b>{activeNotes.length}</b>
+                        </span>
+                      ) : null}
                       {roomPlayer?.is_claimed ? (
                         <span className="table-claimed-dot" title="玩家已入座" />
                       ) : null}
@@ -1132,16 +1335,18 @@ function GrimoirePanel({
             </div>
 
             {selectedPlayer ? (
-              <PlayerEditor
-                key={selectedPlayer.id}
-                player={selectedPlayer}
-                displayName={getDisplayName(selectedPlayer)}
-                messages={nightMessages.filter(
-                  (message) => message.player_id === selectedPlayer.id,
-                )}
-                onUpdate={onUpdatePlayer}
-                onRemove={onRemovePlayer}
-              />
+              <div className="player-editor-slot" ref={editorSlotRef}>
+                <PlayerEditor
+                  key={selectedPlayer.id}
+                  player={selectedPlayer}
+                  displayName={getDisplayName(selectedPlayer)}
+                  messages={nightMessages.filter(
+                    (message) => message.player_id === selectedPlayer.id,
+                  )}
+                  onUpdate={onUpdatePlayer}
+                  onRemove={onRemovePlayer}
+                />
+              </div>
             ) : null}
           </div>
         )}
@@ -1199,6 +1404,15 @@ function PlayerEditor({
     onUpdate(player.id, {
       notes: serializePlayerNotes(
         noteEntries.filter((note) => note.id !== noteId),
+      ),
+    });
+  };
+  const toggleNoteResolved = (noteId: string) => {
+    onUpdate(player.id, {
+      notes: serializePlayerNotes(
+        noteEntries.map((note) =>
+          note.id === noteId ? { ...note, resolved: !note.resolved } : note,
+        ),
       ),
     });
   };
@@ -1281,9 +1495,15 @@ function PlayerEditor({
         {noteEntries.length ? (
           <div className="player-note-list">
             {noteEntries.map((note, index) => (
-              <article className="player-note-item" key={note.id}>
+              <article
+                className={note.resolved ? "player-note-item resolved" : "player-note-item"}
+                key={note.id}
+              >
                 <div className="player-note-meta">
-                  <span>备注 {noteEntries.length - index}</span>
+                  <span>
+                    备注 {noteEntries.length - index}
+                    {note.resolved ? " · 已处理" : ""}
+                  </span>
                   {note.createdAt ? (
                     <time>
                       {new Date(note.createdAt).toLocaleString("zh-CN", {
@@ -1296,6 +1516,14 @@ function PlayerEditor({
                   ) : (
                     <time>原有备注</time>
                   )}
+                  <button
+                    className="player-note-resolve"
+                    onClick={() => toggleNoteResolved(note.id)}
+                    title={note.resolved ? "恢复为有效备注" : "标记为已处理"}
+                    aria-label={note.resolved ? "恢复这条备注" : "处理这条备注"}
+                  >
+                    {note.resolved ? <RotateCcw size={12} /> : <Check size={13} />}
+                  </button>
                   <button
                     onClick={() => removeNote(note.id)}
                     title="删除这条备注"
