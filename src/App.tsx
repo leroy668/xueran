@@ -155,6 +155,16 @@ const getNextGameStage = (
   return { phase: "夜晚", round: round + 1 };
 };
 
+const getPreviousGameStage = (
+  phase: Phase,
+  round: number,
+): Pick<GameState, "phase" | "round"> | null => {
+  if (phase === "准备") return null;
+  if (phase === "白天") return { phase: "夜晚", round: Math.max(1, round) };
+  if (round <= 1) return { phase: "准备", round: 1 };
+  return { phase: "白天", round: round - 1 };
+};
+
 const sampleRoles = [
   "washerwoman",
   "empath",
@@ -1006,6 +1016,10 @@ function GrimoirePanel({
     return roomPlayer?.name.trim() || player.name.trim() || "待入座";
   };
   const currentStageLabel = getGameStageLabel(state.phase, state.round);
+  const previousStage = getPreviousGameStage(state.phase, state.round);
+  const previousStageLabel = previousStage
+    ? getGameStageLabel(previousStage.phase, previousStage.round)
+    : null;
   const nextStage = getNextGameStage(state.phase, state.round);
   const nextStageLabel = getGameStageLabel(nextStage.phase, nextStage.round);
   const StageIcon =
@@ -1065,6 +1079,38 @@ function GrimoirePanel({
               </button>
             ) : null}
             {state.players.length > 0 ? (
+              <div className="stage-control" aria-label="回合阶段切换">
+                <button
+                  className="stage-step-button"
+                  onClick={() => {
+                    if (previousStage) {
+                      onUpdate({ ...previousStage, nightIndex: 0 });
+                    }
+                  }}
+                  disabled={!previousStage}
+                  title={previousStageLabel ? `返回${previousStageLabel}` : "已经是最早阶段"}
+                  aria-label={previousStageLabel ? `返回${previousStageLabel}` : "已经是最早阶段"}
+                >
+                  <ChevronLeft size={17} />
+                </button>
+                <div className={`stage-current phase-${state.phase}`}>
+                  <StageIcon size={16} />
+                  <span>
+                    <small>当前阶段</small>
+                    <b>{currentStageLabel}</b>
+                  </span>
+                </div>
+                <button
+                  className="stage-step-button"
+                  onClick={() => onUpdate({ ...nextStage, nightIndex: 0 })}
+                  title={`进入${nextStageLabel}`}
+                  aria-label={`进入${nextStageLabel}`}
+                >
+                  <ChevronRight size={17} />
+                </button>
+              </div>
+            ) : null}
+            {state.players.length > 0 ? (
               <button
                 className="secondary-button assign-roles-button"
                 onClick={onAssignRoles}
@@ -1072,22 +1118,6 @@ function GrimoirePanel({
               >
                 <Dices size={16} />
                 一键分配
-              </button>
-            ) : null}
-            {state.players.length > 0 ? (
-              <button
-                className="secondary-button stage-advance-button"
-                onClick={() => onUpdate({ ...nextStage, nightIndex: 0 })}
-                title={`切换到${nextStageLabel}`}
-              >
-                <span className={`stage-advance-icon phase-${state.phase}`}>
-                  <StageIcon size={15} />
-                </span>
-                <span className="stage-advance-copy">
-                  <small>当前回合</small>
-                  <b>{currentStageLabel}</b>
-                </span>
-                <ChevronRight size={14} />
               </button>
             ) : null}
             {state.players.length > 0 ? (
