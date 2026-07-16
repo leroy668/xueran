@@ -95,6 +95,7 @@ type PlayerNoteEntry = {
   body: string;
   createdAt?: string;
   resolved?: boolean;
+  stage?: string;
 };
 
 const playerNotesPrefix = "__xueran_notes_v1__";
@@ -114,7 +115,8 @@ const parsePlayerNotes = (value: string): PlayerNoteEntry[] => {
         typeof note.id === "string" &&
         typeof note.body === "string" &&
         (note.createdAt === undefined || typeof note.createdAt === "string") &&
-        (note.resolved === undefined || typeof note.resolved === "boolean"),
+        (note.resolved === undefined || typeof note.resolved === "boolean") &&
+        (note.stage === undefined || typeof note.stage === "string"),
     );
   } catch {
     return [{ id: "legacy", body: value }];
@@ -125,6 +127,31 @@ const serializePlayerNotes = (notes: PlayerNoteEntry[]) =>
   notes.length
     ? `${playerNotesPrefix}${JSON.stringify(notes)}`
     : "";
+
+const chineseNumber = (value: number) => {
+  const digits = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+  if (value < 10) return digits[Math.max(0, value)];
+  if (value < 20) return `十${value === 10 ? "" : digits[value - 10]}`;
+  if (value < 100) {
+    const tens = Math.floor(value / 10);
+    const ones = value % 10;
+    return `${digits[tens]}十${ones ? digits[ones] : ""}`;
+  }
+  return String(value);
+};
+
+const getGameStageLabel = (phase: Phase, round: number) => {
+  if (phase === "准备") return "准备";
+  if (phase === "夜晚" && round <= 1) return "首夜";
+  const sequence = phase === "白天" ? round : Math.max(1, round - 1);
+  return `第${chineseNumber(sequence)}${phase === "白天" ? "天" : "晚"}`;
+};
+
+const getNextGameStage = (phase: Phase, round: number): Pick<GameState, "phase" | "round"> => {
+  if (phase === "准备") return { phase: "夜晚", round: 1 };
+  if (phase === "夜晚") return { phase: "白天", round: Math.max(1, round) };
+  return { phase: "夜晚", round: round + 1 };
+};
 
 const sampleRoles = [
   "washerwoman",
@@ -1014,6 +1041,9 @@ function GrimoirePanel({
     const roomPlayer = roomPlayersBySeat.get(player.seat);
     return roomPlayer?.name.trim() || player.name.trim() || "待入座";
   };
+  const currentStageLabel = getGameStageLabel(state.phase, state.round);
+  const nextStage = getNextGameStage(state.phase, state.round);
+  const nextStageLabel = getGameStageLabel(nextStage.phase, nextStage.round);
 
   return (
     <div className="dashboard-grid">
@@ -1035,8 +1065,8 @@ function GrimoirePanel({
             <strong>{aliveCount}</strong>
           </div>
           <div className="stat-cell">
-            <span>回合</span>
-            <strong>{state.round}</strong>
+            <span>阶段</span>
+            <strong className="stage-stat">{currentStageLabel}</strong>
           </div>
         </div>
         <div className="phase-control">
@@ -1054,7 +1084,7 @@ function GrimoirePanel({
             ))}
           </div>
           <div className="round-stepper">
-            <span>第 {state.round} 回合</span>
+            <span>{currentStageLabel}</span>
             <div>
               <button aria-label="减少回合" onClick={() => onUpdate({ round: Math.max(1, state.round - 1) })}>−</button>
               <button aria-label="增加回合" onClick={() => onUpdate({ round: state.round + 1 })}>＋</button>
@@ -1094,6 +1124,18 @@ function GrimoirePanel({
               >
                 <Dices size={16} />
                 一键分配
+              </button>
+            ) : null}
+            {state.players.length > 0 ? (
+              <button
+                className="secondary-button stage-advance-button"
+                onClick={() => onUpdate(nextStage)}
+                title={`从${currentStageLabel}切换到${nextStageLabel}`}
+              >
+                <span>回合</span>
+                <b>{currentStageLabel}</b>
+                <ChevronRight size={14} />
+                <b>{nextStageLabel}</b>
               </button>
             ) : null}
             {state.players.length > 0 ? (
@@ -1211,7 +1253,7 @@ function GrimoirePanel({
                           <>
                             <b>{row.activeNotes[0].body}</b>
                             <small>
-                              {row.activeNotes.length > 1
+                              {row.activeNotes[0].stage ?? "阶段未记录"} · {row.activeNotes.length > 1
                                 ? `另有 ${row.activeNotes.length - 1} 条有效备注`
                                 : "1 条有效备注"}
                             </small>
@@ -1263,12 +1305,11 @@ function GrimoirePanel({
             <div className="table-stage">
               <div className="grimoire-table">
                 <div className="table-center" aria-hidden="true">
-                  <span>{state.phase}</span>
+                  <span>{currentStageLabel}</span>
                   <strong>
                     {aliveCount}
                     <small> / {state.players.length}</small>
                   </strong>
-                  <p>第 {state.round} 回合</p>
                 </div>
                 {state.players.map((player, index) => {
                   const role = getRole(player.roleId);
@@ -1315,7 +1356,12 @@ function GrimoirePanel({
                       {activeNotes.length ? (
                         <span
                           className="table-note-preview"
-                          title={activeNotes.map((note) => note.body).join("\n")}
+                          title={activeNotes
+                            .map(
+                              (note) =>
+                                `[${note.stage ?? "阶段未记录"}] ${note.body}`,
+                            )
+                            .join("\n")}
                         >
                           <NotebookPen size={9} />
                           <span>{activeNotes[0].body}</span>
@@ -1340,6 +1386,7 @@ function GrimoirePanel({
                   key={selectedPlayer.id}
                   player={selectedPlayer}
                   displayName={getDisplayName(selectedPlayer)}
+                  stageLabel={currentStageLabel}
                   messages={nightMessages.filter(
                     (message) => message.player_id === selectedPlayer.id,
                   )}
@@ -1358,12 +1405,14 @@ function GrimoirePanel({
 function PlayerEditor({
   player,
   displayName,
+  stageLabel,
   messages,
   onUpdate,
   onRemove,
 }: {
   player: Player;
   displayName: string;
+  stageLabel: string;
   messages: NightMessage[];
   onUpdate: (id: string, patch: Partial<Player>) => void;
   onRemove: (id: string) => void;
@@ -1385,6 +1434,7 @@ function PlayerEditor({
           id: makeId(),
           body,
           createdAt: new Date().toISOString(),
+          stage: stageLabel,
         },
         ...noteEntries,
       ]),
@@ -1463,7 +1513,7 @@ function PlayerEditor({
 
       <section className="player-notes-section">
         <div className="player-notes-heading">
-          <span>主持人私密备注</span>
+          <span>主持人私密备注 · {stageLabel}</span>
           <strong>{noteEntries.length}</strong>
         </div>
         <div className="player-note-composer">
@@ -1504,6 +1554,9 @@ function PlayerEditor({
                     备注 {noteEntries.length - index}
                     {note.resolved ? " · 已处理" : ""}
                   </span>
+                  <small className="player-note-stage">
+                    {note.stage ?? "阶段未记录"}
+                  </small>
                   {note.createdAt ? (
                     <time>
                       {new Date(note.createdAt).toLocaleString("zh-CN", {
@@ -1561,7 +1614,7 @@ function PlayerEditor({
               return (
                 <article className="player-history-item" key={message.id}>
                   <div>
-                    <strong>第 {message.round} 回合</strong>
+                    <strong>{getGameStageLabel("夜晚", message.round)}</strong>
                     <span>{messageRole.name}</span>
                     <time>
                       {new Date(message.created_at).toLocaleString("zh-CN", {
@@ -1675,7 +1728,7 @@ function NightPanel({
           .map((message) => ({
             ...message,
             direction: "outgoing" as const,
-            label: `上帝 · 第 ${message.round} 回合 · ${getRole(message.role_id).name}`,
+            label: `上帝 · ${getGameStageLabel("夜晚", message.round)} · ${getRole(message.role_id).name}`,
             avatar: "上",
           })),
         ...playerMessages
@@ -1763,7 +1816,7 @@ function NightPanel({
         <section className="night-action-section">
           <div className="panel-heading night-action-heading">
             <div>
-              <p className="eyebrow">NIGHT ORDER · 第 {state.round} 回合</p>
+              <p className="eyebrow">NIGHT ORDER · {getGameStageLabel(state.phase, state.round)}</p>
               <h2>行动角色列表</h2>
             </div>
             <div className="night-nav">
@@ -2211,7 +2264,7 @@ function HostMessagesPanel({
       .map((message) => ({
         ...message,
         direction: "outgoing" as const,
-        label: `上帝 · 第 ${message.round} 回合 · ${getRole(message.role_id).name}`,
+        label: `上帝 · ${getGameStageLabel("夜晚", message.round)} · ${getRole(message.role_id).name}`,
         avatar: "上",
         demonBluffRoleIds: null,
       })),
