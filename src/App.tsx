@@ -14,7 +14,6 @@ import {
   Dices,
   MoonStar,
   MessageSquareText,
-  NotebookPen,
   Plus,
   RotateCcw,
   ScrollText,
@@ -1032,41 +1031,7 @@ function GrimoirePanel({
   return (
     <div className="dashboard-grid">
       <aside className="side-panel">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">SESSION</p>
-            <h2>局面总览</h2>
-          </div>
-          <Sparkles size={19} className="muted-icon" />
-        </div>
-        <div className="stat-grid">
-          <div className="stat-cell">
-            <span>玩家</span>
-            <strong>{state.players.length}</strong>
-          </div>
-          <div className="stat-cell">
-            <span>存活</span>
-            <strong>{aliveCount}</strong>
-          </div>
-          <div className="stat-cell">
-            <span>阶段</span>
-            <strong className="stage-stat">{currentStageLabel}</strong>
-          </div>
-        </div>
         {roomPanel}
-        <label className="notes-field">
-          <span><NotebookPen size={15} /> 主持人备注</span>
-          <textarea
-            value={state.storytellerNotes}
-            onChange={(event) => onUpdate({ storytellerNotes: event.target.value })}
-            placeholder="记下公开信息、玩家发言或下一步计划…"
-            rows={7}
-          />
-        </label>
-        <div className="privacy-note">
-          <span className="status-dot" />
-          自动保存在本机浏览器
-        </div>
       </aside>
 
       <section className="main-panel">
