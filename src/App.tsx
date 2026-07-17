@@ -4225,26 +4225,16 @@ function ScriptPanel({
           <input value={roleFilter} onChange={(event) => onFilter(event.target.value)} placeholder="搜索角色…" aria-label="搜索角色" />
         </div>
         <div className="role-table">
-          {filteredRoles.map((role) => {
-            const skill = getTroubleBrewingSkill(role.id);
-            return (
-              <div className="role-row" key={role.id}>
-                <span className={`mini-role-icon ${teamLabels[role.team]}`}>
-                  <RoleIcon roleId={role.id} size={16} />
-                </span>
-                <strong>{role.name}</strong>
-                <span className={`team-label ${teamLabels[role.team]}`}>{role.team}</span>
-                <div className="role-row-copy">
-                  <p>{role.short}</p>
-                  {skill ? (
-                    <span className="role-interaction-summary">
-                      <span>{skill.interaction}</span>
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            );
-          })}
+          {filteredRoles.map((role) => (
+            <div className="role-row" key={role.id}>
+              <span className={`mini-role-icon ${teamLabels[role.team]}`}>
+                <RoleIcon roleId={role.id} size={16} />
+              </span>
+              <strong>{role.name}</strong>
+              <span className={`team-label ${teamLabels[role.team]}`}>{role.team}</span>
+              <p>{role.short}</p>
+            </div>
+          ))}
         </div>
       </section>
       <aside className="script-aside">

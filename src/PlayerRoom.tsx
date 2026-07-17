@@ -536,25 +536,17 @@ function ClaimedIdentity({
                     <span>{teamRoles.length}</span>
                   </div>
                   <div className="player-script-role-list">
-                    {teamRoles.map((item) => {
-                      const skill = getTroubleBrewingSkill(item.id);
-                      return (
-                        <article className="player-script-role" key={item.id}>
-                          <span className="player-script-role-icon">
-                            <RoleIcon roleId={item.id} size={22} />
-                          </span>
-                          <div>
-                            <strong>{item.name}</strong>
-                            <p>{item.short}</p>
-                            {skill ? (
-                              <span className="player-role-interaction">
-                                <span>{skill.interaction}</span>
-                              </span>
-                            ) : null}
-                          </div>
-                        </article>
-                      );
-                    })}
+                    {teamRoles.map((item) => (
+                      <article className="player-script-role" key={item.id}>
+                        <span className="player-script-role-icon">
+                          <RoleIcon roleId={item.id} size={22} />
+                        </span>
+                        <div>
+                          <strong>{item.name}</strong>
+                          <p>{item.short}</p>
+                        </div>
+                      </article>
+                    ))}
                   </div>
                 </section>
               );
