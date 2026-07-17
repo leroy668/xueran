@@ -1468,7 +1468,6 @@ function GrimoirePanel({
                     player.roleId,
                     player.drunkRoleId,
                   );
-                  const roomPlayer = roomPlayersBySeat.get(player.seat);
                   const angle =
                     (index / state.players.length) * Math.PI * 2 - Math.PI / 2;
                   const radius = state.players.length > 15 ? 42 : 40;
@@ -1717,13 +1716,7 @@ function GrimoirePanel({
                               </span>
                             ))}
                           </span>
-                          {roleSkillTimeline.length > 1 ? (
-                            <b>{roleSkillTimeline.length}次</b>
-                          ) : null}
                         </span>
-                      ) : null}
-                      {roomPlayer?.is_claimed ? (
-                        <span className="table-claimed-dot" title="玩家已入座" />
                       ) : null}
                       {!player.alive ? (
                         <span className="table-dead-mark" aria-hidden="true" />
