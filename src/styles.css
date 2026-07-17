@@ -102,6 +102,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .simulation-skill-targets { margin-top: 6px; display: grid; gap: 6px; }
 .simulation-skill-targets .primary-button { width: 100%; min-height: 32px; font-size: 10px; }
 .simulation-skill-submitted { margin: 0; padding: 6px 8px; border-left: 2px solid var(--green); background: rgba(121,181,138,.08); color: #a8cfaa; font-size: 9px; line-height: 1.4; }
+.simulation-skill-error { margin: 0; padding: 6px 8px; border-left: 2px solid var(--red); background: rgba(215,97,86,.08); color: #e8aaa4; font-size: 9px; line-height: 1.4; }
 .simulation-message-panel > p { margin: 0; color: var(--dim); font-size: 9px; line-height: 1.5; }
 .simulation-received { margin-top: 9px; border-top: 1px solid rgba(141,170,195,.2); padding-top: 9px; }
 .simulation-received-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

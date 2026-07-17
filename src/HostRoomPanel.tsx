@@ -233,11 +233,13 @@ function SimulatedPlayerSkillReplyForm({
     players.find((player) => player.id !== players[0]?.id)?.id ?? "",
   );
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
 
   useEffect(() => {
     if (!simulatedPlayers.some((player) => player.id === playerId)) {
       setPlayerId(simulatedPlayers[0]?.id ?? "");
     }
+    setSendError("");
   }, [playerId, simulatedPlayers]);
 
   const selectedPlayer = simulatedPlayers.find(
@@ -394,6 +396,7 @@ function SimulatedPlayerSkillReplyForm({
       return;
     }
     setSending(true);
+    setSendError("");
     try {
       await onSend(
         playerId,
@@ -405,8 +408,21 @@ function SimulatedPlayerSkillReplyForm({
             .join("、")}`,
         }),
       );
-    } catch {
-      // The parent keeps the test controls intact and shows the actionable error.
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "";
+      setSendError(
+        /host access required/i.test(message)
+          ? "主持人登录状态已失效，请刷新页面"
+          : /simulated player access required/i.test(message)
+            ? "模拟玩家状态尚未同步，请稍后重试"
+            : /fetch|network|timeout|load failed/i.test(message)
+              ? "网络连接不稳定，请检查网络后重试"
+              : /function|schema cache|xueran_simulate_player_message/i.test(
+                    message,
+                  )
+                ? "模拟消息数据库函数尚未配置"
+                : `发送失败${message ? `：${message}` : "，请稍后重试"}`,
+      );
     } finally {
       setSending(false);
     }
@@ -542,6 +558,9 @@ function SimulatedPlayerSkillReplyForm({
                 <p className="simulation-skill-submitted">
                   已提交：{latestSubmittedChoice.summary}
                 </p>
+              ) : null}
+              {sendError ? (
+                <p className="simulation-skill-error">{sendError}</p>
               ) : null}
             </div>
           ) : null}

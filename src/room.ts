@@ -352,14 +352,22 @@ export const simulatePlayerMessage = async ({
   playerId: string;
   body: string;
 }) => {
-  const { data, error } = await supabase.rpc(
-    "xueran_simulate_player_message",
-    {
+  const send = () =>
+    supabase.rpc("xueran_simulate_player_message", {
       p_room_id: roomId,
       p_player_id: playerId,
       p_body: body,
-    },
-  );
+    });
+  let { data, error } = await send();
+  if (
+    error &&
+    /fetch|network|timeout|load failed|simulated player access required/i.test(
+      error.message,
+    )
+  ) {
+    await new Promise((resolve) => window.setTimeout(resolve, 600));
+    ({ data, error } = await send());
+  }
   if (error) throw error;
   return data as PlayerMessage;
 };
