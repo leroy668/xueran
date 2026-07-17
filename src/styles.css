@@ -305,12 +305,12 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-chat-composer { padding: 12px 16px 14px; border-top: 1px solid var(--line); background: #1a1a1d; }
 .night-skill-panel { margin-bottom: 11px; padding: 11px; border: 1px solid rgba(141,170,195,.34); border-left: 3px solid var(--blue); background: #161b1f; }
 .night-skill-panel.compact { padding-bottom: 10px; }
-.night-skill-panel-heading { min-height: 28px; margin-bottom: 9px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.night-skill-panel-heading > span { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 11px; font-weight: 800; }
-.night-skill-panel-heading > span svg { color: var(--blue); }
-.night-skill-panel-heading > small { color: var(--dim); font-size: 8px; text-align: right; }
+.night-skill-panel-heading { min-height: 28px; margin-bottom: 9px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.night-skill-heading-title { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.night-skill-heading-title > span { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 11px; font-weight: 800; }
+.night-skill-heading-title > span svg { color: var(--blue); }
+.night-skill-heading-title > small { color: var(--dim); font-size: 9px; line-height: 1.4; }
 .night-skill-heading-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
-.night-skill-heading-actions > small { color: var(--dim); font-size: 8px; text-align: right; line-height: 1.4; }
 .night-skill-reroll { min-height: 29px; padding: 0 8px; color: #bad2e5; border-color: rgba(141,170,195,.4); font-size: 9px; white-space: nowrap; }
 .night-skill-mode { width: fit-content; margin-bottom: 8px; display: grid; grid-template-columns: repeat(2, minmax(94px, 1fr)); border: 1px solid var(--line); background: #111113; }
 .night-skill-mode button { min-height: 30px; border: 0; background: transparent; color: var(--muted); padding: 0 10px; font-size: 9px; }
@@ -676,9 +676,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .night-chat-composer { padding: 10px; }
   .night-skill-panel { padding: 9px; }
   .night-skill-panel-heading { align-items: flex-start; }
-  .night-skill-panel-heading > small { max-width: 138px; line-height: 1.35; }
-  .night-skill-heading-actions { max-width: 58%; align-items: flex-end; flex-direction: column; gap: 5px; }
-  .night-skill-heading-actions > small { max-width: 145px; }
+  .night-skill-heading-actions { align-items: flex-end; flex-direction: column; gap: 5px; }
   .night-skill-reroll { min-height: 28px; padding: 0 7px; }
   .night-skill-mode { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .night-skill-fields { grid-template-columns: 1fr; }

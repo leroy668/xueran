@@ -2486,13 +2486,15 @@ function NightPanel({
               currentRole.id === "librarian" ||
               currentRole.id === "investigator" ? (
                 <div className="night-skill-panel">
-                  <div className="night-skill-panel-heading">
-                    <span>
-                      <ScrollText size={14} />
-                      {currentRole.name}技能
-                    </span>
+                <div className="night-skill-panel-heading">
+                    <div className="night-skill-heading-title">
+                      <span>
+                        <ScrollText size={14} />
+                        {currentRole.name}技能
+                      </span>
+                      <small>{currentRole.short}</small>
+                    </div>
                     <div className="night-skill-heading-actions">
-                      <small>系统已按当前魔典生成，可修改后发送</small>
                       <button
                         className="secondary-button night-skill-reroll"
                         disabled={sending || state.players.length < 2}
@@ -2608,11 +2610,13 @@ function NightPanel({
               {currentRole.id === "chef" ? (
                 <div className="night-skill-panel compact">
                   <div className="night-skill-panel-heading">
-                    <span>
-                      <ScrollText size={14} />
-                      厨师结果
-                    </span>
-                    <small>已根据当前邪恶座位自动计算，可修改</small>
+                    <div className="night-skill-heading-title">
+                      <span>
+                        <ScrollText size={14} />
+                        厨师结果
+                      </span>
+                      <small>{currentRole.short}</small>
+                    </div>
                   </div>
                   <div className="night-skill-result-grid">
                     {[0, 1, 2, 3, 4].map((count) => (
@@ -2658,11 +2662,13 @@ function NightPanel({
               {currentRole.id === "empath" ? (
                 <div className="night-skill-panel compact">
                   <div className="night-skill-panel-heading">
-                    <span>
-                      <ScrollText size={14} />
-                      共情者结果
-                    </span>
-                    <small>点击数字后立即发送</small>
+                    <div className="night-skill-heading-title">
+                      <span>
+                        <ScrollText size={14} />
+                        共情者结果
+                      </span>
+                      <small>{currentRole.short}</small>
+                    </div>
                   </div>
                   <div className="night-skill-result-grid">
                     {[0, 1, 2].map((count) => (
@@ -2686,11 +2692,13 @@ function NightPanel({
               {currentRole.id === "fortune-teller" ? (
                 <div className="night-skill-panel">
                   <div className="night-skill-panel-heading">
-                    <span>
-                      <Target size={14} />
-                      占卜师本晚查验
-                    </span>
-                    <small>玩家选人，上帝只需发送结果</small>
+                    <div className="night-skill-heading-title">
+                      <span>
+                        <Target size={14} />
+                        占卜师本晚查验
+                      </span>
+                      <small>{currentRole.short}</small>
+                    </div>
                   </div>
                   {latestPlayerSkillChoice ? (
                     <div className="night-player-choice">
