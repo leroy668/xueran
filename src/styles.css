@@ -541,7 +541,6 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .role-row p { color: var(--muted); font-size: 11px; margin: 0; }
 .role-row-copy { min-width: 0; }
 .role-interaction-summary, .player-role-interaction { margin-top: 5px; display: flex; align-items: flex-start; gap: 6px; color: var(--dim); font-size: 9px; line-height: 1.4; }
-.role-interaction-summary b, .player-role-interaction b { flex: 0 0 auto; min-width: 28px; padding: 1px 4px; border: 1px solid rgba(194,151,86,.28); color: var(--gold); font-size: 8px; text-align: center; }
 .role-interaction-summary > span, .player-role-interaction > span { min-width: 0; }
 .team-label { font-size: 10px; }
 .team-label.townsfolk { color: var(--blue); }

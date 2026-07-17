@@ -548,7 +548,6 @@ function ClaimedIdentity({
                             <p>{item.short}</p>
                             {skill ? (
                               <span className="player-role-interaction">
-                                <b>{skill.phase}</b>
                                 <span>{skill.interaction}</span>
                               </span>
                             ) : null}

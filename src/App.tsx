@@ -4238,7 +4238,6 @@ function ScriptPanel({
                   <p>{role.short}</p>
                   {skill ? (
                     <span className="role-interaction-summary">
-                      <b>{skill.phase}</b>
                       <span>{skill.interaction}</span>
                     </span>
                   ) : null}
