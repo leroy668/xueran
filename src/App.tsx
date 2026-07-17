@@ -1825,8 +1825,10 @@ function NightPanel({
   });
   const [skillRoleId, setSkillRoleId] = useState("");
   const [librarianNoOutsider, setLibrarianNoOutsider] = useState(false);
+  const [chefResult, setChefResult] = useState(0);
   const [sendError, setSendError] = useState("");
   const timelineRef = useRef<HTMLDivElement>(null);
+  const lastAutomaticSkillKeyRef = useRef("");
   const sending = sendingMode !== null;
   const currentStageLabel = getGameStageLabel(state.phase, state.round);
   const previousStage = getPreviousGameStage(state.phase, state.round);
@@ -1877,6 +1879,24 @@ function NightPanel({
     () => state.players,
     [state.players],
   );
+  const calculatedChefResult = useMemo(() => {
+    const orderedPlayers = [...state.players].sort(
+      (left, right) => left.seat - right.seat,
+    );
+    if (orderedPlayers.length < 2) return 0;
+    const isEvil = (player: Player) => {
+      const team = getRole(player.roleId).team;
+      return team === "爪牙" || team === "恶魔";
+    };
+    if (orderedPlayers.length === 2) {
+      return isEvil(orderedPlayers[0]) && isEvil(orderedPlayers[1]) ? 1 : 0;
+    }
+    return orderedPlayers.reduce((total, player, index) => {
+      const nextPlayer =
+        orderedPlayers[(index + 1) % orderedPlayers.length];
+      return total + (isEvil(player) && isEvil(nextPlayer) ? 1 : 0);
+    }, 0);
+  }, [state.players]);
   const latestPlayerSkillChoice = useMemo(() => {
     if (!targetPlayerId || !currentRole) return null;
     return playerMessages
@@ -1979,6 +1999,106 @@ function NightPanel({
   useEffect(() => {
     setLibrarianNoOutsider(false);
   }, [currentRole?.id]);
+
+  const generateAutomaticPairSkill = useCallback(() => {
+    const roleId = currentRole?.id;
+    const targetTeam =
+      roleId === "washerwoman"
+        ? "镇民"
+        : roleId === "librarian"
+          ? "外来者"
+          : roleId === "investigator"
+            ? "爪牙"
+            : null;
+    if (!targetTeam) return;
+
+    const matchingPlayers = state.players.filter(
+      (player) => getRole(player.roleId).team === targetTeam,
+    );
+    if (roleId === "librarian" && matchingPlayers.length === 0) {
+      setLibrarianNoOutsider(true);
+      setSkillTargets({ first: "", second: "" });
+      return;
+    }
+
+    setLibrarianNoOutsider(false);
+    const preferredTrueTargets = matchingPlayers.filter(
+      (player) => player.id !== targetPlayerId,
+    );
+    const trueTargetPool = preferredTrueTargets.length
+      ? preferredTrueTargets
+      : matchingPlayers;
+    const trueTarget =
+      trueTargetPool[Math.floor(Math.random() * trueTargetPool.length)];
+    if (!trueTarget) {
+      const fallbackPlayers = state.players.filter(
+        (player) => player.id !== targetPlayerId,
+      );
+      setSkillTargets({
+        first: fallbackPlayers[0]?.id ?? state.players[0]?.id ?? "",
+        second: fallbackPlayers[1]?.id ?? state.players[1]?.id ?? "",
+      });
+      setSkillRoleId(skillRoleOptions[0]?.id ?? "");
+      return;
+    }
+
+    const preferredDistractors = state.players.filter(
+      (player) =>
+        player.id !== trueTarget.id && player.id !== targetPlayerId,
+    );
+    const distractorPool = preferredDistractors.length
+      ? preferredDistractors
+      : state.players.filter((player) => player.id !== trueTarget.id);
+    const distractor =
+      distractorPool[Math.floor(Math.random() * distractorPool.length)];
+    const swapOrder = Math.random() >= 0.5;
+    setSkillTargets({
+      first: swapOrder && distractor ? distractor.id : trueTarget.id,
+      second: swapOrder
+        ? trueTarget.id
+        : distractor?.id ?? "",
+    });
+    setSkillRoleId(trueTarget.roleId);
+  }, [
+    currentRole?.id,
+    skillRoleOptions,
+    state.players,
+    targetPlayerId,
+  ]);
+
+  const automaticSkillKey = useMemo(() => {
+    if (
+      currentRole?.id !== "washerwoman" &&
+      currentRole?.id !== "librarian" &&
+      currentRole?.id !== "investigator"
+    ) {
+      return "";
+    }
+    return [
+      currentRole.id,
+      targetPlayerId,
+      state.scriptId,
+      state.players
+        .map((player) => `${player.id}:${player.seat}:${player.roleId}`)
+        .join("|"),
+    ].join("::");
+  }, [currentRole?.id, state.players, state.scriptId, targetPlayerId]);
+
+  useEffect(() => {
+    if (!automaticSkillKey) {
+      lastAutomaticSkillKeyRef.current = "";
+      return;
+    }
+    if (lastAutomaticSkillKeyRef.current === automaticSkillKey) return;
+    lastAutomaticSkillKeyRef.current = automaticSkillKey;
+    generateAutomaticPairSkill();
+  }, [automaticSkillKey, generateAutomaticPairSkill]);
+
+  useEffect(() => {
+    if (currentRole?.id === "chef") {
+      setChefResult(calculatedChefResult);
+    }
+  }, [calculatedChefResult, currentRole?.id]);
 
   const redHerringPlayerId =
     state.players.find(isFortuneTellerRedHerring)?.id ?? "";
@@ -2134,10 +2254,9 @@ function NightPanel({
   const sendPairRoleSkill = () => {
     if (
       !currentRole ||
-      (currentRole.id === "librarian" &&
-        librarianNoOutsider === false &&
-        !pairTargetsReady) ||
-      (currentRole.id !== "librarian" && !pairTargetsReady)
+      (currentRole.id === "librarian" && librarianNoOutsider
+        ? false
+        : !pairTargetsReady || !skillRoleId)
     ) {
       return;
     }
@@ -2370,7 +2489,17 @@ function NightPanel({
                       <ScrollText size={14} />
                       {currentRole.name}技能
                     </span>
-                    <small>选择信息后直接发送，无需输入文字</small>
+                    <div className="night-skill-heading-actions">
+                      <small>系统已按当前魔典生成，可修改后发送</small>
+                      <button
+                        className="secondary-button night-skill-reroll"
+                        disabled={sending || state.players.length < 2}
+                        onClick={generateAutomaticPairSkill}
+                      >
+                        <Dices size={13} />
+                        重新生成
+                      </button>
+                    </div>
                   </div>
                   {currentRole.id === "librarian" ? (
                     <div className="night-skill-mode">
@@ -2474,37 +2603,79 @@ function NightPanel({
                   </button>
                 </div>
               ) : null}
-              {currentRole.id === "chef" ||
-              currentRole.id === "empath" ? (
+              {currentRole.id === "chef" ? (
                 <div className="night-skill-panel compact">
                   <div className="night-skill-panel-heading">
                     <span>
                       <ScrollText size={14} />
-                      {currentRole.name}结果
+                      厨师结果
+                    </span>
+                    <small>已根据当前邪恶座位自动计算，可修改</small>
+                  </div>
+                  <div className="night-skill-result-grid">
+                    {[0, 1, 2, 3, 4].map((count) => (
+                      <button
+                        className={`secondary-button ${
+                          chefResult === count ? "active" : ""
+                        }`}
+                        key={count}
+                        disabled={sending}
+                        onClick={() => setChefResult(count)}
+                      >
+                        {count}
+                        <small>对</small>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="night-skill-footer">
+                    <button
+                      className="secondary-button night-skill-reroll"
+                      disabled={sending}
+                      onClick={() => setChefResult(calculatedChefResult)}
+                    >
+                      <RotateCcw size={13} />
+                      重新计算
+                    </button>
+                    <button
+                      className="primary-button night-skill-submit"
+                      disabled={!canUseSkill}
+                      onClick={() =>
+                        void submitSkill(
+                          `相邻邪恶玩家共有 ${chefResult} 对`,
+                        )
+                      }
+                    >
+                      <Send size={15} />
+                      {sendingMode === "skill"
+                        ? "发送中"
+                        : "发送技能信息"}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {currentRole.id === "empath" ? (
+                <div className="night-skill-panel compact">
+                  <div className="night-skill-panel-heading">
+                    <span>
+                      <ScrollText size={14} />
+                      共情者结果
                     </span>
                     <small>点击数字后立即发送</small>
                   </div>
                   <div className="night-skill-result-grid">
-                    {(currentRole.id === "chef"
-                      ? [0, 1, 2, 3, 4]
-                      : [0, 1, 2]
-                    ).map((count) => (
+                    {[0, 1, 2].map((count) => (
                       <button
                         className="secondary-button"
                         key={count}
                         disabled={!canUseSkill}
                         onClick={() =>
                           void submitSkill(
-                            currentRole.id === "chef"
-                              ? `相邻邪恶玩家共有 ${count} 对`
-                              : `本晚两名存活邻座中有 ${count} 名邪恶玩家`,
+                            `本晚两名存活邻座中有 ${count} 名邪恶玩家`,
                           )
                         }
                       >
                         {count}
-                        <small>
-                          {currentRole.id === "chef" ? "对" : "名邪恶"}
-                        </small>
+                        <small>名邪恶</small>
                       </button>
                     ))}
                   </div>

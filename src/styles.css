@@ -317,6 +317,9 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-skill-panel-heading > span { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 11px; font-weight: 800; }
 .night-skill-panel-heading > span svg { color: var(--blue); }
 .night-skill-panel-heading > small { color: var(--dim); font-size: 8px; text-align: right; }
+.night-skill-heading-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.night-skill-heading-actions > small { color: var(--dim); font-size: 8px; text-align: right; line-height: 1.4; }
+.night-skill-reroll { min-height: 29px; padding: 0 8px; color: #bad2e5; border-color: rgba(141,170,195,.4); font-size: 9px; white-space: nowrap; }
 .night-skill-mode { width: fit-content; margin-bottom: 8px; display: grid; grid-template-columns: repeat(2, minmax(94px, 1fr)); border: 1px solid var(--line); background: #111113; }
 .night-skill-mode button { min-height: 30px; border: 0; background: transparent; color: var(--muted); padding: 0 10px; font-size: 9px; }
 .night-skill-mode button + button { border-left: 1px solid var(--line); }
@@ -330,6 +333,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-skill-result-grid { display: grid; grid-template-columns: repeat(5, minmax(56px, 1fr)); gap: 6px; }
 .night-skill-result-grid .secondary-button { min-width: 0; min-height: 40px; padding: 4px 7px; flex-direction: column; gap: 1px; color: var(--ink); font-size: 14px; font-weight: 800; }
 .night-skill-result-grid .secondary-button small { color: var(--muted); font-size: 8px; font-weight: 600; }
+.night-skill-result-grid .secondary-button.active { border-color: var(--blue); background: rgba(141,170,195,.16); color: #d8e8f4; box-shadow: inset 0 -2px var(--blue); }
 .night-skill-result-grid.fortune-results { grid-template-columns: repeat(2, minmax(90px, 1fr)); margin-top: 8px; }
 .night-skill-result-grid .positive { border-color: rgba(215,97,86,.5); color: #ef9a94; }
 .night-skill-result-grid .negative { border-color: rgba(121,181,138,.45); color: #a8cfaa; }
@@ -340,6 +344,8 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-skill-preset > span { color: var(--muted); font-size: 9px; font-weight: 700; white-space: nowrap; }
 .night-skill-segments { display: flex; align-items: center; gap: 5px; }
 .night-skill-segments .secondary-button { min-height: 30px; padding: 0 9px; font-size: 9px; }
+.night-skill-footer { margin-top: 9px; display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
+.night-skill-footer .night-skill-submit { margin: 0; }
 .fortune-teller-preset { align-items: stretch; flex-wrap: wrap; }
 .fortune-teller-preset > span { align-self: center; }
 .fortune-teller-targets { min-width: min(100%, 430px); flex: 1 1 390px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
@@ -683,11 +689,16 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .night-skill-panel { padding: 9px; }
   .night-skill-panel-heading { align-items: flex-start; }
   .night-skill-panel-heading > small { max-width: 138px; line-height: 1.35; }
+  .night-skill-heading-actions { max-width: 58%; align-items: flex-end; flex-direction: column; gap: 5px; }
+  .night-skill-heading-actions > small { max-width: 145px; }
+  .night-skill-reroll { min-height: 28px; padding: 0 7px; }
   .night-skill-mode { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .night-skill-fields { grid-template-columns: 1fr; }
   .night-skill-target-grid { grid-template-columns: 1fr; }
   .night-skill-role-field { grid-template-columns: 62px minmax(0, 1fr); }
   .night-skill-submit { width: 100%; margin-top: 8px; }
+  .night-skill-footer { align-items: stretch; }
+  .night-skill-footer .night-skill-reroll, .night-skill-footer .night-skill-submit { width: auto; flex: 1 1 0; margin: 0; }
   .night-skill-result-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .night-skill-result-grid .secondary-button { min-height: 38px; padding: 3px; font-size: 13px; }
   .night-skill-result-grid.fortune-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
