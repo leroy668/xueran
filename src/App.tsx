@@ -2122,9 +2122,8 @@ function NightPanel({
     const player = state.players.find((item) => item.id === playerId);
     if (!player) return "座位 ?";
     const roomPlayer = roomPlayersById.get(player.id);
-    return `座位 ${String(player.seat).padStart(2, "0")}${
-      roomPlayer?.name ? ` · ${roomPlayer.name}` : ""
-    }`;
+    const playerName = roomPlayer?.name || "未入座";
+    return `座位 ${String(player.seat).padStart(2, "0")} · ${playerName} · 角色：${getRole(player.roleId).name}`;
   };
   const conversation = useMemo(
     () =>
