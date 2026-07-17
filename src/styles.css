@@ -179,7 +179,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .table-player-name { grid-column: 2; grid-row: 1; align-self: end; padding-right: 18px; font-size: 12px; font-weight: 800; line-height: 1.2; }
 .table-role-name { grid-column: 2; grid-row: 2; align-self: start; min-width: 0; margin-top: 4px; display: flex; align-items: center; gap: 3px; color: var(--muted); font-size: 10px; line-height: 1.2; }
 .table-role-name-text { flex: 1 1 auto; }
-.table-role-info { grid-column: 2; grid-row: 3; min-width: 0; padding-right: 8px; display: flex; align-items: center; gap: 3px; color: var(--blue); font-size: 8px; line-height: 1.15; }
+.table-role-info { grid-column: 1 / -1; grid-row: 3; min-width: 0; padding-top: 4px; border-top: 1px solid rgba(141,170,195,.2); display: flex; align-items: center; gap: 3px; color: var(--blue); font-size: 8px; line-height: 1.15; }
 .table-role-info svg { flex: 0 0 auto; }
 .table-role-info > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table-role-info > b { flex: 0 0 auto; min-width: 14px; height: 14px; padding: 0 3px; display: grid; place-items: center; border: 1px solid rgba(141,170,195,.38); color: var(--blue); font-size: 7px; line-height: 1; }

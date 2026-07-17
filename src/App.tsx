@@ -223,6 +223,69 @@ const getGameStageLabel = (phase: Phase, round: number) => {
 const compactMessage = (body: string) =>
   body.replace(/\s+/g, " ").trim();
 
+const getMessageSeatNumbers = (body: string) =>
+  Array.from(new Set(body.match(/\d+号/g) ?? [])).map((seat) =>
+    seat.replace("号", ""),
+  );
+
+const getSeatCardChoicePreview = (roleId: string, summary: string) => {
+  const seats = getMessageSeatNumbers(summary);
+  const target = seats[0] ? `${seats[0]}号` : "未记录";
+  const prefixes: Record<string, string> = {
+    monk: "保护",
+    ravenkeeper: "查验",
+    slayer: "射击",
+    butler: "主人",
+    poisoner: "中毒",
+    imp: "攻击",
+  };
+  return `${prefixes[roleId] ?? "选择"}${target}`;
+};
+
+const getSeatCardSkillPreview = (roleId: string, body: string) => {
+  const message = compactMessage(body);
+  const seats = getMessageSeatNumbers(message);
+  const target = seats[0] ? `${seats[0]}号` : "未记录";
+  const shownRole = message.match(/(?:有一人是|是)([^，。]+)$/)?.[1] ?? "";
+  const count = message.match(/\d+/)?.[0] ?? "?";
+
+  if (["washerwoman", "librarian", "investigator"].includes(roleId)) {
+    if (message.includes("没有外来者")) return "无外来者";
+    const targets = seats.length
+      ? `${seats.slice(0, 2).join("/")}号`
+      : "座位未记录";
+    return `${targets}·${shownRole || "已发送"}`;
+  }
+
+  switch (roleId) {
+    case "chef":
+      return `邪恶相邻${count}对`;
+    case "empath":
+      return `邻座邪恶${count}人`;
+    case "monk":
+      return `保护${target}`;
+    case "undertaker":
+      return `${target}·${shownRole || "已查验"}`;
+    case "ravenkeeper":
+      return `查${target}·${shownRole || "已回复"}`;
+    case "butler":
+      return `主人${target}`;
+    case "poisoner":
+      return `中毒${target}`;
+    case "spy":
+      return "已查看魔典";
+    case "scarlet-woman":
+      return message.includes("已继承") ? "已继承小恶魔" : "未触发继承";
+    case "imp":
+      return `攻击${target}${message.includes("自杀") ? "·自杀" : ""}`;
+    default:
+      return message;
+  }
+};
+
+const getSeatCardNightLabel = (round: number) =>
+  round <= 1 ? "首夜" : `${round - 1}晚`;
+
 const getFortuneTellerResult = (body: string) => {
   if (
     body.includes("没有恶魔") ||
@@ -1327,6 +1390,10 @@ function GrimoirePanel({
                 </div>
                 {state.players.map((player, index) => {
                   const role = getRole(player.roleId);
+                  const skillRoleId = getPlayerVisibleRoleId(
+                    player.roleId,
+                    player.drunkRoleId,
+                  );
                   const roomPlayer = roomPlayersBySeat.get(player.seat);
                   const angle =
                     (index / state.players.length) * Math.PI * 2 - Math.PI / 2;
@@ -1335,23 +1402,19 @@ function GrimoirePanel({
                   const top = 50 + Math.sin(angle) * radius;
                   const isSelected = selectedPlayer?.id === player.id;
                   const skillHistory = skillHistoryByPlayer.get(
-                    `${player.id}:${role.id}`,
+                    `${player.id}:${skillRoleId}`,
                   ) ?? [];
                   const latestSkill = skillHistory[0];
                   const choiceHistory = skillChoiceHistoryByPlayer.get(
-                    `${player.id}:${role.id}`,
+                    `${player.id}:${skillRoleId}`,
                   ) ?? [];
                   const latestChoice = choiceHistory[0];
                   const choicePreview = latestChoice
-                    ? compactMessage(latestChoice.choice.summary).replace(
-                        /^占卜师选择：/,
-                        "玩家选 ",
+                    ? getSeatCardChoicePreview(
+                        skillRoleId,
+                        latestChoice.choice.summary,
                       )
                     : "";
-                  const hasSameRoundInfo =
-                    Boolean(latestSkill) &&
-                    Boolean(latestChoice) &&
-                    latestSkill?.message.round === latestChoice?.message.round;
                   const latestInfo =
                     latestSkill && latestChoice
                       ? new Date(latestChoice.message.created_at).getTime() >
@@ -1362,12 +1425,18 @@ function GrimoirePanel({
                           }
                         : {
                             round: latestSkill.message.round,
-                            body: compactMessage(latestSkill.body),
+                            body: getSeatCardSkillPreview(
+                              skillRoleId,
+                              latestSkill.body,
+                            ),
                           }
                       : latestSkill
                         ? {
                             round: latestSkill.message.round,
-                            body: compactMessage(latestSkill.body),
+                            body: getSeatCardSkillPreview(
+                              skillRoleId,
+                              latestSkill.body,
+                            ),
                           }
                         : latestChoice
                           ? {
@@ -1376,11 +1445,7 @@ function GrimoirePanel({
                             }
                           : null;
                   const infoPreview = latestInfo
-                    ? `${getGameStageLabel("夜晚", latestInfo.round)} · ${
-                        hasSameRoundInfo
-                          ? `${choicePreview} · ${compactMessage(latestSkill.body)}`
-                          : latestInfo.body
-                      }`
+                    ? `${getSeatCardNightLabel(latestInfo.round)} · ${latestInfo.body}`
                     : "";
                   const skillHistoryTitle = skillHistory
                     .map(
@@ -1398,7 +1463,7 @@ function GrimoirePanel({
                   ]
                     .filter(Boolean)
                     .join("\n");
-                  const isFortuneTeller = role.id === "fortune-teller";
+                  const isFortuneTeller = skillRoleId === "fortune-teller";
                   const latestFortuneActivity = isFortuneTeller
                     ? [
                         ...skillHistory.map((entry) => ({
