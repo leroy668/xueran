@@ -158,6 +158,7 @@ export const getNightActions = (
   return players
     .flatMap((player) => {
       const visibleRole = getActionRole(player);
+      const actualRole = getRole(player.roleId);
       const actionRoles = [visibleRole];
       if (
         firstNight &&
@@ -184,6 +185,8 @@ export const getNightActions = (
           name: role.name,
           order,
           role,
+          actualRole,
+          isDisguised: role.id !== actualRole.id,
         }];
       });
     })

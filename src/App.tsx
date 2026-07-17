@@ -3199,7 +3199,14 @@ function NightPanel({
                   <span className={`mini-role-icon ${teamLabels[action.role.team]}`}>
                     <RoleIcon roleId={action.role.id} size={16} />
                   </span>
-                  <span className="night-role-name">{action.name}</span>
+                  <span className="night-role-name">
+                    <span>{action.name}</span>
+                    {action.isDisguised ? (
+                      <b className="night-role-truth">
+                        真实：{action.actualRole.name}
+                      </b>
+                    ) : null}
+                  </span>
                   <span className="night-role-team">{action.role.team}</span>
                   {state.nightIndex === index ? <span className="on-air">进行中</span> : null}
                 </button>

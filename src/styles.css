@@ -449,8 +449,10 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-row:hover, .night-row.active { background: #25252a; color: var(--ink); }
 .night-index { color: var(--dim); font-size: 11px; }
 .mini-role-icon { width: 27px; height: 27px; display: grid; place-items: center; border-left: 2px solid var(--gold); background: #2a2a2e; font-family: Georgia, serif; font-size: 11px; }
-.night-role-name { font-size: 13px; font-weight: 700; }
+.night-role-name { min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
 .night-role-team { color: var(--dim); font-size: 11px; }
+.night-role-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.night-role-truth { flex: 0 0 auto; padding: 2px 5px; border: 1px solid rgba(215,97,86,.45); background: rgba(215,97,86,.1); color: #e8aaa4; font-size: 9px; font-weight: 700; line-height: 1.2; }
 .on-air { color: var(--red); font-size: 10px; white-space: nowrap; }
 .script-aside h3 { margin: 0 0 10px; font-size: 18px; }
 
