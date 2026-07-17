@@ -86,7 +86,7 @@ export const roles: RoleDefinition[] = [
   { id: "investigator", name: "调查员", team: "镇民", icon: "查", short: "首夜得知两名玩家和一个爪牙角色，其中一人是该角色", firstNightOrder: 55, otherNightOrder: 0, reminder: "给出两名玩家，其中一人是指定爪牙角色。" },
   { id: "chef", name: "厨师", team: "镇民", icon: "厨", short: "首夜得知相邻邪恶玩家共有多少对", firstNightOrder: 56, otherNightOrder: 0, reminder: "环桌计算相邻的邪恶玩家对数。" },
   { id: "empath", name: "共情者", team: "镇民", icon: "感", short: "每晚得知两名存活邻座中有多少名邪恶玩家", firstNightOrder: 57, otherNightOrder: 75, reminder: "询问共情者左右相邻的存活玩家。" },
-  { id: "fortune-teller", name: "占卜师", team: "镇民", icon: "卜", short: "每晚选择两名玩家，得知其中是否有恶魔", firstNightOrder: 58, otherNightOrder: 76, reminder: "占卜师选择两人，告知是否包含恶魔；红鲱鱼也会算作是。" },
+  { id: "fortune-teller", name: "占卜师", team: "镇民", icon: "卜", short: "每晚选择两名玩家，得知其中是否有恶魔", firstNightOrder: 58, otherNightOrder: 76, reminder: "占卜师选择两人，告知是否包含恶魔；宿敌也会算作是。" },
   { id: "monk", name: "僧侣", team: "镇民", icon: "僧", short: "每个夜晚*保护一名其他玩家免受恶魔负面能力影响", firstNightOrder: 0, otherNightOrder: 26, reminder: "僧侣选择一名其他玩家进行保护。" },
   { id: "undertaker", name: "掘墓人", team: "镇民", icon: "墓", short: "每个夜晚*得知今天被处决玩家的角色", firstNightOrder: 0, otherNightOrder: 77, reminder: "告诉掘墓人白天处决玩家的角色。" },
   { id: "ravenkeeper", name: "守鸦人", team: "镇民", icon: "鸦", short: "若在夜晚死亡，选择一名玩家并得知他的角色", firstNightOrder: 0, otherNightOrder: 74, reminder: "若守鸦人当晚死亡，让其选择一名玩家并展示角色。" },

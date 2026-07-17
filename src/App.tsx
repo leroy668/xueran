@@ -152,7 +152,7 @@ const serializePlayerNotes = (notes: PlayerNoteEntry[]) =>
 const fortuneTellerRedHerringNoteId =
   "system:fortune-teller-red-herring";
 const fortuneTellerRedHerringNoteBody =
-  "占卜师红鲱鱼：在占卜师能力中始终被视为恶魔";
+  "占卜师宿敌：在占卜师能力中始终被视为恶魔";
 
 const isFortuneTellerRedHerring = (player: Player) =>
   parsePlayerNotes(player.notes).some(
@@ -1394,7 +1394,7 @@ function GrimoirePanel({
                           title={fortuneTellerRedHerringNoteBody}
                         >
                           <Target size={9} />
-                          红
+                          敌
                         </span>
                       ) : null}
                       {roomPlayer?.is_claimed ? (
@@ -1628,7 +1628,7 @@ function PlayerEditor({
         <div className="fortune-red-herring-banner">
           <Target size={15} />
           <div>
-            <strong>占卜师红鲱鱼</strong>
+            <strong>占卜师宿敌</strong>
             <span>该玩家在占卜师能力中始终被视为恶魔</span>
           </div>
         </div>
@@ -2404,7 +2404,7 @@ function NightPanel({
                 <div>
                   <Target size={15} />
                   <span>
-                    <strong>占卜师红鲱鱼</strong>
+                    <strong>占卜师宿敌</strong>
                     <small>该善良玩家始终被占卜师视为恶魔</small>
                   </span>
                 </div>
@@ -2412,7 +2412,7 @@ function NightPanel({
                   <select
                     value={redHerringPlayerId}
                     onChange={(event) => updateRedHerring(event.target.value)}
-                    aria-label="选择占卜师红鲱鱼"
+                    aria-label="选择占卜师宿敌"
                   >
                     <option value="">尚未设置</option>
                     {redHerringCandidates.map((player) => (
@@ -2424,7 +2424,7 @@ function NightPanel({
                   <button
                     className="icon-button"
                     title="随机选择一名善良玩家"
-                    aria-label="随机选择占卜师红鲱鱼"
+                    aria-label="随机选择占卜师宿敌"
                     disabled={!redHerringCandidates.length}
                     onClick={() => {
                       const player =
