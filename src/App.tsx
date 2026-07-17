@@ -2812,19 +2812,6 @@ function NightPanel({
             </div>
           </section>
         ) : null}
-        {currentRole ? (
-          <div className={`current-action ${teamLabels[currentRole.team]}`}>
-            <div className="current-role-icon">
-              <RoleIcon roleId={currentRole.id} size={29} />
-            </div>
-            <div>
-              <p className="eyebrow">当前角色</p>
-              <h3>{currentRole.name}</h3>
-              <p>{currentRole.reminder}</p>
-            </div>
-            <div className="current-role-team">{currentRole.team}</div>
-          </div>
-        ) : null}
       </section>
     </div>
   );
