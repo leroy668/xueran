@@ -152,7 +152,6 @@ const chineseNumber = (value: number) => {
 };
 
 const getGameStageLabel = (phase: Phase, round: number) => {
-  if (phase === "准备") return "准备";
   if (phase === "夜晚" && round <= 1) return "首夜";
   const sequence = phase === "白天" ? round : Math.max(1, round - 1);
   return `第${chineseNumber(sequence)}${phase === "白天" ? "天" : "晚"}`;
@@ -172,7 +171,6 @@ const getNextGameStage = (
   phase: Phase,
   round: number,
 ): Pick<GameState, "phase" | "round"> => {
-  if (phase === "准备") return { phase: "夜晚", round: 1 };
   if (phase === "夜晚") return { phase: "白天", round: Math.max(1, round) };
   return { phase: "夜晚", round: round + 1 };
 };
@@ -181,9 +179,8 @@ const getPreviousGameStage = (
   phase: Phase,
   round: number,
 ): Pick<GameState, "phase" | "round"> | null => {
-  if (phase === "准备") return null;
   if (phase === "白天") return { phase: "夜晚", round: Math.max(1, round) };
-  if (round <= 1) return { phase: "准备", round: 1 };
+  if (round <= 1) return null;
   return { phase: "白天", round: round - 1 };
 };
 
@@ -499,9 +496,7 @@ function GrimoireApp() {
     };
   }, [refreshRoomAdmin, room]);
 
-  const isFirstNight =
-    state.phase === "准备" ||
-    (state.phase === "夜晚" && state.round <= 1);
+  const isFirstNight = state.phase === "夜晚" && state.round <= 1;
   const nightActions = useMemo(
     () => getNightActions(state.players, isFirstNight, state.scriptId),
     [isFirstNight, state.players, state.scriptId],
@@ -556,7 +551,7 @@ function GrimoireApp() {
       ...newPlayer(index + 1),
       roleId,
     }));
-    update({ players, phase: "准备", round: 1, nightIndex: 0 });
+    update({ players, phase: "夜晚", round: 1, nightIndex: 0 });
     setToast("已载入 7 人示例局");
   };
 
@@ -580,7 +575,7 @@ function GrimoireApp() {
       const distribution = distributeRoles(playerCount, state.scriptId);
       setState((current) => ({
         ...current,
-        phase: "准备",
+        phase: "夜晚",
         round: 1,
         nightIndex: 0,
         players: current.players.map((player, index) => ({
@@ -623,7 +618,7 @@ function GrimoireApp() {
 
     const nextState: GameState = {
       ...state,
-      phase: "准备",
+      phase: "夜晚",
       round: 1,
       nightIndex: 0,
       storytellerNotes: "",
@@ -661,7 +656,7 @@ function GrimoireApp() {
         current
           ? {
               ...current,
-              phase: "准备",
+              phase: "夜晚",
               round: 1,
               updated_at: new Date().toISOString(),
             }
@@ -920,7 +915,6 @@ function GrimoireApp() {
           <GrimoirePanel
             state={state}
             aliveCount={aliveCount}
-            onUpdate={update}
             onUpdatePlayer={updatePlayer}
             onRemovePlayer={removePlayer}
             onAddPlayer={addPlayer}
@@ -959,6 +953,7 @@ function GrimoireApp() {
             nightMessages={nightMessages}
             playerMessages={playerMessages}
             unreadPlayerMessages={unreadPlayerMessages}
+            onUpdate={update}
             onChangeNight={changeNight}
             onSelectNight={(index) => update({ nightIndex: index })}
             onReadPlayerMessages={markPlayerMessagesRead}
@@ -1025,7 +1020,6 @@ function GrimoireApp() {
 function GrimoirePanel({
   state,
   aliveCount,
-  onUpdate,
   onUpdatePlayer,
   onRemovePlayer,
   onAddPlayer,
@@ -1037,7 +1031,6 @@ function GrimoirePanel({
 }: {
   state: GameState;
   aliveCount: number;
-  onUpdate: (patch: Partial<GameState>) => void;
   onUpdatePlayer: (id: string, patch: Partial<Player>) => void;
   onRemovePlayer: (id: string) => void;
   onAddPlayer: () => void;
@@ -1099,18 +1092,6 @@ function GrimoirePanel({
     return roomPlayer?.name.trim() || player.name.trim() || "待入座";
   };
   const currentStageLabel = getGameStageLabel(state.phase, state.round);
-  const previousStage = getPreviousGameStage(state.phase, state.round);
-  const previousStageLabel = previousStage
-    ? getGameStageLabel(previousStage.phase, previousStage.round)
-    : null;
-  const nextStage = getNextGameStage(state.phase, state.round);
-  const nextStageLabel = getGameStageLabel(nextStage.phase, nextStage.round);
-  const StageIcon =
-    state.phase === "白天"
-      ? Sun
-      : state.phase === "夜晚"
-        ? MoonStar
-        : Sparkles;
 
   return (
     <div className="dashboard-grid">
@@ -1126,38 +1107,6 @@ function GrimoirePanel({
                 <Sparkles size={15} />
                 载入示例局
               </button>
-            ) : null}
-            {state.players.length > 0 ? (
-              <div className="stage-control" aria-label="回合阶段切换">
-                <button
-                  className="stage-step-button"
-                  onClick={() => {
-                    if (previousStage) {
-                      onUpdate({ ...previousStage, nightIndex: 0 });
-                    }
-                  }}
-                  disabled={!previousStage}
-                  title={previousStageLabel ? `返回${previousStageLabel}` : "已经是最早阶段"}
-                  aria-label={previousStageLabel ? `返回${previousStageLabel}` : "已经是最早阶段"}
-                >
-                  <ChevronLeft size={17} />
-                </button>
-                <div className={`stage-current phase-${state.phase}`}>
-                  <StageIcon size={16} />
-                  <span>
-                    <small>当前阶段</small>
-                    <b>{currentStageLabel}</b>
-                  </span>
-                </div>
-                <button
-                  className="stage-step-button"
-                  onClick={() => onUpdate({ ...nextStage, nightIndex: 0 })}
-                  title={`进入${nextStageLabel}`}
-                  aria-label={`进入${nextStageLabel}`}
-                >
-                  <ChevronRight size={17} />
-                </button>
-              </div>
             ) : null}
             {state.players.length > 0 ? (
               <button
@@ -1653,6 +1602,7 @@ function NightPanel({
   nightMessages,
   playerMessages,
   unreadPlayerMessages,
+  onUpdate,
   onChangeNight,
   onSelectNight,
   onReadPlayerMessages,
@@ -1667,6 +1617,7 @@ function NightPanel({
   nightMessages: NightMessage[];
   playerMessages: PlayerMessage[];
   unreadPlayerMessages: PlayerMessage[];
+  onUpdate: (patch: Partial<GameState>) => void;
   onChangeNight: (offset: number) => void;
   onSelectNight: (index: number) => void;
   onReadPlayerMessages: (playerId: string) => void;
@@ -1681,6 +1632,14 @@ function NightPanel({
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const timelineRef = useRef<HTMLDivElement>(null);
+  const currentStageLabel = getGameStageLabel(state.phase, state.round);
+  const previousStage = getPreviousGameStage(state.phase, state.round);
+  const previousStageLabel = previousStage
+    ? getGameStageLabel(previousStage.phase, previousStage.round)
+    : null;
+  const nextStage = getNextGameStage(state.phase, state.round);
+  const nextStageLabel = getGameStageLabel(nextStage.phase, nextStage.round);
+  const StageIcon = state.phase === "白天" ? Sun : MoonStar;
   const rolePlayers = useMemo(
     () =>
       currentRole
@@ -1804,6 +1763,50 @@ function NightPanel({
     <div className="night-layout">
       <section className="night-main">
         <section className="night-action-section">
+          <div className="night-stage-toolbar">
+            <div>
+              <p className="eyebrow">GAME STAGE</p>
+              <h2>当前回合</h2>
+            </div>
+            <div className="stage-control" aria-label="回合阶段切换">
+              <button
+                className="stage-step-button"
+                onClick={() => {
+                  if (previousStage) {
+                    onUpdate({ ...previousStage, nightIndex: 0 });
+                  }
+                }}
+                disabled={!previousStage}
+                title={
+                  previousStageLabel
+                    ? `返回${previousStageLabel}`
+                    : "已经是最早阶段"
+                }
+                aria-label={
+                  previousStageLabel
+                    ? `返回${previousStageLabel}`
+                    : "已经是最早阶段"
+                }
+              >
+                <ChevronLeft size={17} />
+              </button>
+              <div className={`stage-current phase-${state.phase}`}>
+                <StageIcon size={16} />
+                <span>
+                  <small>当前阶段</small>
+                  <b>{currentStageLabel}</b>
+                </span>
+              </div>
+              <button
+                className="stage-step-button"
+                onClick={() => onUpdate({ ...nextStage, nightIndex: 0 })}
+                title={`进入${nextStageLabel}`}
+                aria-label={`进入${nextStageLabel}`}
+              >
+                <ChevronRight size={17} />
+              </button>
+            </div>
+          </div>
           <div className="panel-heading night-action-heading">
             <div>
               <p className="eyebrow">NIGHT ORDER · {getGameStageLabel(state.phase, state.round)}</p>
@@ -2027,8 +2030,7 @@ function HostMessagesPanel({
       }),
     [availablePlayers],
   );
-  const evilChatAvailable =
-    state.phase !== "准备" && evilPlayers.length > 0;
+  const evilChatAvailable = evilPlayers.length > 0;
   const availableDemonBluffRoles = useMemo(() => {
     const assignedRoleIds = new Set(
       state.players.map((player) => player.roleId),

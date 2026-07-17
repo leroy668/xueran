@@ -35,7 +35,7 @@ import {
 } from "./room";
 import { RoleIcon } from "./RoleIcon";
 import { ensureAnonymousSession, supabase } from "./supabase";
-import type { IdentityPayload, Phase, Team } from "./types";
+import type { IdentityPayload, Team } from "./types";
 
 type PlayerView = "identity" | "script" | "messages" | "evil";
 
@@ -258,7 +258,6 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
         identity={payload}
         roomCode={room.code}
         scriptId={room.script_id}
-        roomPhase={room.phase}
         playerId={identity.player_id}
         players={players}
         nightMessages={nightMessages}
@@ -344,7 +343,6 @@ function ClaimedIdentity({
   identity,
   roomCode,
   scriptId,
-  roomPhase,
   playerId,
   players,
   nightMessages,
@@ -356,7 +354,6 @@ function ClaimedIdentity({
   identity: IdentityPayload;
   roomCode: string;
   scriptId: string;
-  roomPhase: Phase;
   playerId: string;
   players: PublicRoomPlayer[];
   nightMessages: NightMessage[];
@@ -383,7 +380,7 @@ function ClaimedIdentity({
   const script = scripts.find((item) => item.id === scriptId) ?? scripts[0];
   const scriptRoles = getScriptRoles(scriptId);
   const evilChatAvailable =
-    roomPhase !== "准备" && (role.team === "爪牙" || role.team === "恶魔");
+    role.team === "爪牙" || role.team === "恶魔";
   const lastReadTime = lastReadAt ? new Date(lastReadAt).getTime() : 0;
   const unreadCount = nightMessages.filter(
     (message) => new Date(message.created_at).getTime() > lastReadTime,

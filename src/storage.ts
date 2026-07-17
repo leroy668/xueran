@@ -1,11 +1,11 @@
 import { normalizeRoleId } from "./data";
-import type { GameState, SharedState } from "./types";
+import { normalizePhase, type GameState, type SharedState } from "./types";
 
 const storageKey = "xueran-grimoire-v1";
 
 export const defaultState = (): GameState => ({
   scriptId: "trouble-brewing",
-  phase: "准备",
+  phase: "夜晚",
   round: 1,
   nightIndex: 0,
   players: [],
@@ -21,6 +21,7 @@ export const loadState = (): GameState => {
     return {
       ...defaultState(),
       ...saved,
+      phase: normalizePhase(saved.phase),
       players: (saved.players ?? []).map((player) => ({
         ...player,
         roleId: normalizeRoleId(player.roleId),
@@ -56,6 +57,7 @@ export const getSharedState = (): SharedState | null => {
     const shared = JSON.parse(decode(encoded)) as SharedState;
     return {
       ...shared,
+      phase: normalizePhase(shared.phase),
       players: shared.players.map((player) => ({
         ...player,
         roleId: normalizeRoleId(player.roleId),

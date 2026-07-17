@@ -1,7 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { normalizeRoleId } from "./data";
 import { ensureAnonymousSession, supabase } from "./supabase";
-import type { GameState, Player } from "./types";
+import { normalizePhase, type GameState, type Player } from "./types";
 
 export type SharedRoom = {
   id: string;
@@ -185,7 +185,7 @@ export const loadHostRoom = async (room: SharedRoom, user: User) => {
 
   return {
     scriptId: room.script_id,
-    phase: room.phase,
+    phase: normalizePhase(room.phase),
     round: room.round,
     nightIndex: hostStateResult.data?.night_index ?? 0,
     players,

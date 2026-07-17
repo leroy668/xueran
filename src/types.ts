@@ -1,4 +1,4 @@
-export type Phase = "准备" | "白天" | "夜晚";
+export type Phase = "白天" | "夜晚";
 export type Team = "镇民" | "外来者" | "爪牙" | "恶魔";
 export type TabId = "grimoire" | "night" | "messages" | "script";
 
@@ -43,3 +43,6 @@ export type IdentityPayload = {
   roleId: string;
   message: string;
 };
+
+export const normalizePhase = (phase: unknown): Phase =>
+  phase === "白天" ? "白天" : "夜晚";
