@@ -67,7 +67,40 @@ export type EvilMessage = {
   created_at: string;
 };
 
+export type AdminRoom = {
+  room_id: string;
+  code: string;
+  title: string;
+  script_id: string;
+  phase: GameState["phase"];
+  round: number;
+  simulation_enabled: boolean;
+  player_count: number;
+  claimed_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export const activeRoomStorageKey = "xueran-active-host-room";
+
+export const getAdminRooms = async (token: string) => {
+  await ensureAnonymousSession();
+  const { data, error } = await supabase.rpc("xueran_admin_list_rooms", {
+    p_token: token,
+  });
+  if (error) throw error;
+  return (data ?? []) as AdminRoom[];
+};
+
+export const adminCloseRoom = async (token: string, roomId: string) => {
+  await ensureAnonymousSession();
+  const { data, error } = await supabase.rpc("xueran_admin_close_room", {
+    p_token: token,
+    p_room_id: roomId,
+  });
+  if (error) throw error;
+  return Boolean(data);
+};
 
 export const buildRoomUrl = (code: string) => {
   const url = new URL(window.location.href);

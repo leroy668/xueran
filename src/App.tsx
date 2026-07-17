@@ -27,6 +27,7 @@ import {
   UserMinus,
   Users,
 } from "lucide-react";
+import { AdminRooms } from "./AdminRooms";
 import {
   getNightActions,
   getPlayerVisibleRoleId,
@@ -423,7 +424,9 @@ const newPlayer = (seat: number, name = ""): Player => ({
 });
 
 function App() {
-  const roomCode = new URLSearchParams(window.location.search).get("room");
+  const params = new URLSearchParams(window.location.search);
+  const roomCode = params.get("room");
+  if (params.get("admin") === "1") return <AdminRooms />;
   return roomCode ? (
     <PlayerRoom roomCode={roomCode} />
   ) : (
@@ -506,12 +509,25 @@ function GrimoireApp() {
   }, [room]);
 
   const refreshRoomAdmin = useCallback(async (targetRoom: SharedRoom) => {
-    const [players, messages, incomingMessages, teamMessages] = await Promise.all([
+    const [latestRoom, players, messages, incomingMessages, teamMessages] = await Promise.all([
+      findRoomByCode(targetRoom.code),
       getRoomPlayers(targetRoom.id),
       getRoomNightMessages(targetRoom.id),
       getRoomPlayerMessages(targetRoom.id),
       getRoomEvilMessages(targetRoom.id),
     ]);
+    if (!latestRoom || latestRoom.status === "closed") {
+      localStorage.removeItem(activeRoomStorageKey);
+      setRoom(null);
+      setRoomReady(false);
+      setRoomPlayers([]);
+      setNightMessages([]);
+      setPlayerMessages([]);
+      setEvilMessages([]);
+      setSyncStatus("idle");
+      setToast("共享房间已由管理员关闭");
+      return;
+    }
     setRoomPlayers(players);
     setNightMessages(messages);
     setPlayerMessages(incomingMessages);
