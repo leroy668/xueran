@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 import {
@@ -234,6 +235,12 @@ const getSeatCardChoicePreview = (roleId: string, summary: string) => {
   const seats = getMessageSeatNumbers(summary);
   const target = seats[0] ? `${seats[0]}号` : "未记录";
   const selectedRole = summary.split("·").at(-1)?.trim() ?? "";
+  if (roleId === "fortune-teller") {
+    const targets = seats.length
+      ? `${seats.slice(0, 2).join("+")}号`
+      : "未记录";
+    return `查${targets}·待回复`;
+  }
   if (roleId === "philosopher") return selectedRole || "已选择能力";
   if (roleId === "gambler") {
     return `${target}·${selectedRole || "已猜角色"}`;
@@ -278,6 +285,12 @@ const getSeatCardSkillPreview = (roleId: string, body: string) => {
       return `邪恶相邻${count}对`;
     case "empath":
       return `邻座邪恶${count}人`;
+    case "fortune-teller": {
+      const targets = seats.length
+        ? `${seats.slice(0, 2).join("+")}号`
+        : "未记录";
+      return `查${targets}·${getFortuneTellerResult(message).label}`;
+    }
     case "monk":
       return `保护${target}`;
     case "undertaker":
@@ -1540,83 +1553,15 @@ function GrimoirePanel({
                         .join("\n"),
                     )
                     .join("\n\n");
-                  const isFortuneTeller = skillRoleId === "fortune-teller";
-                  const latestFortuneActivity = isFortuneTeller
-                    ? [
-                        ...skillHistory.map((entry) => ({
-                          round: entry.message.round,
-                          createdAt: entry.message.created_at,
-                        })),
-                        ...choiceHistory.map((entry) => ({
-                          round: entry.message.round,
-                          createdAt: entry.message.created_at,
-                        })),
-                      ].sort(
-                        (left, right) =>
-                          new Date(right.createdAt).getTime() -
-                          new Date(left.createdAt).getTime(),
-                      )[0]
-                    : null;
-                  const latestFortuneRound =
-                    latestFortuneActivity?.round ?? null;
-                  const latestFortuneChoice =
-                    latestFortuneRound === null
-                      ? null
-                      : choiceHistory.find(
-                          (entry) =>
-                            entry.message.round === latestFortuneRound,
-                        ) ?? null;
-                  const latestFortuneSkill =
-                    latestFortuneRound === null
-                      ? null
-                      : skillHistory.find(
-                          (entry) =>
-                            entry.message.round === latestFortuneRound,
-                        ) ?? null;
-                  const fortuneResultIsCurrent =
-                    Boolean(latestFortuneSkill) &&
-                    (!latestFortuneChoice ||
-                      new Date(
-                        latestFortuneSkill?.message.created_at ?? 0,
-                      ).getTime() >=
-                        new Date(
-                          latestFortuneChoice?.message.created_at ?? 0,
-                        ).getTime());
-                  const fortuneResult =
-                    latestFortuneSkill && fortuneResultIsCurrent
-                      ? getFortuneTellerResult(latestFortuneSkill.body)
-                      : { kind: "pending", label: "待回复" as const };
-                  const fortuneTargetLabels = latestFortuneChoice
-                    ? latestFortuneChoice.choice.playerIds
-                        .map((playerId) =>
-                          state.players.find((item) => item.id === playerId),
-                        )
-                        .filter((item): item is Player => Boolean(item))
-                        .map((item) => formatSeat(item.seat))
-                    : latestFortuneSkill
-                      ? getFortuneTellerSeatsFromResult(
-                          latestFortuneSkill.body,
-                        )
-                      : [];
-                  const fortuneRoundCount = new Set([
-                    ...skillHistory.map((entry) => entry.message.round),
-                    ...choiceHistory.map((entry) => entry.message.round),
-                  ]).size;
-                  const fortuneInfoTitle =
-                    latestFortuneRound === null
-                      ? ""
-                      : [
-                          getGameStageLabel("夜晚", latestFortuneRound),
-                          fortuneTargetLabels.length
-                            ? `查验：${fortuneTargetLabels.join("、")}`
-                            : "查验对象未记录",
-                          `结果：${fortuneResult.label}`,
-                          fortuneRoundCount > 1
-                            ? `共记录 ${fortuneRoundCount} 晚`
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join("\n");
+                  const roleInfoRows = Math.max(
+                    1,
+                    Math.ceil(roleSkillTimeline.length / 2),
+                  );
+                  const roleInfoStyle = {
+                    left: `${left}%`,
+                    top: `${top}%`,
+                    "--role-info-extra-height": `${Math.max(0, roleInfoRows - 1) * 22}px`,
+                  } as CSSProperties;
                   const redHerring = isFortuneTellerRedHerring(player);
                   const roleState = getPlayerRoleState(player, role.id);
 
@@ -1635,7 +1580,7 @@ function GrimoirePanel({
                       ]
                         .filter(Boolean)
                         .join(" ")}
-                      style={{ left: `${left}%`, top: `${top}%` }}
+                      style={roleInfoStyle}
                       key={player.id}
                       onClick={() => setSelectedPlayerId(player.id)}
                       aria-label={`${formatSeat(player.seat)}，${getDisplayName(player)}，${role.name}，${player.alive ? "存活" : "死亡"}${infoPreview ? `，已传达信息：${infoPreview}` : ""}`}
@@ -1676,30 +1621,7 @@ function GrimoirePanel({
                           <span>{roleState.body}</span>
                         </span>
                       ) : null}
-                      {isFortuneTeller &&
-                      (latestFortuneSkill || latestFortuneChoice) ? (
-                        <span
-                          className={`table-fortune-status ${fortuneResult.kind}`}
-                          title={fortuneInfoTitle}
-                        >
-                          <span className="table-fortune-targets">
-                            <Target size={9} />
-                            <span>
-                              查{" "}
-                              {fortuneTargetLabels.length
-                                ? fortuneTargetLabels.join(" + ")
-                                : "未记录"}
-                            </span>
-                          </span>
-                          <span className="table-fortune-result">
-                            <strong>{fortuneResult.label}</strong>
-                            {fortuneRoundCount > 1 ? (
-                              <b>{fortuneRoundCount}晚</b>
-                            ) : null}
-                          </span>
-                        </span>
-                      ) : !isFortuneTeller &&
-                        (latestSkill || latestChoice) ? (
+                      {latestSkill || latestChoice ? (
                         <span
                           className="table-role-info"
                           title={roleInfoTitle}
