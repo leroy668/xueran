@@ -300,6 +300,8 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-chat-composer textarea::placeholder { color: var(--dim); }
 .night-chat-composer-footer { min-height: 36px; margin-top: 7px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .night-chat-composer-footer > span { color: var(--dim); font-size: 9px; line-height: 1.5; }
+.night-chat-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+.night-skill-button { min-width: 112px; color: var(--gold); border-color: rgba(194,151,86,.48); }
 .night-send-button { min-width: 92px; }
 .night-list { border-top: 1px solid var(--line); }
 .night-row { width: 100%; display: grid; grid-template-columns: 32px 31px minmax(90px, 1fr) 55px 50px; align-items: center; gap: 8px; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--muted); padding: 12px 5px; }
@@ -615,8 +617,9 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .night-chat-timeline { max-height: 46vh; padding: 14px 10px; }
   .night-chat-composer { padding: 10px; }
   .night-chat-composer textarea { min-height: 54px; resize: none; }
-  .night-chat-composer-footer { align-items: flex-end; }
-  .night-send-button { min-width: 98px; }
+  .night-chat-composer-footer { align-items: center; gap: 8px; }
+  .night-chat-actions { gap: 6px; }
+  .night-skill-button, .night-send-button { min-width: 0; min-height: 34px; padding: 0 9px; font-size: 11px; }
   .night-row { grid-template-columns: 28px 29px minmax(0, 1fr) 42px; }
   .night-role-team { display: none; }
   .on-air { text-align: right; }

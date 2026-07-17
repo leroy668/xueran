@@ -44,6 +44,11 @@ import { PlayerRoom } from "./PlayerRoom";
 import { RoleIcon } from "./RoleIcon";
 import { distributeRoles } from "./roleDistribution";
 import {
+  buildRoleSkillMessage,
+  getNightMessageDisplayBody,
+  getRoleSkillMessage,
+} from "./roleSkillMessages";
+import {
   activeRoomStorageKey,
   buildRoomUrl,
   closeRoom,
@@ -156,13 +161,6 @@ const getGameStageLabel = (phase: Phase, round: number) => {
   const sequence = phase === "白天" ? round : Math.max(1, round - 1);
   return `第${chineseNumber(sequence)}${phase === "白天" ? "天" : "晚"}`;
 };
-
-const infoRoleIds = new Set([
-  "washerwoman",
-  "librarian",
-  "investigator",
-  "chef",
-]);
 
 const compactMessage = (body: string) =>
   body.replace(/\s+/g, " ").trim();
@@ -1059,18 +1057,22 @@ function GrimoirePanel({
     () => new Map(roomPlayers.map((player) => [player.seat, player])),
     [roomPlayers],
   );
-  const latestInfoByPlayer = useMemo(() => {
-    const messages = new Map<string, NightMessage>();
+  const latestSkillByPlayer = useMemo(() => {
+    const messages = new Map<
+      string,
+      { message: NightMessage; body: string }
+    >();
     for (const message of nightMessages) {
-      if (!infoRoleIds.has(message.role_id)) continue;
+      const skillBody = getRoleSkillMessage(message.body);
+      if (!skillBody) continue;
       const key = `${message.player_id}:${message.role_id}`;
       const current = messages.get(key);
       if (
         !current ||
         new Date(message.created_at).getTime() >
-          new Date(current.created_at).getTime()
+          new Date(current.message.created_at).getTime()
       ) {
-        messages.set(key, message);
+        messages.set(key, { message, body: skillBody });
       }
     }
     return messages;
@@ -1181,11 +1183,11 @@ function GrimoirePanel({
                   const left = 50 + Math.cos(angle) * radius;
                   const top = 50 + Math.sin(angle) * radius;
                   const isSelected = selectedPlayer?.id === player.id;
-                  const latestInfo = infoRoleIds.has(role.id)
-                    ? latestInfoByPlayer.get(`${player.id}:${role.id}`)
-                    : undefined;
-                  const infoPreview = latestInfo
-                    ? compactMessage(latestInfo.body)
+                  const latestSkill = latestSkillByPlayer.get(
+                    `${player.id}:${role.id}`,
+                  );
+                  const infoPreview = latestSkill
+                    ? compactMessage(latestSkill.body)
                     : "";
 
                   return (
@@ -1195,7 +1197,7 @@ function GrimoirePanel({
                         teamLabels[role.team],
                         player.alive ? "" : "dead",
                         isSelected ? "selected" : "",
-                        latestInfo ? "has-role-info" : "",
+                        latestSkill ? "has-role-info" : "",
                         state.players.length > 10 ? "dense" : "",
                         state.players.length > 15 ? "very-dense" : "",
                       ]
@@ -1225,10 +1227,10 @@ function GrimoirePanel({
                           ? ` / ${getRole(player.drunkRoleId).name}`
                           : ""}
                       </span>
-                      {latestInfo ? (
+                      {latestSkill ? (
                         <span
                           className="table-role-info"
-                          title={`已传达：${latestInfo.body}`}
+                          title={`技能信息：${latestSkill.body}`}
                         >
                           <MessageSquareText size={10} />
                           <span>{infoPreview}</span>
@@ -1629,9 +1631,12 @@ function NightPanel({
 }) {
   const [targetPlayerId, setTargetPlayerId] = useState("");
   const [messageBody, setMessageBody] = useState("");
-  const [sending, setSending] = useState(false);
+  const [sendingMode, setSendingMode] = useState<
+    "message" | "skill" | null
+  >(null);
   const [sendError, setSendError] = useState("");
   const timelineRef = useRef<HTMLDivElement>(null);
+  const sending = sendingMode !== null;
   const currentStageLabel = getGameStageLabel(state.phase, state.round);
   const previousStage = getPreviousGameStage(state.phase, state.round);
   const previousStageLabel = previousStage
@@ -1674,12 +1679,16 @@ function NightPanel({
       [
         ...nightMessages
           .filter((message) => message.player_id === targetPlayerId)
-          .map((message) => ({
-            ...message,
-            direction: "outgoing" as const,
-            label: `上帝 · ${getGameStageLabel("夜晚", message.round)} · ${getRole(message.role_id).name}`,
-            avatar: "上",
-          })),
+          .map((message) => {
+            const skillBody = getRoleSkillMessage(message.body);
+            return {
+              ...message,
+              body: getNightMessageDisplayBody(message.body),
+              direction: "outgoing" as const,
+              label: `上帝 · ${getGameStageLabel("夜晚", message.round)} · ${getRole(message.role_id).name}${skillBody ? " · 技能" : ""}`,
+              avatar: "上",
+            };
+          }),
         ...playerMessages
           .filter((message) => message.player_id === targetPlayerId)
           .map((message) => ({
@@ -1733,16 +1742,25 @@ function NightPanel({
     Boolean(selectedRoomPlayer?.is_claimed) &&
     Boolean(messageBody.trim()) &&
     !sending;
+  const roleSkillBody = messageBody.trim() || currentRole?.short.trim() || "";
+  const canSendSkill =
+    Boolean(room) &&
+    Boolean(currentRole) &&
+    Boolean(selectedRoomPlayer?.is_claimed) &&
+    Boolean(roleSkillBody) &&
+    !sending;
 
-  const submitMessage = async () => {
-    if (!currentRole || !selectedPlayer || !canSend) return;
-    setSending(true);
+  const submitMessage = async (mode: "message" | "skill" = "message") => {
+    const body = mode === "skill" ? roleSkillBody : messageBody.trim();
+    const canSubmit = mode === "skill" ? canSendSkill : canSend;
+    if (!currentRole || !selectedPlayer || !body || !canSubmit) return;
+    setSendingMode(mode);
     setSendError("");
     try {
       await onSendMessage({
         playerId: selectedPlayer.id,
         roleId: currentRole.id,
-        body: messageBody.trim(),
+        body: mode === "skill" ? buildRoleSkillMessage(body) : body,
       });
       setMessageBody("");
     } catch (reason) {
@@ -1755,7 +1773,7 @@ function NightPanel({
             : "发送失败，请稍后重试",
       );
     } finally {
-      setSending(false);
+      setSendingMode(null);
     }
   };
 
@@ -1918,7 +1936,7 @@ function NightPanel({
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
-                    void submitMessage();
+                    void submitMessage("message");
                   }
                 }}
                 placeholder={
@@ -1938,14 +1956,29 @@ function NightPanel({
                       ? "该座位入座后才可接收"
                       : `${messageBody.length}/500`}
                 </span>
-                <button
-                  className="primary-button night-send-button"
-                  disabled={!canSend}
-                  onClick={() => void submitMessage()}
-                >
-                  <Send size={15} />
-                  {sending ? "发送中" : "发送"}
-                </button>
+                <div className="night-chat-actions">
+                  <button
+                    className="secondary-button night-skill-button"
+                    disabled={!canSendSkill}
+                    onClick={() => void submitMessage("skill")}
+                    title={
+                      messageBody.trim()
+                        ? "将输入内容作为技能信息发送并同步到座位卡"
+                        : `发送${currentRole.name}的角色能力并同步到座位卡`
+                    }
+                  >
+                    <ScrollText size={15} />
+                    {sendingMode === "skill" ? "发送中" : "发送技能"}
+                  </button>
+                  <button
+                    className="primary-button night-send-button"
+                    disabled={!canSend}
+                    onClick={() => void submitMessage("message")}
+                  >
+                    <Send size={15} />
+                    {sendingMode === "message" ? "发送中" : "发送"}
+                  </button>
+                </div>
               </div>
               {sendError ? <div className="inline-error">{sendError}</div> : null}
             </div>
@@ -2198,7 +2231,10 @@ function HostMessagesPanel({
       .forEach((message) => {
         if (!latest.has(message.player_id)) {
           latest.set(message.player_id, {
-            body: message.body,
+            body:
+              message.direction === "outgoing"
+                ? getNightMessageDisplayBody(message.body)
+                : message.body,
             createdAt: message.created_at,
             direction: message.direction,
           });
@@ -2253,13 +2289,17 @@ function HostMessagesPanel({
   const playerTimeline = [
     ...nightMessages
       .filter((message) => message.player_id === selectedPlayerId)
-      .map((message) => ({
-        ...message,
-        direction: "outgoing" as const,
-        label: `上帝 · ${getGameStageLabel("夜晚", message.round)} · ${getRole(message.role_id).name}`,
-        avatar: "上",
-        demonBluffRoleIds: null,
-      })),
+      .map((message) => {
+        const skillBody = getRoleSkillMessage(message.body);
+        return {
+          ...message,
+          body: getNightMessageDisplayBody(message.body),
+          direction: "outgoing" as const,
+          label: `上帝 · ${getGameStageLabel("夜晚", message.round)} · ${getRole(message.role_id).name}${skillBody ? " · 技能" : ""}`,
+          avatar: "上",
+          demonBluffRoleIds: null,
+        };
+      }),
     ...playerMessages
       .filter((message) => message.player_id === selectedPlayerId)
       .map((message) => ({

@@ -34,6 +34,10 @@ import {
   type SharedRoom,
 } from "./room";
 import { RoleIcon } from "./RoleIcon";
+import {
+  getNightMessageDisplayBody,
+  getRoleSkillMessage,
+} from "./roleSkillMessages";
 import { ensureAnonymousSession, supabase } from "./supabase";
 import type { IdentityPayload, Team } from "./types";
 
@@ -637,11 +641,15 @@ function PlayerMessages({
   const [sendError, setSendError] = useState("");
   const timelineRef = useRef<HTMLDivElement>(null);
   const timeline = [
-    ...hostMessages.map((message) => ({
-      ...message,
-      direction: "incoming" as const,
-      label: `上帝 · 第 ${message.round} 回合`,
-    })),
+    ...hostMessages.map((message) => {
+      const skillBody = getRoleSkillMessage(message.body);
+      return {
+        ...message,
+        body: getNightMessageDisplayBody(message.body),
+        direction: "incoming" as const,
+        label: `上帝 · 第 ${message.round} 回合${skillBody ? " · 技能" : ""}`,
+      };
+    }),
     ...playerMessages.map((message) => ({
       ...message,
       direction: "outgoing" as const,
