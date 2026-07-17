@@ -44,6 +44,10 @@ import {
   getRoleSkillMessage,
 } from "./roleSkillMessages";
 import { formatSeat } from "./seat";
+import {
+  getTroubleBrewingSkill,
+  type PlayerChoiceSpec,
+} from "./troubleBrewingSkills";
 import { ensureAnonymousSession, supabase } from "./supabase";
 import type { IdentityPayload, Team } from "./types";
 
@@ -270,6 +274,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
         scriptId={room.script_id}
         playerId={identity.player_id}
         round={room.round}
+        phase={room.phase}
         players={players}
         nightMessages={nightMessages}
         playerMessages={playerMessages}
@@ -356,6 +361,7 @@ function ClaimedIdentity({
   scriptId,
   playerId,
   round,
+  phase,
   players,
   nightMessages,
   playerMessages,
@@ -368,6 +374,7 @@ function ClaimedIdentity({
   scriptId: string;
   playerId: string;
   round: number;
+  phase: "白天" | "夜晚";
   players: PublicRoomPlayer[];
   nightMessages: NightMessage[];
   playerMessages: PlayerMessage[];
@@ -524,17 +531,26 @@ function ClaimedIdentity({
                     <span>{teamRoles.length}</span>
                   </div>
                   <div className="player-script-role-list">
-                    {teamRoles.map((item) => (
-                      <article className="player-script-role" key={item.id}>
-                        <span className="player-script-role-icon">
-                          <RoleIcon roleId={item.id} size={22} />
-                        </span>
-                        <div>
-                          <strong>{item.name}</strong>
-                          <p>{item.short}</p>
-                        </div>
-                      </article>
-                    ))}
+                    {teamRoles.map((item) => {
+                      const skill = getTroubleBrewingSkill(item.id);
+                      return (
+                        <article className="player-script-role" key={item.id}>
+                          <span className="player-script-role-icon">
+                            <RoleIcon roleId={item.id} size={22} />
+                          </span>
+                          <div>
+                            <strong>{item.name}</strong>
+                            <p>{item.short}</p>
+                            {skill ? (
+                              <span className="player-role-interaction">
+                                <b>{skill.phase}</b>
+                                <span>{skill.interaction}</span>
+                              </span>
+                            ) : null}
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
                 </section>
               );
@@ -546,7 +562,9 @@ function ClaimedIdentity({
       {activeView === "messages" ? (
         <PlayerMessages
           roleId={identity.roleId}
+          currentPlayerId={playerId}
           round={round}
+          phase={phase}
           players={players}
           hostMessages={nightMessages}
           playerMessages={playerMessages}
@@ -641,14 +659,18 @@ function IdentityView({
 
 function PlayerMessages({
   roleId,
+  currentPlayerId,
   round,
+  phase,
   players,
   hostMessages,
   playerMessages,
   onSend,
 }: {
   roleId: string;
+  currentPlayerId: string;
   round: number;
+  phase: "白天" | "夜晚";
   players: PublicRoomPlayer[];
   hostMessages: NightMessage[];
   playerMessages: PlayerMessage[];
@@ -728,14 +750,15 @@ function PlayerMessages({
         <MessageSquareText size={22} />
       </div>
 
-      {roleId === "fortune-teller" ? (
-        <FortuneTellerChoicePanel
-          round={round}
-          players={players}
-          messages={playerMessages}
-          onSend={onSend}
-        />
-      ) : null}
+      <PlayerRoleSkillPanel
+        roleId={roleId}
+        currentPlayerId={currentPlayerId}
+        round={round}
+        phase={phase}
+        players={players}
+        messages={playerMessages}
+        onSend={onSend}
+      />
 
       {timeline.length ? (
         <div className="player-message-timeline" ref={timelineRef}>
@@ -806,96 +829,143 @@ function PlayerMessages({
   );
 }
 
-function FortuneTellerChoicePanel({
+function PlayerRoleSkillPanel({
+  roleId,
+  currentPlayerId,
   round,
+  phase,
   players,
   messages,
   onSend,
 }: {
+  roleId: string;
+  currentPlayerId: string;
   round: number;
+  phase: "白天" | "夜晚";
   players: PublicRoomPlayer[];
   messages: PlayerMessage[];
   onSend: (body: string) => Promise<void>;
 }) {
-  const latestChoice = messages
-    .filter((message) => message.round === round)
+  const skill = getTroubleBrewingSkill(roleId);
+  if (!skill?.playerChoice) return null;
+  return (
+    <PlayerSkillChoicePanel
+      roleId={roleId}
+      currentPlayerId={currentPlayerId}
+      round={round}
+      phase={phase}
+      players={players}
+      messages={messages}
+      spec={skill.playerChoice}
+      onSend={onSend}
+    />
+  );
+}
+
+function PlayerSkillChoicePanel({
+  roleId,
+  currentPlayerId,
+  round,
+  phase,
+  players,
+  messages,
+  spec,
+  onSend,
+}: {
+  roleId: string;
+  currentPlayerId: string;
+  round: number;
+  phase: "白天" | "夜晚";
+  players: PublicRoomPlayer[];
+  messages: PlayerMessage[];
+  spec: PlayerChoiceSpec;
+  onSend: (body: string) => Promise<void>;
+}) {
+  const roleChoices = messages
     .map((message) => ({
       message,
       choice: parsePlayerSkillChoiceMessage(message.body),
     }))
     .filter(
-      (
-        entry,
-      ): entry is {
+      (entry): entry is {
         message: PlayerMessage;
         choice: NonNullable<ReturnType<typeof parsePlayerSkillChoiceMessage>>;
-      } => entry.choice?.roleId === "fortune-teller",
+      } => entry.choice?.roleId === roleId,
     )
     .sort(
       (left, right) =>
         new Date(right.message.created_at).getTime() -
         new Date(left.message.created_at).getTime(),
-    )[0]?.choice;
+    );
+  const latestChoice = roleChoices.find(
+    (entry) => entry.message.round === round,
+  )?.choice;
+  const oneUseLocked =
+    (roleId === "slayer" || roleId === "ravenkeeper") &&
+    roleChoices.some((entry) => entry.message.round !== round);
+  const selfPlayer = players.find((player) => player.id === currentPlayerId);
+  const candidates = players.filter((player) => {
+    if (spec.excludeSelf && player.id === currentPlayerId) return false;
+    if (spec.aliveOnly && !player.alive) return false;
+    return true;
+  });
   const [firstPlayerId, setFirstPlayerId] = useState(
-    latestChoice?.playerIds[0] ?? players[0]?.id ?? "",
+    latestChoice?.playerIds[0] ?? candidates[0]?.id ?? "",
   );
   const [secondPlayerId, setSecondPlayerId] = useState(
     latestChoice?.playerIds[1] ??
-      players.find((player) => player.id !== players[0]?.id)?.id ??
+      candidates.find((player) => player.id !== candidates[0]?.id)?.id ??
       "",
   );
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
+  const phaseAllowed = spec.phase === "night" ? phase === "夜晚" : phase === "白天";
+  const firstNightLocked = phase === "夜晚" && round === 0 && !spec.allowFirstNight;
+  const deathLocked = Boolean(spec.onlyWhenDead && selfPlayer?.alive !== false);
+  const available =
+    phaseAllowed && !firstNightLocked && !deathLocked && !oneUseLocked;
 
   useEffect(() => {
-    const playerIds = new Set(players.map((player) => player.id));
-    const preferredFirst =
-      latestChoice?.playerIds[0] && playerIds.has(latestChoice.playerIds[0])
+    const candidateIds = new Set(candidates.map((player) => player.id));
+    const nextFirst =
+      latestChoice?.playerIds[0] && candidateIds.has(latestChoice.playerIds[0])
         ? latestChoice.playerIds[0]
-        : playerIds.has(firstPlayerId)
+        : candidateIds.has(firstPlayerId)
           ? firstPlayerId
-          : players[0]?.id ?? "";
-    const preferredSecond =
-      latestChoice?.playerIds[1] &&
-      playerIds.has(latestChoice.playerIds[1]) &&
-      latestChoice.playerIds[1] !== preferredFirst
-        ? latestChoice.playerIds[1]
-        : playerIds.has(secondPlayerId) && secondPlayerId !== preferredFirst
-          ? secondPlayerId
-          : players.find((player) => player.id !== preferredFirst)?.id ?? "";
-    if (preferredFirst !== firstPlayerId) setFirstPlayerId(preferredFirst);
-    if (preferredSecond !== secondPlayerId) setSecondPlayerId(preferredSecond);
-  }, [
-    firstPlayerId,
-    latestChoice?.playerIds,
-    players,
-    secondPlayerId,
-  ]);
+          : candidates[0]?.id ?? "";
+    const nextSecond =
+      spec.kind === "pair"
+        ? latestChoice?.playerIds[1] &&
+          candidateIds.has(latestChoice.playerIds[1]) &&
+          latestChoice.playerIds[1] !== nextFirst
+          ? latestChoice.playerIds[1]
+          : candidateIds.has(secondPlayerId) && secondPlayerId !== nextFirst
+            ? secondPlayerId
+            : candidates.find((player) => player.id !== nextFirst)?.id ?? ""
+        : "";
+    if (nextFirst !== firstPlayerId) setFirstPlayerId(nextFirst);
+    if (nextSecond !== secondPlayerId) setSecondPlayerId(nextSecond);
+  }, [candidates, firstPlayerId, latestChoice?.playerIds, secondPlayerId, spec.kind]);
 
-  const getSeatLabel = (playerId: string) => {
+  const getPlayerLabel = (playerId: string) => {
     const player = players.find((item) => item.id === playerId);
     return player ? formatSeat(player.seat) : "未知座位";
   };
 
   const submitChoice = async () => {
+    const playerIds = spec.kind === "pair" ? [firstPlayerId, secondPlayerId] : [firstPlayerId];
     if (
+      !available ||
       !firstPlayerId ||
-      !secondPlayerId ||
-      firstPlayerId === secondPlayerId ||
+      (spec.kind === "pair" && (!secondPlayerId || firstPlayerId === secondPlayerId)) ||
       sending
-    ) {
-      return;
-    }
+    ) return;
+    const summary = spec.summaryPrefix + "：" + playerIds.map(getPlayerLabel).join("、");
+    if (!window.confirm("确认" + summary + "？")) return;
     setSending(true);
     setSendError("");
     try {
-      await onSend(
-        buildPlayerSkillChoiceMessage({
-          roleId: "fortune-teller",
-          playerIds: [firstPlayerId, secondPlayerId],
-          summary: `占卜师选择：${getSeatLabel(firstPlayerId)}、${getSeatLabel(secondPlayerId)}`,
-        }),
-      );
+      await onSend(buildPlayerSkillChoiceMessage({ roleId, playerIds, summary }));
     } catch {
       setSendError("技能选择发送失败，请稍后重试");
     } finally {
@@ -903,70 +973,47 @@ function FortuneTellerChoicePanel({
     }
   };
 
+  const unavailableText = !phaseAllowed
+    ? spec.phase === "night" ? "请在夜晚阶段使用" : "请在白天阶段使用"
+    : firstNightLocked
+      ? "首夜不能使用这项能力"
+      : deathLocked
+        ? "仅在你于夜晚死亡后使用"
+        : oneUseLocked
+          ? "本局能力已经使用"
+          : "";
+
   return (
-    <section className="player-skill-action">
+    <section className={("player-skill-action " + (available ? "" : "is-locked")).trim()}>
       <div className="player-skill-action-heading">
-        <span className="player-skill-action-icon">
-          <RoleIcon roleId="fortune-teller" size={21} />
-        </span>
-        <div>
-          <strong>本晚占卜</strong>
-          <small>选择两名玩家，结果会由上帝发送回来</small>
-        </div>
+        <span className="player-skill-action-icon"><RoleIcon roleId={roleId} size={21} /></span>
+        <div><strong>{spec.title}</strong><small>{spec.help}</small></div>
         {latestChoice ? <span className="player-skill-submitted">已提交</span> : null}
       </div>
-      <div className="player-skill-targets">
-        <select
-          value={firstPlayerId}
-          disabled={sending}
-          aria-label="选择第一名占卜目标"
-          onChange={(event) => setFirstPlayerId(event.target.value)}
-        >
-          {players.map((player) => (
-            <option
-              value={player.id}
-              key={player.id}
-              disabled={player.id === secondPlayerId}
-            >
-              {formatSeat(player.seat)} ·{" "}
-              {player.name || "玩家"}
-            </option>
-          ))}
-        </select>
-        <select
-          value={secondPlayerId}
-          disabled={sending}
-          aria-label="选择第二名占卜目标"
-          onChange={(event) => setSecondPlayerId(event.target.value)}
-        >
-          {players.map((player) => (
-            <option
-              value={player.id}
-              key={player.id}
-              disabled={player.id === firstPlayerId}
-            >
-              {formatSeat(player.seat)} ·{" "}
-              {player.name || "玩家"}
-            </option>
-          ))}
-        </select>
-        <button
-          className="primary-button"
-          disabled={
-            sending ||
-            !firstPlayerId ||
-            !secondPlayerId ||
-            firstPlayerId === secondPlayerId
-          }
-          onClick={() => void submitChoice()}
-        >
-          <Send size={15} />
-          {sending ? "提交中" : latestChoice ? "更新选择" : "提交选择"}
-        </button>
-      </div>
-      {latestChoice ? (
-        <p className="player-skill-latest">{latestChoice.summary}</p>
-      ) : null}
+      {available ? (
+        <div className={("player-skill-targets " + (spec.kind === "single" ? "single" : "")).trim()}>
+          <select value={firstPlayerId} disabled={sending} aria-label={spec.title + "目标"} onChange={(event) => setFirstPlayerId(event.target.value)}>
+            {candidates.map((player) => (
+              <option value={player.id} key={player.id} disabled={player.id === secondPlayerId}>
+                {formatSeat(player.seat)} · {player.name || "玩家"}
+              </option>
+            ))}
+          </select>
+          {spec.kind === "pair" ? (
+            <select value={secondPlayerId} disabled={sending} aria-label={spec.title + "第二目标"} onChange={(event) => setSecondPlayerId(event.target.value)}>
+              {candidates.map((player) => (
+                <option value={player.id} key={player.id} disabled={player.id === firstPlayerId}>
+                  {formatSeat(player.seat)} · {player.name || "玩家"}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          <button className="primary-button" disabled={sending || !firstPlayerId || (spec.kind === "pair" && (!secondPlayerId || firstPlayerId === secondPlayerId))} onClick={() => void submitChoice()}>
+            <Send size={15} />{sending ? "提交中" : latestChoice ? "更新选择" : spec.submitLabel}
+          </button>
+        </div>
+      ) : <p className="player-skill-locked-note">{unavailableText}</p>}
+      {latestChoice ? <p className="player-skill-latest">{latestChoice.summary}</p> : null}
       {sendError ? <div className="inline-error">{sendError}</div> : null}
     </section>
   );

@@ -137,16 +137,20 @@ export const getScriptRoles = (scriptId: string) => {
 const actsAfterDeathRoleIds = new Set(["ravenkeeper", "moonchild"]);
 
 export const getNightActions = (
-  players: { roleId: string; alive: boolean }[],
+  players: { roleId: string; drunkRoleId?: string; alive: boolean }[],
   firstNight: boolean,
   scriptId: string,
 ) => {
   const scriptRoleIds = new Set(
     getScriptRoles(scriptId).map((role) => role.id),
   );
+  const getActionRole = (player: { roleId: string; drunkRoleId?: string }) =>
+    player.roleId === "drunk" && player.drunkRoleId
+      ? getRole(player.drunkRoleId)
+      : getRole(player.roleId);
   return players
     .filter((player) => {
-      const role = getRole(player.roleId);
+      const role = getActionRole(player);
       if (!scriptRoleIds.has(role.id)) return false;
       const order = firstNight
         ? role.firstNightOrder
@@ -157,7 +161,7 @@ export const getNightActions = (
       );
     })
     .map((player) => {
-      const role = getRole(player.roleId);
+      const role = getActionRole(player);
       return {
         kind: "role",
         id: role.id,
