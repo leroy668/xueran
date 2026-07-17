@@ -2556,10 +2556,23 @@ function NightPanel({
     if (!pairTargetsReady) return;
     const first = getNightSeatLabel(skillTargets.first);
     const second = getNightSeatLabel(skillTargets.second);
+    const result = hasDemon ? "有恶魔" : "没有恶魔";
+    const recipient = selectedPlayer
+      ? `${formatSeat(selectedPlayer.seat)} · ${selectedPlayerName}`
+      : selectedPlayerName;
+    const confirmed = window.confirm(
+      [
+        "确认发送占卜结果？",
+        "",
+        `接收玩家：${recipient}`,
+        `查验目标：${first}、${second}`,
+        `发送结果：${result}`,
+      ].join("\n"),
+    );
+    if (!confirmed) return;
+
     void submitSkill(
-      `本晚查验${first}和${second}：${
-        hasDemon ? "有恶魔" : "没有恶魔"
-      }`,
+      `本晚查验${first}和${second}：${result}`,
     );
   };
 
