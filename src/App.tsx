@@ -82,6 +82,7 @@ import {
   getSharedState,
   loadState,
 } from "./storage";
+import { formatSeat } from "./seat";
 import { ensureAnonymousSession, supabase } from "./supabase";
 import type {
   GameState,
@@ -859,7 +860,7 @@ function GrimoireApp() {
       ...current.filter((item) => item.id !== message.id),
     ]);
     const target = roomPlayers.find((player) => player.id === playerId);
-    setToast(`夜间信息已发送给座位 ${target?.seat ?? "?"}`);
+    setToast(`夜间信息已发送给${formatSeat(target?.seat)}`);
   };
 
   const handleSendEvilMessage = async (body: string) => {
@@ -1222,7 +1223,7 @@ function GrimoirePanel({
                   const lastPlayer = state.players[state.players.length - 1];
                   if (
                     window.confirm(
-                      `移除最后一个座位（座位 ${lastPlayer.seat}）？`,
+                      `移除最后一个座位（${formatSeat(lastPlayer.seat)}）？`,
                     )
                   ) {
                     onRemovePlayer(lastPlayer.id);
@@ -1360,11 +1361,11 @@ function GrimoirePanel({
                       style={{ left: `${left}%`, top: `${top}%` }}
                       key={player.id}
                       onClick={() => setSelectedPlayerId(player.id)}
-                      aria-label={`座位 ${player.seat}，${getDisplayName(player)}，${role.name}，${player.alive ? "存活" : "死亡"}${infoPreview ? `，已传达信息：${infoPreview}` : ""}`}
+                      aria-label={`${formatSeat(player.seat)}，${getDisplayName(player)}，${role.name}，${player.alive ? "存活" : "死亡"}${infoPreview ? `，已传达信息：${infoPreview}` : ""}`}
                       aria-pressed={isSelected}
                     >
                       <span className="table-seat-number">
-                        {String(player.seat).padStart(2, "0")}
+                        {formatSeat(player.seat)}
                       </span>
                       <span className="table-role-icon">
                         <RoleIcon
@@ -1531,7 +1532,7 @@ function PlayerEditor({
       <div className="player-editor-topline">
         <div>
           <p className="eyebrow">
-            SEAT {String(player.seat).padStart(2, "0")}
+            {formatSeat(player.seat)}
           </p>
           <h3>{displayName}</h3>
         </div>
@@ -1564,7 +1565,7 @@ function PlayerEditor({
                   : "",
             });
           }}
-          aria-label={`座位 ${player.seat} 角色`}
+          aria-label={`${formatSeat(player.seat)}角色`}
         >
           {roleOptions.map((option) => (
             <option value={option.id} key={option.id}>
@@ -1592,7 +1593,7 @@ function PlayerEditor({
             onChange={(event) =>
               onUpdate(player.id, { drunkRoleId: event.target.value })
             }
-            aria-label={`座位 ${player.seat} ${
+            aria-label={`${formatSeat(player.seat)} ${
               player.roleId === "drunk" ? "酒鬼" : "提线木偶"
             }展示身份`}
           >
@@ -1772,12 +1773,12 @@ function PlayerEditor({
         <button
           className="remove-player-button"
           onClick={() => {
-            if (window.confirm(`移除座位 ${player.seat}？`)) {
+            if (window.confirm(`移除${formatSeat(player.seat)}？`)) {
               onRemove(player.id);
             }
           }}
           title="移除玩家"
-          aria-label={`移除座位 ${player.seat}`}
+          aria-label={`移除${formatSeat(player.seat)}`}
         >
           <Trash2 size={16} />
         </button>
@@ -1864,7 +1865,7 @@ function NightPanel({
     : undefined;
   const selectedPlayerName = selectedPlayer
     ? selectedRoomPlayer?.name ||
-      `座位 ${String(selectedPlayer.seat).padStart(2, "0")}`
+      formatSeat(selectedPlayer.seat)
     : "玩家";
 
   useEffect(() => {
@@ -2120,10 +2121,10 @@ function NightPanel({
   };
   const getNightPlayerLabel = (playerId: string) => {
     const player = state.players.find((item) => item.id === playerId);
-    if (!player) return "座位 ?";
+    if (!player) return "未知座位";
     const roomPlayer = roomPlayersById.get(player.id);
     const playerName = roomPlayer?.name || "未入座";
-    return `座位 ${String(player.seat).padStart(2, "0")} · ${playerName} · 角色：${getRole(player.roleId).name}`;
+    return `${formatSeat(player.seat)} · ${playerName} · ${getRole(player.roleId).name}`;
   };
   const conversation = useMemo(
     () =>
@@ -2150,8 +2151,8 @@ function NightPanel({
               direction: "incoming" as const,
               label: `${selectedPlayerName} · 第 ${message.round} 回合${skillChoice ? " · 技能选择" : ""}`,
               avatar: selectedPlayer
-                ? String(selectedPlayer.seat).padStart(2, "0")
-                : "?",
+                ? formatSeat(selectedPlayer.seat)
+                : "未知",
             };
           }),
       ].sort(
@@ -2406,8 +2407,8 @@ function NightPanel({
                           : "未入座";
                       return (
                         <option key={player.id} value={player.id}>
-                          座位 {String(player.seat).padStart(2, "0")}
-                          {` · ${playerName} · ${currentRole.name}`}
+                          {formatSeat(player.seat)}
+                          {` · ${playerName} · ${getRole(player.roleId).name}`}
                         </option>
                       );
                     })}
@@ -2786,8 +2787,8 @@ function NightPanel({
                           : "未入座";
                       return (
                         <option key={player.id} value={player.id}>
-                          座位 {String(player.seat).padStart(2, "0")}
-                          {` · ${playerName} · 角色：${roleName}`}
+                          {formatSeat(player.seat)}
+                          {` · ${playerName} · ${roleName}`}
                         </option>
                       );
                     })}
@@ -3162,7 +3163,7 @@ function HostMessagesPanel({
   const selectedSenderName =
     selectedRoomPlayer?.name ||
     (selectedPlayer
-      ? `座位 ${String(selectedPlayer.seat).padStart(2, "0")}`
+      ? formatSeat(selectedPlayer.seat)
       : "玩家");
   const playerTimeline = [
     ...nightMessages
@@ -3188,8 +3189,8 @@ function HostMessagesPanel({
           direction: "incoming" as const,
           label: `${selectedSenderName} · 第 ${message.round} 回合${skillChoice ? " · 技能选择" : ""}`,
           avatar: selectedPlayer
-            ? String(selectedPlayer.seat).padStart(2, "0")
-            : "?",
+            ? formatSeat(selectedPlayer.seat)
+            : "未知",
           demonBluffRoleIds: null,
         };
       }),
@@ -3207,11 +3208,11 @@ function HostMessagesPanel({
       label:
         message.sender_kind === "host"
           ? `上帝 · 第 ${message.round} 回合`
-          : `${sender?.name || `座位 ${String(sender?.seat ?? "?").padStart(2, "0")}`} · 第 ${message.round} 回合`,
+          : `${sender?.name || formatSeat(sender?.seat)} · 第 ${message.round} 回合`,
       avatar:
         message.sender_kind === "host"
           ? "上"
-          : String(sender?.seat ?? "?").padStart(2, "0"),
+          : formatSeat(sender?.seat),
       demonBluffRoleIds:
         message.sender_kind === "host"
           ? parseDemonBluffMessage(message.body)
@@ -3424,7 +3425,7 @@ function HostMessagesPanel({
             const playerLabel =
               roomPlayer?.name ||
               (latest
-                ? `座位 ${String(player.seat).padStart(2, "0")}`
+                ? formatSeat(player.seat)
                 : "等待玩家入座");
             return (
               <button
@@ -3437,7 +3438,7 @@ function HostMessagesPanel({
                 }}
               >
                 <span className="host-player-seat">
-                  {String(player.seat).padStart(2, "0")}
+                  {formatSeat(player.seat)}
                 </span>
                 <span className="host-player-summary">
                   <strong>{playerLabel}</strong>
@@ -3485,9 +3486,9 @@ function HostMessagesPanel({
                     <RoleIcon roleId={selectedRole.id} size={24} />
                   </div>
                   <div>
-                    <h3>{selectedRoomPlayer?.name || `座位 ${selectedPlayer.seat}`}</h3>
+                    <h3>{selectedRoomPlayer?.name || formatSeat(selectedPlayer.seat)}</h3>
                     <p>
-                      座位 {String(selectedPlayer.seat).padStart(2, "0")} ·{" "}
+                      {formatSeat(selectedPlayer.seat)} ·{" "}
                       {selectedRole.name} ·{" "}
                       {selectedRoomPlayer?.is_claimed ? "已入座" : "未入座"}
                     </p>

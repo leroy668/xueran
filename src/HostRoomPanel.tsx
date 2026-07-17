@@ -15,6 +15,7 @@ import { getRole } from "./data";
 import { buildPlayerSkillChoiceMessage } from "./playerSkillChoices";
 import { RoleIcon } from "./RoleIcon";
 import type { PublicRoomPlayer, SharedRoom } from "./room";
+import { formatSeat } from "./seat";
 import type { Player } from "./types";
 
 type Props = {
@@ -152,9 +153,9 @@ export function HostRoomPanel({
             {claimedPlayers.map((player) => (
               <div className="claimed-row" key={player.id}>
                 <span>
-                  <strong>{player.name || `座位 ${player.seat}`}</strong>
+                  <strong>{player.name || formatSeat(player.seat)}</strong>
                   <small>
-                    座位 {player.seat}
+                    {formatSeat(player.seat)}
                     {player.is_simulated ? " · 模拟" : ""}
                   </small>
                 </span>
@@ -223,9 +224,7 @@ function SimulatedPlayerSkillReplyForm({
 
   const getSeatLabel = (targetPlayerId: string) => {
     const player = players.find((item) => item.id === targetPlayerId);
-    return player
-      ? `座位 ${String(player.seat).padStart(2, "0")}`
-      : "座位 ?";
+    return player ? formatSeat(player.seat) : "未知座位";
   };
 
   const submit = async () => {
@@ -278,7 +277,7 @@ function SimulatedPlayerSkillReplyForm({
                 const role = getRole(gamePlayer?.roleId ?? "fortune-teller");
                 return (
                   <option value={player.id} key={player.id}>
-                    {String(player.seat).padStart(2, "0")}号 · {player.name} ·{" "}
+                    {formatSeat(player.seat)} · {player.name} ·{" "}
                     {role.name}
                   </option>
                 );
@@ -307,7 +306,7 @@ function SimulatedPlayerSkillReplyForm({
                   key={player.id}
                   disabled={player.id === secondTargetId}
                 >
-                  {String(player.seat).padStart(2, "0")}号 ·{" "}
+                  {formatSeat(player.seat)} ·{" "}
                   {player.name || "玩家"}
                 </option>
               ))}
@@ -324,7 +323,7 @@ function SimulatedPlayerSkillReplyForm({
                   key={player.id}
                   disabled={player.id === firstTargetId}
                 >
-                  {String(player.seat).padStart(2, "0")}号 ·{" "}
+                  {formatSeat(player.seat)} ·{" "}
                   {player.name || "玩家"}
                 </option>
               ))}

@@ -43,6 +43,7 @@ import {
   getNightMessageDisplayBody,
   getRoleSkillMessage,
 } from "./roleSkillMessages";
+import { formatSeat } from "./seat";
 import { ensureAnonymousSession, supabase } from "./supabase";
 import type { IdentityPayload, Team } from "./types";
 
@@ -256,7 +257,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
         : identity.role_id;
     const payload: IdentityPayload = {
       version: 1,
-      playerName: player?.name.trim() || `座位 ${player?.seat ?? "?"}`,
+      playerName: player?.name.trim() || formatSeat(player?.seat),
       seat: player?.seat ?? 0,
       roleId: displayedRoleId,
       message: identity.identity_message,
@@ -321,9 +322,9 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
               onClick={() => void claimPlayer(player)}
             >
               <span className="seat-choice-number">
-                {String(player.seat).padStart(2, "0")}
+                {formatSeat(player.seat)}
               </span>
-              <span className="seat-choice-name">座位 {player.seat}</span>
+              <span className="seat-choice-name">选择此座位</span>
               <span className={player.is_claimed ? "seat-claimed" : "seat-available"}>
                 {player.is_claimed ? (
                   <>
@@ -440,7 +441,7 @@ function ClaimedIdentity({
             <p className="eyebrow">PLAYER ROOM · {roomCode}</p>
             <h1>{identity.playerName}</h1>
           </div>
-          <span>座位 {String(identity.seat).padStart(2, "0")}</span>
+          <span>{formatSeat(identity.seat)}</span>
         </header>
       ) : null}
 
@@ -593,7 +594,7 @@ function IdentityView({
           {revealed ? <RoleIcon roleId={role.id} size={29} /> : "血"}
         </div>
         <p className="eyebrow">
-          PRIVATE IDENTITY · 座位 {String(identity.seat).padStart(2, "0")}
+          PRIVATE IDENTITY · {formatSeat(identity.seat)}
         </p>
         <h1>{identity.playerName}的身份密函</h1>
 
@@ -870,9 +871,7 @@ function FortuneTellerChoicePanel({
 
   const getSeatLabel = (playerId: string) => {
     const player = players.find((item) => item.id === playerId);
-    return player
-      ? `座位 ${String(player.seat).padStart(2, "0")}`
-      : "座位 ?";
+    return player ? formatSeat(player.seat) : "未知座位";
   };
 
   const submitChoice = async () => {
@@ -926,7 +925,7 @@ function FortuneTellerChoicePanel({
               key={player.id}
               disabled={player.id === secondPlayerId}
             >
-              {String(player.seat).padStart(2, "0")}号 ·{" "}
+              {formatSeat(player.seat)} ·{" "}
               {player.name || "玩家"}
             </option>
           ))}
@@ -943,7 +942,7 @@ function FortuneTellerChoicePanel({
               key={player.id}
               disabled={player.id === firstPlayerId}
             >
-              {String(player.seat).padStart(2, "0")}号 ·{" "}
+              {formatSeat(player.seat)} ·{" "}
               {player.name || "玩家"}
             </option>
           ))}
@@ -998,13 +997,13 @@ function EvilTeamMessages({
         label:
           message.sender_kind === "host"
             ? `上帝 · 第 ${message.round} 回合`
-            : `${isMine ? "我" : sender?.name || `座位 ${sender?.seat ?? "?"}`} · 第 ${message.round} 回合`,
+            : `${isMine ? "我" : sender?.name || formatSeat(sender?.seat)} · 第 ${message.round} 回合`,
         avatar:
           message.sender_kind === "host"
             ? "上"
             : isMine
               ? "我"
-              : String(sender?.seat ?? "?").padStart(2, "0"),
+              : formatSeat(sender?.seat),
         demonBluffRoleIds:
           message.sender_kind === "host"
             ? parseDemonBluffMessage(message.body)
