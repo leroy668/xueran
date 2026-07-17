@@ -214,6 +214,19 @@ const getGameStageLabel = (phase: Phase, round: number) => {
 const compactMessage = (body: string) =>
   body.replace(/\s+/g, " ").trim();
 
+const getFortuneTellerResult = (body: string) => {
+  if (body.includes("是，其中一人被视为恶魔")) {
+    return { kind: "positive", label: "有恶魔" } as const;
+  }
+  if (body.includes("否，两人都未被视为恶魔")) {
+    return { kind: "negative", label: "无恶魔" } as const;
+  }
+  return { kind: "unknown", label: "已回复" } as const;
+};
+
+const getFortuneTellerSeatsFromResult = (body: string) =>
+  Array.from(new Set(body.match(/\d+号/g) ?? [])).slice(0, 2);
+
 const getNextGameStage = (
   phase: Phase,
   round: number,
@@ -1148,8 +1161,8 @@ function GrimoirePanel({
     );
     return history;
   }, [nightMessages]);
-  const latestSkillChoiceByPlayer = useMemo(() => {
-    const latest = new Map<
+  const skillChoiceHistoryByPlayer = useMemo(() => {
+    const byStage = new Map<
       string,
       {
         message: PlayerMessage;
@@ -1161,17 +1174,39 @@ function GrimoirePanel({
     for (const message of playerMessages) {
       const choice = parsePlayerSkillChoiceMessage(message.body);
       if (!choice) continue;
-      const key = `${message.player_id}:${choice.roleId}`;
-      const current = latest.get(key);
+      const key = `${message.player_id}:${choice.roleId}:${message.round}`;
+      const current = byStage.get(key);
       if (
         !current ||
         new Date(message.created_at).getTime() >
           new Date(current.message.created_at).getTime()
       ) {
-        latest.set(key, { message, choice });
+        byStage.set(key, { message, choice });
       }
     }
-    return latest;
+    const history = new Map<
+      string,
+      {
+        message: PlayerMessage;
+        choice: NonNullable<
+          ReturnType<typeof parsePlayerSkillChoiceMessage>
+        >;
+      }[]
+    >();
+    for (const entry of byStage.values()) {
+      const key = `${entry.message.player_id}:${entry.choice.roleId}`;
+      const current = history.get(key) ?? [];
+      current.push(entry);
+      history.set(key, current);
+    }
+    history.forEach((entries) =>
+      entries.sort(
+        (left, right) =>
+          new Date(right.message.created_at).getTime() -
+          new Date(left.message.created_at).getTime(),
+      ),
+    );
+    return history;
   }, [playerMessages]);
   const selectedPlayer =
     state.players.find((player) => player.id === selectedPlayerId) ??
@@ -1283,9 +1318,10 @@ function GrimoirePanel({
                     `${player.id}:${role.id}`,
                   ) ?? [];
                   const latestSkill = skillHistory[0];
-                  const latestChoice = latestSkillChoiceByPlayer.get(
+                  const choiceHistory = skillChoiceHistoryByPlayer.get(
                     `${player.id}:${role.id}`,
-                  );
+                  ) ?? [];
+                  const latestChoice = choiceHistory[0];
                   const choicePreview = latestChoice
                     ? compactMessage(latestChoice.choice.summary).replace(
                         /^占卜师选择：/,
@@ -1342,6 +1378,83 @@ function GrimoirePanel({
                   ]
                     .filter(Boolean)
                     .join("\n");
+                  const isFortuneTeller = role.id === "fortune-teller";
+                  const latestFortuneActivity = isFortuneTeller
+                    ? [
+                        ...skillHistory.map((entry) => ({
+                          round: entry.message.round,
+                          createdAt: entry.message.created_at,
+                        })),
+                        ...choiceHistory.map((entry) => ({
+                          round: entry.message.round,
+                          createdAt: entry.message.created_at,
+                        })),
+                      ].sort(
+                        (left, right) =>
+                          new Date(right.createdAt).getTime() -
+                          new Date(left.createdAt).getTime(),
+                      )[0]
+                    : null;
+                  const latestFortuneRound =
+                    latestFortuneActivity?.round ?? null;
+                  const latestFortuneChoice =
+                    latestFortuneRound === null
+                      ? null
+                      : choiceHistory.find(
+                          (entry) =>
+                            entry.message.round === latestFortuneRound,
+                        ) ?? null;
+                  const latestFortuneSkill =
+                    latestFortuneRound === null
+                      ? null
+                      : skillHistory.find(
+                          (entry) =>
+                            entry.message.round === latestFortuneRound,
+                        ) ?? null;
+                  const fortuneResultIsCurrent =
+                    Boolean(latestFortuneSkill) &&
+                    (!latestFortuneChoice ||
+                      new Date(
+                        latestFortuneSkill?.message.created_at ?? 0,
+                      ).getTime() >=
+                        new Date(
+                          latestFortuneChoice?.message.created_at ?? 0,
+                        ).getTime());
+                  const fortuneResult =
+                    latestFortuneSkill && fortuneResultIsCurrent
+                      ? getFortuneTellerResult(latestFortuneSkill.body)
+                      : { kind: "pending", label: "待回复" as const };
+                  const fortuneTargetLabels = latestFortuneChoice
+                    ? latestFortuneChoice.choice.playerIds
+                        .map((playerId) =>
+                          state.players.find((item) => item.id === playerId),
+                        )
+                        .filter((item): item is Player => Boolean(item))
+                        .map((item) => formatSeat(item.seat))
+                    : latestFortuneSkill
+                      ? getFortuneTellerSeatsFromResult(
+                          latestFortuneSkill.body,
+                        )
+                      : [];
+                  const fortuneRoundCount = new Set([
+                    ...skillHistory.map((entry) => entry.message.round),
+                    ...choiceHistory.map((entry) => entry.message.round),
+                  ]).size;
+                  const fortuneInfoTitle =
+                    latestFortuneRound === null
+                      ? ""
+                      : [
+                          getGameStageLabel("夜晚", latestFortuneRound),
+                          fortuneTargetLabels.length
+                            ? `查验：${fortuneTargetLabels.join("、")}`
+                            : "查验对象未记录",
+                          `结果：${fortuneResult.label}`,
+                          fortuneRoundCount > 1
+                            ? `共记录 ${fortuneRoundCount} 晚`
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join("\n");
                   const redHerring = isFortuneTellerRedHerring(player);
 
                   return (
@@ -1393,7 +1506,30 @@ function GrimoirePanel({
                           </span>
                         ) : null}
                       </span>
-                      {latestSkill || latestChoice ? (
+                      {isFortuneTeller &&
+                      (latestFortuneSkill || latestFortuneChoice) ? (
+                        <span
+                          className={`table-fortune-status ${fortuneResult.kind}`}
+                          title={fortuneInfoTitle}
+                        >
+                          <span className="table-fortune-targets">
+                            <Target size={9} />
+                            <span>
+                              查{" "}
+                              {fortuneTargetLabels.length
+                                ? fortuneTargetLabels.join(" + ")
+                                : "未记录"}
+                            </span>
+                          </span>
+                          <span className="table-fortune-result">
+                            <strong>{fortuneResult.label}</strong>
+                            {fortuneRoundCount > 1 ? (
+                              <b>{fortuneRoundCount}晚</b>
+                            ) : null}
+                          </span>
+                        </span>
+                      ) : !isFortuneTeller &&
+                        (latestSkill || latestChoice) ? (
                         <span
                           className="table-role-info"
                           title={roleInfoTitle}
@@ -1428,6 +1564,9 @@ function GrimoirePanel({
                 messages={nightMessages.filter(
                   (message) => message.player_id === selectedPlayer.id,
                 )}
+                playerMessages={playerMessages.filter(
+                  (message) => message.player_id === selectedPlayer.id,
+                )}
                 onUpdate={onUpdatePlayer}
                 onRemove={onRemovePlayer}
               />
@@ -1446,6 +1585,7 @@ function PlayerEditor({
   displayName,
   stageLabel,
   messages,
+  playerMessages,
   onUpdate,
   onRemove,
 }: {
@@ -1455,6 +1595,7 @@ function PlayerEditor({
   displayName: string;
   stageLabel: string;
   messages: NightMessage[];
+  playerMessages: PlayerMessage[];
   onUpdate: (id: string, patch: Partial<Player>) => void;
   onRemove: (id: string) => void;
 }) {
@@ -1486,6 +1627,90 @@ function PlayerEditor({
       new Date(right.created_at).getTime() -
       new Date(left.created_at).getTime(),
   );
+  const fortuneHistory = useMemo(() => {
+    if (role.id !== "fortune-teller") return [];
+    const choicesByRound = new Map<
+      number,
+      {
+        message: PlayerMessage;
+        choice: NonNullable<
+          ReturnType<typeof parsePlayerSkillChoiceMessage>
+        >;
+      }
+    >();
+    for (const message of playerMessages) {
+      const choice = parsePlayerSkillChoiceMessage(message.body);
+      if (!choice || choice.roleId !== role.id) continue;
+      const current = choicesByRound.get(message.round);
+      if (
+        !current ||
+        new Date(message.created_at).getTime() >
+          new Date(current.message.created_at).getTime()
+      ) {
+        choicesByRound.set(message.round, { message, choice });
+      }
+    }
+    const resultsByRound = new Map<
+      number,
+      { message: NightMessage; body: string }
+    >();
+    for (const message of messageHistory) {
+      if (message.role_id !== role.id) continue;
+      const body = getRoleSkillMessage(message.body);
+      if (!body) continue;
+      const current = resultsByRound.get(message.round);
+      if (
+        !current ||
+        new Date(message.created_at).getTime() >
+          new Date(current.message.created_at).getTime()
+      ) {
+        resultsByRound.set(message.round, { message, body });
+      }
+    }
+    return Array.from(
+      new Set([...choicesByRound.keys(), ...resultsByRound.keys()]),
+    )
+      .map((round) => {
+        const choiceEntry = choicesByRound.get(round) ?? null;
+        const resultEntry = resultsByRound.get(round) ?? null;
+        const resultIsCurrent =
+          Boolean(resultEntry) &&
+          (!choiceEntry ||
+            new Date(resultEntry?.message.created_at ?? 0).getTime() >=
+              new Date(choiceEntry?.message.created_at ?? 0).getTime());
+        const targets = choiceEntry
+          ? choiceEntry.choice.playerIds
+              .map((playerId) =>
+                players.find((item) => item.id === playerId),
+              )
+              .filter((item): item is Player => Boolean(item))
+              .map((item) => formatSeat(item.seat))
+          : resultEntry
+            ? getFortuneTellerSeatsFromResult(resultEntry.body)
+            : [];
+        return {
+          round,
+          targets,
+          result:
+            resultEntry && resultIsCurrent
+              ? getFortuneTellerResult(resultEntry.body)
+              : { kind: "pending", label: "待回复" as const },
+          body: resultEntry && resultIsCurrent ? resultEntry.body : "",
+          createdAt:
+            choiceEntry &&
+            (!resultEntry ||
+              new Date(choiceEntry.message.created_at).getTime() >
+                new Date(resultEntry.message.created_at).getTime())
+              ? choiceEntry.message.created_at
+              : resultEntry?.message.created_at ?? "",
+        };
+      })
+      .sort(
+        (left, right) =>
+          new Date(right.createdAt).getTime() -
+          new Date(left.createdAt).getTime(),
+      );
+  }, [messageHistory, playerMessages, players, role.id]);
   const addNote = () => {
     const body = noteDraft.trim();
     if (!body) return;
@@ -1640,6 +1865,40 @@ function PlayerEditor({
             <span>该玩家在占卜师能力中始终被视为恶魔</span>
           </div>
         </div>
+      ) : null}
+
+      {fortuneHistory.length ? (
+        <section className="fortune-history-section">
+          <div className="player-history-heading">
+            <div>
+              <span>占卜记录</span>
+              <small>每晚选择与上帝回复</small>
+            </div>
+            <strong>{fortuneHistory.length}</strong>
+          </div>
+          <div className="fortune-history-list">
+            {fortuneHistory.map((entry) => (
+              <article className="fortune-history-item" key={entry.round}>
+                <div className="fortune-history-topline">
+                  <strong>{getGameStageLabel("夜晚", entry.round)}</strong>
+                  <span className={`fortune-history-result ${entry.result.kind}`}>
+                    {entry.result.label}
+                  </span>
+                </div>
+                <p>
+                  <Target size={12} />
+                  <span>
+                    查验{" "}
+                    {entry.targets.length
+                      ? entry.targets.join(" + ")
+                      : "对象未记录"}
+                  </span>
+                </p>
+                {entry.body ? <small>{entry.body}</small> : null}
+              </article>
+            ))}
+          </div>
+        </section>
       ) : null}
 
       <section className="player-notes-section">
