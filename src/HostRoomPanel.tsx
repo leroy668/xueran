@@ -272,6 +272,9 @@ function SimulatedPlayerSkillReplyForm({
   const choiceSpec = selectedRole
     ? getTroubleBrewingSkill(selectedRole.id)?.playerChoice
     : null;
+  const selectedSkill = selectedRole
+    ? getTroubleBrewingSkill(selectedRole.id)
+    : null;
   const roleChoices = useMemo(
     () =>
       getScriptRoles(scriptId).filter(
@@ -356,7 +359,7 @@ function SimulatedPlayerSkillReplyForm({
       !oneUseLocked,
   );
   const unavailableText = !choiceSpec
-    ? "当前角色没有需要玩家主动提交的技能"
+    ? "无需玩家选择，等待上帝发送技能结果"
     : !phaseAllowed
       ? choiceSpec.phase === "night"
         ? "请切换到夜晚阶段测试"
@@ -498,10 +501,17 @@ function SimulatedPlayerSkillReplyForm({
                   ? `${formatSeat(selectedPlayer.seat)} · ${getSimulationRoleLabel(selectedGamePlayer)}`
                   : "未选择玩家"}
               </strong>
-              <small>
+              {selectedRole ? (
+                <small className="simulation-skill-ability">
+                  {selectedRole.short}
+                </small>
+              ) : null}
+              <small className="simulation-skill-status">
                 {canSubmitSkillChoice
                   ? choiceSpec?.help
-                  : unavailableText}
+                  : selectedSkill
+                    ? unavailableText
+                    : "该角色暂无技能交互配置"}
               </small>
             </div>
           </div>
