@@ -297,8 +297,10 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-message-heading { display: flex; align-items: center; gap: 11px; }
 .night-message-heading h3 { margin: 0; font-size: 17px; }
 .night-message-heading > svg { flex: 0 0 auto; color: var(--gold); }
-.night-chat-recipient { width: min(310px, 46%); min-width: 220px; }
+.night-chat-recipient { width: min(390px, 52%); min-width: 260px; }
 .night-chat-recipient > span { display: block; margin-bottom: 5px; color: var(--muted); font-size: 9px; }
+.night-chat-recipient-label { display: flex !important; align-items: center; justify-content: space-between; gap: 8px; }
+.night-chat-recipient-label b { color: var(--blue); font-size: 9px; font-weight: 800; }
 .night-chat-recipient select { width: 100%; min-height: 40px; border: 1px solid var(--line); background: #141416; color: var(--ink); padding: 8px 10px; font-size: 12px; }
 .fortune-teller-setting { min-height: 58px; padding: 9px 16px; border-bottom: 1px solid var(--line); background: #21191b; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .fortune-teller-setting > div:first-child { min-width: 0; display: flex; align-items: center; gap: 9px; color: #ef8d86; }

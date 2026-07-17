@@ -2769,7 +2769,10 @@ function NightPanel({
                   </div>
                 </div>
                 <label className="night-chat-recipient">
-                  <span>对话玩家</span>
+                  <span className="night-chat-recipient-label">
+                    <span>对话玩家</span>
+                    <b>{currentRole.name}</b>
+                  </span>
                   <select
                     value={targetPlayerId}
                     onChange={(event) => setTargetPlayerId(event.target.value)}
@@ -2785,7 +2788,7 @@ function NightPanel({
                       return (
                         <option key={player.id} value={player.id}>
                           座位 {String(player.seat).padStart(2, "0")}
-                          {` · ${playerName} · ${roleName}`}
+                          {` · ${playerName} · 角色：${roleName}`}
                         </option>
                       );
                     })}
