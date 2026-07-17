@@ -1369,12 +1369,23 @@ function GrimoirePanel({
                       </span>
                       <span className="table-player-name">{getTableName(player)}</span>
                       <span className="table-role-name">
-                        {role.name}
-                        {(player.roleId === "drunk" ||
-                          player.roleId === "marionette") &&
-                        player.drunkRoleId
-                          ? ` / ${getRole(player.drunkRoleId).name}`
-                          : ""}
+                        <span className="table-role-name-text">
+                          {role.name}
+                          {(player.roleId === "drunk" ||
+                            player.roleId === "marionette") &&
+                          player.drunkRoleId
+                            ? ` / ${getRole(player.drunkRoleId).name}`
+                            : ""}
+                        </span>
+                        {redHerring ? (
+                          <span
+                            className="table-red-herring"
+                            title={fortuneTellerRedHerringNoteBody}
+                          >
+                            <Target size={8} />
+                            敌
+                          </span>
+                        ) : null}
                       </span>
                       {latestSkill || latestChoice ? (
                         <span
@@ -1386,15 +1397,6 @@ function GrimoirePanel({
                           {skillHistory.length > 1 ? (
                             <b>{skillHistory.length}</b>
                           ) : null}
-                        </span>
-                      ) : null}
-                      {redHerring ? (
-                        <span
-                          className="table-red-herring"
-                          title={fortuneTellerRedHerringNoteBody}
-                        >
-                          <Target size={9} />
-                          敌
                         </span>
                       ) : null}
                       {roomPlayer?.is_claimed ? (

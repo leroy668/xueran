@@ -159,14 +159,15 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .table-role-icon { grid-column: 1; grid-row: 1 / 3; align-self: center; width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--line-light); background: #17171a; font-family: Georgia, serif; color: var(--gold); font-size: 11px; overflow: hidden; }
 .table-role-icon .role-icon-image { transform: scale(1.45); }
 .role-icon-image { display: block; flex: 0 0 auto; max-width: none; object-fit: contain; pointer-events: none; user-select: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.42)); }
-.table-player-name, .table-role-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table-player-name, .table-role-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table-player-name { grid-column: 2; grid-row: 1; align-self: end; padding-right: 18px; font-size: 12px; font-weight: 800; line-height: 1.2; }
-.table-role-name { grid-column: 2; grid-row: 2; align-self: start; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.2; }
+.table-role-name { grid-column: 2; grid-row: 2; align-self: start; min-width: 0; margin-top: 4px; display: flex; align-items: center; gap: 3px; color: var(--muted); font-size: 10px; line-height: 1.2; }
+.table-role-name-text { flex: 1 1 auto; }
 .table-role-info { grid-column: 2; grid-row: 3; min-width: 0; padding-right: 8px; display: flex; align-items: center; gap: 3px; color: var(--blue); font-size: 8px; line-height: 1.15; }
 .table-role-info svg { flex: 0 0 auto; }
 .table-role-info > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table-role-info > b { flex: 0 0 auto; min-width: 14px; height: 14px; padding: 0 3px; display: grid; place-items: center; border: 1px solid rgba(141,170,195,.38); color: var(--blue); font-size: 7px; line-height: 1; }
-.table-red-herring { position: absolute; left: 4px; bottom: 4px; z-index: 2; min-width: 25px; height: 15px; padding: 0 3px; display: inline-flex; align-items: center; justify-content: center; gap: 2px; border: 1px solid rgba(201,82,74,.55); background: #2b1819; color: #ef8d86; font-size: 7px; font-weight: 800; line-height: 1; }
+.table-red-herring { flex: 0 0 auto; height: 14px; padding: 0 3px; display: inline-flex; align-items: center; justify-content: center; gap: 1px; border: 1px solid rgba(201,82,74,.55); background: #2b1819; color: #ef8d86; font-size: 7px; font-weight: 800; line-height: 1; }
 .table-claimed-dot { position: absolute; right: 6px; bottom: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px rgba(121,181,138,.13); }
 .table-dead-mark { position: absolute; left: 5px; right: 5px; top: 50%; height: 1px; background: var(--red); transform: rotate(-18deg); opacity: .85; }
 .table-seat.dense { width: 72px; height: 54px; grid-template-columns: 25px minmax(0, 1fr); grid-template-rows: 1fr 1fr; column-gap: 4px; padding: 7px 4px 5px; }
@@ -670,7 +671,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-role-icon { width: 30px; height: 30px; font-size: 8px; }
   .grimoire-workbench.mobile-grid .table-seat .role-icon-image { width: 30px; height: 30px; }
   .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-player-name { padding-right: 8px; font-size: 9px; }
-  .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-role-name { display: inline; margin-top: 0; font-size: 8px; }
+.grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-role-name { margin-top: 0; font-size: 8px; }
   .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-role-info { font-size: 7px; }
   .player-editor { padding: 14px; }
   .empty-state { min-height: 290px; }
