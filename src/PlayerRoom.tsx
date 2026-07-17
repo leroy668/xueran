@@ -50,6 +50,7 @@ import {
 import { formatSeat } from "./seat";
 import {
   getTroubleBrewingSkill,
+  triggeredAbilityNotices,
   type PlayerChoiceSpec,
 } from "./troubleBrewingSkills";
 import { ensureAnonymousSession, supabase } from "./supabase";
@@ -752,6 +753,7 @@ function PlayerMessages({
         phase={phase}
         players={players}
         messages={playerMessages}
+        hostMessages={hostMessages}
         onSend={onSend}
       />
 
@@ -832,6 +834,7 @@ function PlayerRoleSkillPanel({
   phase,
   players,
   messages,
+  hostMessages,
   onSend,
 }: {
   roleId: string;
@@ -841,6 +844,7 @@ function PlayerRoleSkillPanel({
   phase: "白天" | "夜晚";
   players: PublicRoomPlayer[];
   messages: PlayerMessage[];
+  hostMessages: NightMessage[];
   onSend: (body: string) => Promise<void>;
 }) {
   const skill = getTroubleBrewingSkill(roleId);
@@ -854,6 +858,7 @@ function PlayerRoleSkillPanel({
       phase={phase}
       players={players}
       messages={messages}
+      hostMessages={hostMessages}
       spec={skill.playerChoice}
       onSend={onSend}
     />
@@ -868,6 +873,7 @@ function PlayerSkillChoicePanel({
   phase,
   players,
   messages,
+  hostMessages,
   spec,
   onSend,
 }: {
@@ -878,6 +884,7 @@ function PlayerSkillChoicePanel({
   phase: "白天" | "夜晚";
   players: PublicRoomPlayer[];
   messages: PlayerMessage[];
+  hostMessages: NightMessage[];
   spec: PlayerChoiceSpec;
   onSend: (body: string) => Promise<void>;
 }) {
@@ -928,8 +935,25 @@ function PlayerSkillChoicePanel({
   const phaseAllowed = spec.phase === "night" ? phase === "夜晚" : phase === "白天";
   const firstNightLocked = phase === "夜晚" && round <= 1 && !spec.allowFirstNight;
   const deathLocked = Boolean(spec.onlyWhenDead && selfPlayer?.alive !== false);
+  const triggerNotice =
+    triggeredAbilityNotices[
+      roleId as keyof typeof triggeredAbilityNotices
+    ];
+  const hostTriggerLocked = Boolean(
+    triggerNotice &&
+      !hostMessages.some(
+        (message) =>
+          message.player_id === currentPlayerId &&
+          message.round === round &&
+          message.body === triggerNotice,
+      ),
+  );
   const available =
-    phaseAllowed && !firstNightLocked && !deathLocked && !oneUseLocked;
+    phaseAllowed &&
+    !firstNightLocked &&
+    !deathLocked &&
+    !hostTriggerLocked &&
+    !oneUseLocked;
 
   useEffect(() => {
     const candidateIds = new Set(candidates.map((player) => player.id));
@@ -1013,9 +1037,13 @@ function PlayerSkillChoicePanel({
       ? "首夜不能使用这项能力"
       : deathLocked
         ? "仅在你得知自己死亡后使用"
-        : oneUseLocked
-          ? "本局能力已经使用"
-          : "";
+        : hostTriggerLocked
+          ? roleId === "godfather"
+            ? "等待上帝确认今天有外来者死亡"
+            : "等待上帝发送死亡通知"
+          : oneUseLocked
+            ? "本局能力已经使用"
+            : "";
 
   return (
     <section className={("player-skill-action " + (available ? "" : "is-locked")).trim()}>

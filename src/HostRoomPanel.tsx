@@ -24,7 +24,8 @@ import {
 import { RoleIcon } from "./RoleIcon";
 import {
   getTroubleBrewingSkill,
-  ravenkeeperDeathNotice,
+  isTriggeredAbilityNotice,
+  triggeredAbilityNotices,
 } from "./troubleBrewingSkills";
 import type {
   NightMessage,
@@ -340,6 +341,20 @@ function SimulatedPlayerSkillReplyForm({
   const deathLocked = Boolean(
     choiceSpec?.onlyWhenDead && selectedGamePlayer?.alive !== false,
   );
+  const triggerNotice = selectedRole
+    ? triggeredAbilityNotices[
+        selectedRole.id as keyof typeof triggeredAbilityNotices
+      ]
+    : undefined;
+  const hostTriggerLocked = Boolean(
+    triggerNotice &&
+      !nightMessages.some(
+        (message) =>
+          message.player_id === playerId &&
+          message.round === round &&
+          message.body === triggerNotice,
+      ),
+  );
   const oneUseLocked = Boolean(
     Boolean(choiceSpec?.oneUse) &&
       playerMessages
@@ -359,6 +374,7 @@ function SimulatedPlayerSkillReplyForm({
       phaseAllowed &&
       !firstNightLocked &&
       !deathLocked &&
+      !hostTriggerLocked &&
       !oneUseLocked,
   );
   const unavailableText = !choiceSpec
@@ -371,15 +387,19 @@ function SimulatedPlayerSkillReplyForm({
         ? "首夜不能发动，进入第一晚后即可测试"
       : deathLocked
           ? "需要先在魔典中将该玩家标记为死亡"
-          : oneUseLocked
-            ? "本局能力已经使用"
-            : "";
+          : hostTriggerLocked
+            ? selectedRole?.id === "godfather"
+              ? "需要上帝先确认今天有外来者死亡并通知教父"
+              : "需要上帝先发送死亡通知"
+            : oneUseLocked
+              ? "本局能力已经使用"
+              : "";
   const receivedSkillMessages = nightMessages
     .filter(
       (message) =>
         message.player_id === playerId &&
         (Boolean(getRoleSkillMessage(message.body)) ||
-          message.body === ravenkeeperDeathNotice),
+          isTriggeredAbilityNotice(message.body)),
     )
     .sort(
       (left, right) =>

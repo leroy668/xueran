@@ -27,8 +27,22 @@ export type TroubleBrewingSkill = {
   trackerOptions?: string[];
 };
 
-export const ravenkeeperDeathNotice =
-  "你已在夜晚死亡，请发动守鸦人能力并选择一名玩家查验。";
+export const triggeredAbilityNotices = {
+  ravenkeeper: "你已在夜晚死亡，请发动守鸦人能力并选择一名玩家查验。",
+  moonchild: "你已死亡，请发动月之子能力并公开选择一名存活玩家。",
+  klutz: "你已死亡，请发动呆瓜能力并公开选择一名存活玩家。",
+  godfather: "今天有外来者死亡，你可以发动教父能力选择一名玩家。",
+} as const;
+
+export const ravenkeeperDeathNotice = triggeredAbilityNotices.ravenkeeper;
+
+export const getDeathTriggeredAbilityNotice = (roleId: string) =>
+  roleId === "ravenkeeper" || roleId === "moonchild" || roleId === "klutz"
+    ? triggeredAbilityNotices[roleId]
+    : null;
+
+export const isTriggeredAbilityNotice = (body: string) =>
+  Object.values(triggeredAbilityNotices).some((notice) => notice === body);
 
 const skills: TroubleBrewingSkill[] = [
   { roleId: "washerwoman", phase: "首夜", interaction: "系统生成两名玩家与一张镇民身份，上帝可重随或修改后发送", hostHint: "保证两名玩家中至少一人的真实身份与展示身份相符。" },
@@ -102,7 +116,7 @@ const skills: TroubleBrewingSkill[] = [
     roleId: "klutz", phase: "白天", interaction: "呆瓜得知死亡后选择一名存活玩家，上帝判定游戏继续或阵营落败", hostHint: "若目标是邪恶玩家，呆瓜所属阵营立即落败。",
     playerChoice: { kind: "single", title: "呆瓜选择", help: "得知死亡后，公开选择一名存活玩家", submitLabel: "提交目标", summaryPrefix: "呆瓜选择", phase: "day", allowFirstNight: false, excludeSelf: true, aliveOnly: true, onlyWhenDead: true, oneUse: true }, trackerOptions: ["等待公开选择", "目标善良 · 游戏继续", "目标邪恶 · 阵营落败"],
   },
-  { roleId: "godfather", phase: "夜晚", interaction: "首夜向教父展示在场外来者；触发后由教父选择击杀目标", hostHint: "仅在白天有外来者死亡时允许夜间击杀。", playerChoice: { kind: "single", title: "教父复仇", help: "白天有外来者死亡时，选择一名玩家死亡", submitLabel: "提交目标", summaryPrefix: "教父攻击", phase: "night", allowFirstNight: false, excludeSelf: false, aliveOnly: true } },
+  { roleId: "godfather", phase: "夜晚", interaction: "首夜展示在场外来者；白天有外来者死亡后，上帝通知教父选择击杀目标", hostHint: "必须先确认白天有外来者死亡并发送通知，再等待教父选择目标。", playerChoice: { kind: "single", title: "教父复仇", help: "收到上帝的外来者死亡通知后，选择一名玩家死亡", submitLabel: "提交目标", summaryPrefix: "教父攻击", phase: "night", allowFirstNight: false, excludeSelf: false, aliveOnly: true } },
   { roleId: "marionette", phase: "设置", interaction: "上帝设置玩家看到的善良身份，并在首夜单独告知恶魔提线木偶座位", hostHint: "绝不能向提线木偶本人透露真实身份。", trackerOptions: ["伪装身份已设置", "恶魔已获知提线木偶", "等待告知恶魔"] },
   { roleId: "pukka", phase: "夜晚", interaction: "玩家选择新的中毒目标，上帝同时结算上一名中毒玩家死亡并恢复健康", hostHint: "首夜可以选择；座位卡应持续记录每晚的新旧目标。", playerChoice: { kind: "single", title: "普卡下毒", help: "选择一名玩家中毒；上一名中毒者死亡并恢复", submitLabel: "提交目标", summaryPrefix: "普卡下毒", phase: "night", allowFirstNight: true, excludeSelf: false, aliveOnly: true } },
   { roleId: "vigormortis", phase: "夜晚", interaction: "玩家选择击杀目标；若击杀爪牙，上帝记录保留能力与邻近镇民中毒", hostHint: "首夜不能击杀；爪牙死亡后的特殊效果需要单独确认。", playerChoice: { kind: "single", title: "亡骨魔攻击", help: "选择一名存活玩家死亡", submitLabel: "提交攻击", summaryPrefix: "亡骨魔攻击", phase: "night", allowFirstNight: false, excludeSelf: false, aliveOnly: true } },

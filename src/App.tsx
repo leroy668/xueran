@@ -88,8 +88,10 @@ import {
 } from "./storage";
 import { formatSeat } from "./seat";
 import {
+  getDeathTriggeredAbilityNotice,
   getTroubleBrewingSkill,
   ravenkeeperDeathNotice,
+  triggeredAbilityNotices,
 } from "./troubleBrewingSkills";
 import { ensureAnonymousSession, supabase } from "./supabase";
 import type {
@@ -1050,6 +1052,31 @@ function GrimoireApp() {
     setToast(`夜间信息已发送给${formatSeat(target?.seat)}`);
   };
 
+  const handleSetPlayerAlive = async (playerId: string, alive: boolean) => {
+    const player = state.players.find((item) => item.id === playerId);
+    if (!player) return;
+    updatePlayer(playerId, { alive });
+    if (alive || !room) return;
+
+    const visibleRoleId = getPlayerVisibleRoleId(
+      player.roleId,
+      player.drunkRoleId,
+    );
+    const notice = getDeathTriggeredAbilityNotice(visibleRoleId);
+    const roomPlayer = roomPlayers.find((item) => item.id === playerId);
+    if (!notice || !roomPlayer?.is_claimed) return;
+
+    try {
+      await handleSendNightMessage({
+        playerId,
+        roleId: visibleRoleId,
+        body: notice,
+      });
+    } catch {
+      setToast(`已将${formatSeat(player.seat)}标记为死亡，但触发通知发送失败`);
+    }
+  };
+
   const handleSendEvilMessage = async (body: string) => {
     if (!room) throw new Error("请先创建共享房间");
     const message = await sendEvilMessage({
@@ -1154,6 +1181,9 @@ function GrimoireApp() {
             state={state}
             aliveCount={aliveCount}
             onUpdatePlayer={updatePlayer}
+            onSetPlayerAlive={(playerId, alive) =>
+              void handleSetPlayerAlive(playerId, alive)
+            }
             onRemovePlayer={removePlayer}
             onAddPlayer={addPlayer}
             onAssignRoles={assignRoles}
@@ -1265,6 +1295,7 @@ function GrimoirePanel({
   state,
   aliveCount,
   onUpdatePlayer,
+  onSetPlayerAlive,
   onRemovePlayer,
   onAddPlayer,
   onAssignRoles,
@@ -1277,6 +1308,7 @@ function GrimoirePanel({
   state: GameState;
   aliveCount: number;
   onUpdatePlayer: (id: string, patch: Partial<Player>) => void;
+  onSetPlayerAlive: (id: string, alive: boolean) => void;
   onRemovePlayer: (id: string) => void;
   onAddPlayer: () => void;
   onAssignRoles: () => void;
@@ -1672,6 +1704,7 @@ function GrimoirePanel({
                   (message) => message.player_id === selectedPlayer.id,
                 )}
                 onUpdate={onUpdatePlayer}
+                onSetAlive={onSetPlayerAlive}
                 onRemove={onRemovePlayer}
               />
             ) : null}
@@ -1691,6 +1724,7 @@ function PlayerEditor({
   messages,
   playerMessages,
   onUpdate,
+  onSetAlive,
   onRemove,
 }: {
   player: Player;
@@ -1701,6 +1735,7 @@ function PlayerEditor({
   messages: NightMessage[];
   playerMessages: PlayerMessage[];
   onUpdate: (id: string, patch: Partial<Player>) => void;
+  onSetAlive: (id: string, alive: boolean) => void;
   onRemove: (id: string) => void;
 }) {
   const role = getRole(player.roleId);
@@ -1890,7 +1925,7 @@ function PlayerEditor({
         </div>
         <button
           className={player.alive ? "life-toggle alive" : "life-toggle"}
-          onClick={() => onUpdate(player.id, { alive: !player.alive })}
+          onClick={() => onSetAlive(player.id, !player.alive)}
           title={player.alive ? "标记为死亡" : "标记为存活"}
         >
           {player.alive ? <Check size={13} /> : <Skull size={13} />}
@@ -2467,6 +2502,12 @@ function NightPanel({
       message.round === state.round &&
       message.body === ravenkeeperDeathNotice,
   );
+  const godfatherRevengeNotified = nightMessages.some(
+    (message) =>
+      message.player_id === targetPlayerId &&
+      message.round === state.round &&
+      message.body === triggeredAbilityNotices.godfather,
+  );
   const pairSkillRole =
     currentRole?.id === "washerwoman" ||
     currentRole?.id === "librarian" ||
@@ -2946,6 +2987,12 @@ function NightPanel({
 
   const sendSingleTargetSkill = () => {
     if (!currentRole || !singleSkillTargetId) return;
+    if (
+      currentRole.id === "godfather" &&
+      (!godfatherRevengeNotified || !latestPlayerSkillChoice)
+    ) {
+      return;
+    }
     const targetLabel = getNightSeatLabel(singleSkillTargetId);
     const targetIsSelf = singleSkillTargetId === selectedPlayer?.id;
     const body =
@@ -3049,6 +3096,26 @@ function NightPanel({
       selectedPlayer.id,
       "ravenkeeper",
       ravenkeeperDeathNotice,
+      false,
+    );
+  };
+
+  const notifyGodfatherRevenge = async () => {
+    if (
+      !selectedPlayer ||
+      currentRole?.id !== "godfather" ||
+      state.round <= 1 ||
+      !canUseSkill
+    ) {
+      return;
+    }
+    if (!window.confirm("确认今天有外来者死亡，并通知教父发动能力？")) {
+      return;
+    }
+    await submitSkillToPlayer(
+      selectedPlayer.id,
+      "godfather",
+      triggeredAbilityNotices.godfather,
       false,
     );
   };
@@ -3662,10 +3729,16 @@ function NightPanel({
               {(["godfather", "pukka", "vigormortis", "nodashii"].includes(currentRole.id) && !(currentRole.id === "godfather" && state.round <= 1)) ? (
                 <div className="night-skill-panel">
                   <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><Target size={14} />{currentRole.name}本轮目标</span><small>{currentRole.short}</small></div></div>
-                  <div className={latestPlayerSkillChoice ? "night-player-choice" : "night-player-choice waiting"}><Target size={14} /><span>{latestPlayerSkillChoice ? `玩家已提交：${latestPlayerSkillChoice.summary}` : "玩家尚未提交，可由上帝代选"}</span></div>
+                  {currentRole.id === "godfather" ? (
+                    <button className="secondary-button night-ravenkeeper-notify" disabled={!canUseSkill} onClick={() => void notifyGodfatherRevenge()}>
+                      <Skull size={15} />
+                      {sendingMode === "skill" ? "通知中" : godfatherRevengeNotified ? "再次通知教父" : "确认外来者死亡并通知"}
+                    </button>
+                  ) : null}
+                  <div className={latestPlayerSkillChoice ? "night-player-choice" : "night-player-choice waiting"}><Target size={14} /><span>{latestPlayerSkillChoice ? `玩家已提交：${latestPlayerSkillChoice.summary}` : currentRole.id === "godfather" ? godfatherRevengeNotified ? "已通知教父，等待玩家选择目标" : "仅在白天有外来者死亡时通知教父" : "玩家尚未提交，可由上帝代选"}</span></div>
                   {currentRole.id === "nodashii" ? <div className="night-player-choice"><Check size={14} /><span>当前中毒镇民：{nodashiiPoisonedPlayers.map((player) => `${formatSeat(player.seat)} ${getRole(player.roleId).name}`).join("、") || "未找到"}</span></div> : null}
                   {currentRole.id === "vigormortis" && getRole(state.players.find((player) => player.id === singleSkillTargetId)?.roleId ?? "").team === "爪牙" ? <label className="night-skill-role-field"><span>中毒镇民</span><select value={skillTargets.second} onChange={(event) => setSkillTargets((current) => ({...current, second: event.target.value}))}>{state.players.filter((player) => getRole(player.roleId).team === "镇民").map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</select></label> : null}
-                  <div className="night-skill-single-row"><select value={singleSkillTargetId} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</select><button className="primary-button" disabled={!canUseSkill || !singleSkillTargetId} onClick={sendSingleTargetSkill}><Send size={15} />确认并发送</button></div>
+                  <div className="night-skill-single-row"><select value={singleSkillTargetId} disabled={currentRole.id === "godfather" && !latestPlayerSkillChoice} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</select><button className="primary-button" disabled={!canUseSkill || !singleSkillTargetId || (currentRole.id === "godfather" && (!godfatherRevengeNotified || !latestPlayerSkillChoice))} onClick={sendSingleTargetSkill}><Send size={15} />确认并发送</button></div>
                 </div>
               ) : null}
               {currentRole.id === "marionette" ? (
