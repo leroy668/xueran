@@ -1907,17 +1907,60 @@ function PlayerEditor({
           <p>{roleSkill.interaction}</p>
           <small>{roleSkill.hostHint}</small>
           {roleSkill.trackerOptions?.length ? (
-            <div className="role-state-options">
-              {roleSkill.trackerOptions.map((option) => (
+            role.id === "slayer" ? (
+              <div className="role-state-options slayer-state-controls">
                 <button
-                  className={roleState?.body === option ? "active" : ""}
-                  key={option}
-                  onClick={() => updateRoleState(option)}
+                  className={
+                    roleState?.body === "能力未使用" ? "active" : ""
+                  }
+                  onClick={() => updateRoleState("能力未使用")}
                 >
-                  {option}
+                  能力未使用
                 </button>
-              ))}
-            </div>
+                <label>
+                  <span>已使用</span>
+                  <select
+                    value={
+                      players.find(
+                        (item) =>
+                          roleState?.body ===
+                          `已使用 · ${formatSeat(item.seat)}`,
+                      )?.id ?? ""
+                    }
+                    onChange={(event) => {
+                      const target = players.find(
+                        (item) => item.id === event.target.value,
+                      );
+                      if (target) {
+                        updateRoleState(`已使用 · ${formatSeat(target.seat)}`);
+                      }
+                    }}
+                    aria-label="选择杀手技能目标"
+                  >
+                    <option value="">选择目标座位</option>
+                    {[...players]
+                      .sort((left, right) => left.seat - right.seat)
+                      .map((target) => (
+                        <option value={target.id} key={target.id}>
+                          {formatSeat(target.seat)} · {target.name || "待入座"}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </div>
+            ) : (
+              <div className="role-state-options">
+                {roleSkill.trackerOptions.map((option) => (
+                  <button
+                    className={roleState?.body === option ? "active" : ""}
+                    key={option}
+                    onClick={() => updateRoleState(option)}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )
           ) : null}
           {roleState ? (
             <div className="role-state-current">

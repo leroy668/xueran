@@ -45,7 +45,7 @@ const skills: TroubleBrewingSkill[] = [
   {
     roleId: "slayer", phase: "白天", interaction: "玩家选择射击目标，上帝记录命中或未命中", hostHint: "每局只能使用一次；只有目标被视为恶魔时才死亡。",
     playerChoice: { kind: "single", title: "杀手射击", help: "公开选择一名玩家作为本局唯一的射击目标", submitLabel: "提交目标", summaryPrefix: "杀手射击", phase: "day", allowFirstNight: false, excludeSelf: false, aliveOnly: true },
-    trackerOptions: ["能力未使用", "已使用 · 未命中", "已使用 · 命中恶魔"],
+    trackerOptions: ["能力未使用"],
   },
   { roleId: "soldier", phase: "被动", interaction: "记录恶魔攻击是否被士兵能力挡下", hostHint: "只免疫恶魔能力的负面效果，不免疫处决或其他角色能力。", trackerOptions: ["能力正常", "本晚挡下恶魔攻击", "中毒或醉酒 · 能力失效"] },
   { roleId: "mayor", phase: "被动", interaction: "记录恶魔攻击转移与三人终局胜利条件", hostHint: "三人存活且白天无人被处决时善良获胜；攻击可能转移。", trackerOptions: ["能力正常", "恶魔攻击已转移", "三人存活 · 等待无人处决"] },
