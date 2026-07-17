@@ -56,7 +56,7 @@ const missingGodRoleIds = [
 export const scripts = [
   {
     id: "trouble-brewing",
-    name: "Trouble Brewing",
+    name: "暗流涌动",
     subtitle: "新手友好的经典剧本",
     count: 22,
     description: "信息、误导与一点点混乱，适合第一次主持。",
