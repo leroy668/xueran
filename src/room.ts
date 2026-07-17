@@ -343,6 +343,27 @@ export const sendPlayerMessage = async ({
   return data as PlayerMessage;
 };
 
+export const simulatePlayerMessage = async ({
+  roomId,
+  playerId,
+  body,
+}: {
+  roomId: string;
+  playerId: string;
+  body: string;
+}) => {
+  const { data, error } = await supabase.rpc(
+    "xueran_simulate_player_message",
+    {
+      p_room_id: roomId,
+      p_player_id: playerId,
+      p_body: body,
+    },
+  );
+  if (error) throw error;
+  return data as PlayerMessage;
+};
+
 export const sendEvilMessage = async ({
   roomId,
   body,

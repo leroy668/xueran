@@ -59,6 +59,7 @@ import {
   sendEvilMessage,
   sendNightMessage,
   setRoomSimulation,
+  simulatePlayerMessage,
   syncRoom,
   type EvilMessage,
   type NightMessage,
@@ -822,6 +823,34 @@ function GrimoireApp() {
     ]);
   };
 
+  const handleSimulatePlayerMessage = async (
+    playerId: string,
+    body: string,
+  ) => {
+    if (!room) throw new Error("请先创建共享房间");
+    try {
+      const message = await simulatePlayerMessage({
+        roomId: room.id,
+        playerId,
+        body,
+      });
+      setPlayerMessages((current) => [
+        message,
+        ...current.filter((item) => item.id !== message.id),
+      ]);
+      const target = roomPlayers.find((player) => player.id === playerId);
+      setToast(`已模拟 ${target?.seat ?? "?"} 号玩家来信`);
+    } catch (reason) {
+      setToast(
+        reason instanceof Error &&
+          /function|schema cache|simulate_player_message/i.test(reason.message)
+          ? "模拟消息数据库尚未配置"
+          : "模拟来信发送失败",
+      );
+      throw reason;
+    }
+  };
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -902,6 +931,7 @@ function GrimoireApp() {
                 onToggleSimulation={(enabled) =>
                   void handleToggleSimulation(enabled)
                 }
+                onSimulatePlayerMessage={handleSimulatePlayerMessage}
                 onClose={() => void endSharedRoom()}
               />
             }

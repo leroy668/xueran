@@ -4,10 +4,12 @@ import {
   Link2,
   LoaderCircle,
   Radio,
+  Send,
   Share2,
   Unlink,
   UserCheck,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import type { PublicRoomPlayer, SharedRoom } from "./room";
 
@@ -21,6 +23,7 @@ type Props = {
   onCopy: () => void;
   onRevoke: (playerId: string) => void;
   onToggleSimulation: (enabled: boolean) => void;
+  onSimulatePlayerMessage: (playerId: string, body: string) => Promise<void>;
   onClose: () => void;
 };
 
@@ -34,6 +37,7 @@ export function HostRoomPanel({
   onCopy,
   onRevoke,
   onToggleSimulation,
+  onSimulatePlayerMessage,
   onClose,
 }: Props) {
   if (!room) {
@@ -116,6 +120,13 @@ export function HostRoomPanel({
             <span />
           </span>
         </label>
+        {simulationEnabled ? (
+          <SimulatedPlayerMessageForm
+            players={players.filter((player) => player.is_simulated)}
+            busy={busy}
+            onSend={onSimulatePlayerMessage}
+          />
+        ) : null}
         <div className="claim-section-heading">
           <span>已入座玩家</span>
           <strong>
@@ -156,5 +167,96 @@ export function HostRoomPanel({
         </button>
       </div>
     </section>
+  );
+}
+
+function SimulatedPlayerMessageForm({
+  players,
+  busy,
+  onSend,
+}: {
+  players: PublicRoomPlayer[];
+  busy: boolean;
+  onSend: (playerId: string, body: string) => Promise<void>;
+}) {
+  const [playerId, setPlayerId] = useState(players[0]?.id ?? "");
+  const [body, setBody] = useState("");
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!players.some((player) => player.id === playerId)) {
+      setPlayerId(players[0]?.id ?? "");
+    }
+  }, [playerId, players]);
+
+  const submit = async () => {
+    const cleanBody = body.trim();
+    if (!playerId || !cleanBody || sending) return;
+    setSending(true);
+    try {
+      await onSend(playerId, cleanBody);
+      setBody("");
+    } catch {
+      // The parent shows the actionable error; keep the draft for retry.
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="simulation-message-panel">
+      <div className="simulation-message-heading">
+        <strong>模拟玩家来信</strong>
+        <small>消息会进入上帝的玩家消息页</small>
+      </div>
+      {players.length ? (
+        <>
+          <select
+            value={playerId}
+            disabled={busy || sending}
+            onChange={(event) => setPlayerId(event.target.value)}
+            aria-label="选择模拟消息座位"
+          >
+            {players.map((player) => (
+              <option value={player.id} key={player.id}>
+                {String(player.seat).padStart(2, "0")}号 · {player.name}
+              </option>
+            ))}
+          </select>
+          <div className="simulation-message-compose">
+            <textarea
+              rows={2}
+              maxLength={500}
+              value={body}
+              disabled={busy || sending}
+              placeholder="输入该玩家发给上帝的消息"
+              aria-label="模拟玩家消息"
+              onChange={(event) => setBody(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  void submit();
+                }
+              }}
+            />
+            <button
+              type="button"
+              disabled={busy || sending || !body.trim()}
+              onClick={() => void submit()}
+              aria-label="发送模拟玩家消息"
+              title="发送模拟玩家消息"
+            >
+              {sending ? (
+                <LoaderCircle className="spin" size={15} />
+              ) : (
+                <Send size={15} />
+              )}
+            </button>
+          </div>
+        </>
+      ) : (
+        <p>当前没有可模拟的座位。</p>
+      )}
+    </div>
   );
 }
