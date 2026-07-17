@@ -35,6 +35,11 @@ import {
 } from "./room";
 import { RoleIcon } from "./RoleIcon";
 import {
+  buildPlayerSkillChoiceMessage,
+  getPlayerMessageDisplayBody,
+  parsePlayerSkillChoiceMessage,
+} from "./playerSkillChoices";
+import {
   getNightMessageDisplayBody,
   getRoleSkillMessage,
 } from "./roleSkillMessages";
@@ -263,6 +268,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
         roomCode={room.code}
         scriptId={room.script_id}
         playerId={identity.player_id}
+        round={room.round}
         players={players}
         nightMessages={nightMessages}
         playerMessages={playerMessages}
@@ -348,6 +354,7 @@ function ClaimedIdentity({
   roomCode,
   scriptId,
   playerId,
+  round,
   players,
   nightMessages,
   playerMessages,
@@ -359,6 +366,7 @@ function ClaimedIdentity({
   roomCode: string;
   scriptId: string;
   playerId: string;
+  round: number;
   players: PublicRoomPlayer[];
   nightMessages: NightMessage[];
   playerMessages: PlayerMessage[];
@@ -536,6 +544,9 @@ function ClaimedIdentity({
 
       {activeView === "messages" ? (
         <PlayerMessages
+          roleId={identity.roleId}
+          round={round}
+          players={players}
           hostMessages={nightMessages}
           playerMessages={playerMessages}
           onSend={onSendPlayerMessage}
@@ -628,10 +639,16 @@ function IdentityView({
 }
 
 function PlayerMessages({
+  roleId,
+  round,
+  players,
   hostMessages,
   playerMessages,
   onSend,
 }: {
+  roleId: string;
+  round: number;
+  players: PublicRoomPlayer[];
   hostMessages: NightMessage[];
   playerMessages: PlayerMessage[];
   onSend: (body: string) => Promise<void>;
@@ -652,8 +669,11 @@ function PlayerMessages({
     }),
     ...playerMessages.map((message) => ({
       ...message,
+      body: getPlayerMessageDisplayBody(message.body),
       direction: "outgoing" as const,
-      label: `我 · 第 ${message.round} 回合`,
+      label: `我 · 第 ${message.round} 回合${
+        parsePlayerSkillChoiceMessage(message.body) ? " · 技能选择" : ""
+      }`,
     })),
   ].sort(
     (left, right) =>
@@ -703,6 +723,15 @@ function PlayerMessages({
         </div>
         <MessageSquareText size={22} />
       </div>
+
+      {roleId === "fortune-teller" ? (
+        <FortuneTellerChoicePanel
+          round={round}
+          players={players}
+          messages={playerMessages}
+          onSend={onSend}
+        />
+      ) : null}
 
       {timeline.length ? (
         <div className="player-message-timeline" ref={timelineRef}>
@@ -769,6 +798,174 @@ function PlayerMessages({
         <span className="player-message-count">{messageBody.length}/500</span>
         {sendError ? <div className="inline-error">{sendError}</div> : null}
       </div>
+    </section>
+  );
+}
+
+function FortuneTellerChoicePanel({
+  round,
+  players,
+  messages,
+  onSend,
+}: {
+  round: number;
+  players: PublicRoomPlayer[];
+  messages: PlayerMessage[];
+  onSend: (body: string) => Promise<void>;
+}) {
+  const latestChoice = messages
+    .filter((message) => message.round === round)
+    .map((message) => ({
+      message,
+      choice: parsePlayerSkillChoiceMessage(message.body),
+    }))
+    .filter(
+      (
+        entry,
+      ): entry is {
+        message: PlayerMessage;
+        choice: NonNullable<ReturnType<typeof parsePlayerSkillChoiceMessage>>;
+      } => entry.choice?.roleId === "fortune-teller",
+    )
+    .sort(
+      (left, right) =>
+        new Date(right.message.created_at).getTime() -
+        new Date(left.message.created_at).getTime(),
+    )[0]?.choice;
+  const [firstPlayerId, setFirstPlayerId] = useState(
+    latestChoice?.playerIds[0] ?? players[0]?.id ?? "",
+  );
+  const [secondPlayerId, setSecondPlayerId] = useState(
+    latestChoice?.playerIds[1] ??
+      players.find((player) => player.id !== players[0]?.id)?.id ??
+      "",
+  );
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+
+  useEffect(() => {
+    const playerIds = new Set(players.map((player) => player.id));
+    const preferredFirst =
+      latestChoice?.playerIds[0] && playerIds.has(latestChoice.playerIds[0])
+        ? latestChoice.playerIds[0]
+        : playerIds.has(firstPlayerId)
+          ? firstPlayerId
+          : players[0]?.id ?? "";
+    const preferredSecond =
+      latestChoice?.playerIds[1] &&
+      playerIds.has(latestChoice.playerIds[1]) &&
+      latestChoice.playerIds[1] !== preferredFirst
+        ? latestChoice.playerIds[1]
+        : playerIds.has(secondPlayerId) && secondPlayerId !== preferredFirst
+          ? secondPlayerId
+          : players.find((player) => player.id !== preferredFirst)?.id ?? "";
+    if (preferredFirst !== firstPlayerId) setFirstPlayerId(preferredFirst);
+    if (preferredSecond !== secondPlayerId) setSecondPlayerId(preferredSecond);
+  }, [
+    firstPlayerId,
+    latestChoice?.playerIds,
+    players,
+    secondPlayerId,
+  ]);
+
+  const getSeatLabel = (playerId: string) => {
+    const player = players.find((item) => item.id === playerId);
+    return player
+      ? `座位 ${String(player.seat).padStart(2, "0")}`
+      : "座位 ?";
+  };
+
+  const submitChoice = async () => {
+    if (
+      !firstPlayerId ||
+      !secondPlayerId ||
+      firstPlayerId === secondPlayerId ||
+      sending
+    ) {
+      return;
+    }
+    setSending(true);
+    setSendError("");
+    try {
+      await onSend(
+        buildPlayerSkillChoiceMessage({
+          roleId: "fortune-teller",
+          playerIds: [firstPlayerId, secondPlayerId],
+          summary: `占卜师选择：${getSeatLabel(firstPlayerId)}、${getSeatLabel(secondPlayerId)}`,
+        }),
+      );
+    } catch {
+      setSendError("技能选择发送失败，请稍后重试");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <section className="player-skill-action">
+      <div className="player-skill-action-heading">
+        <span className="player-skill-action-icon">
+          <RoleIcon roleId="fortune-teller" size={21} />
+        </span>
+        <div>
+          <strong>本晚占卜</strong>
+          <small>选择两名玩家，结果会由上帝发送回来</small>
+        </div>
+        {latestChoice ? <span className="player-skill-submitted">已提交</span> : null}
+      </div>
+      <div className="player-skill-targets">
+        <select
+          value={firstPlayerId}
+          disabled={sending}
+          aria-label="选择第一名占卜目标"
+          onChange={(event) => setFirstPlayerId(event.target.value)}
+        >
+          {players.map((player) => (
+            <option
+              value={player.id}
+              key={player.id}
+              disabled={player.id === secondPlayerId}
+            >
+              {String(player.seat).padStart(2, "0")}号 ·{" "}
+              {player.name || "玩家"}
+            </option>
+          ))}
+        </select>
+        <select
+          value={secondPlayerId}
+          disabled={sending}
+          aria-label="选择第二名占卜目标"
+          onChange={(event) => setSecondPlayerId(event.target.value)}
+        >
+          {players.map((player) => (
+            <option
+              value={player.id}
+              key={player.id}
+              disabled={player.id === firstPlayerId}
+            >
+              {String(player.seat).padStart(2, "0")}号 ·{" "}
+              {player.name || "玩家"}
+            </option>
+          ))}
+        </select>
+        <button
+          className="primary-button"
+          disabled={
+            sending ||
+            !firstPlayerId ||
+            !secondPlayerId ||
+            firstPlayerId === secondPlayerId
+          }
+          onClick={() => void submitChoice()}
+        >
+          <Send size={15} />
+          {sending ? "提交中" : latestChoice ? "更新选择" : "提交选择"}
+        </button>
+      </div>
+      {latestChoice ? (
+        <p className="player-skill-latest">{latestChoice.summary}</p>
+      ) : null}
+      {sendError ? <div className="inline-error">{sendError}</div> : null}
     </section>
   );
 }

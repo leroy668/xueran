@@ -42,6 +42,10 @@ import {
 } from "./demonBluffs";
 import { HostRoomPanel } from "./HostRoomPanel";
 import { PlayerRoom } from "./PlayerRoom";
+import {
+  getPlayerMessageDisplayBody,
+  parsePlayerSkillChoiceMessage,
+} from "./playerSkillChoices";
 import { RoleIcon } from "./RoleIcon";
 import { distributeRoles } from "./roleDistribution";
 import {
@@ -964,6 +968,7 @@ function GrimoireApp() {
             onQuickStart={quickStart}
             roomPlayers={roomPlayers}
             nightMessages={nightMessages}
+            playerMessages={playerMessages}
             roomPanel={
               <HostRoomPanel
                 room={room}
@@ -1069,6 +1074,7 @@ function GrimoirePanel({
   onQuickStart,
   roomPlayers,
   nightMessages,
+  playerMessages,
   roomPanel,
 }: {
   state: GameState;
@@ -1080,6 +1086,7 @@ function GrimoirePanel({
   onQuickStart: () => void;
   roomPlayers: PublicRoomPlayer[];
   nightMessages: NightMessage[];
+  playerMessages: PlayerMessage[];
   roomPanel: ReactNode;
 }) {
   const scriptRoles = getScriptRoles(state.scriptId);
@@ -1135,6 +1142,31 @@ function GrimoirePanel({
     );
     return history;
   }, [nightMessages]);
+  const latestSkillChoiceByPlayer = useMemo(() => {
+    const latest = new Map<
+      string,
+      {
+        message: PlayerMessage;
+        choice: NonNullable<
+          ReturnType<typeof parsePlayerSkillChoiceMessage>
+        >;
+      }
+    >();
+    for (const message of playerMessages) {
+      const choice = parsePlayerSkillChoiceMessage(message.body);
+      if (!choice) continue;
+      const key = `${message.player_id}:${choice.roleId}`;
+      const current = latest.get(key);
+      if (
+        !current ||
+        new Date(message.created_at).getTime() >
+          new Date(current.message.created_at).getTime()
+      ) {
+        latest.set(key, { message, choice });
+      }
+    }
+    return latest;
+  }, [playerMessages]);
   const selectedPlayer =
     state.players.find((player) => player.id === selectedPlayerId) ??
     state.players[0];
@@ -1245,14 +1277,64 @@ function GrimoirePanel({
                     `${player.id}:${role.id}`,
                   ) ?? [];
                   const latestSkill = skillHistory[0];
-                  const infoPreview = latestSkill
-                    ? `${getGameStageLabel("夜晚", latestSkill.message.round)} · ${compactMessage(latestSkill.body)}`
+                  const latestChoice = latestSkillChoiceByPlayer.get(
+                    `${player.id}:${role.id}`,
+                  );
+                  const choicePreview = latestChoice
+                    ? compactMessage(latestChoice.choice.summary).replace(
+                        /^占卜师选择：/,
+                        "玩家选 ",
+                      )
+                    : "";
+                  const hasSameRoundInfo =
+                    Boolean(latestSkill) &&
+                    Boolean(latestChoice) &&
+                    latestSkill?.message.round === latestChoice?.message.round;
+                  const latestInfo =
+                    latestSkill && latestChoice
+                      ? new Date(latestChoice.message.created_at).getTime() >
+                        new Date(latestSkill.message.created_at).getTime()
+                        ? {
+                            round: latestChoice.message.round,
+                            body: choicePreview,
+                          }
+                        : {
+                            round: latestSkill.message.round,
+                            body: compactMessage(latestSkill.body),
+                          }
+                      : latestSkill
+                        ? {
+                            round: latestSkill.message.round,
+                            body: compactMessage(latestSkill.body),
+                          }
+                        : latestChoice
+                          ? {
+                              round: latestChoice.message.round,
+                              body: choicePreview,
+                            }
+                          : null;
+                  const infoPreview = latestInfo
+                    ? `${getGameStageLabel("夜晚", latestInfo.round)} · ${
+                        hasSameRoundInfo
+                          ? `${choicePreview} · ${compactMessage(latestSkill.body)}`
+                          : latestInfo.body
+                      }`
                     : "";
                   const skillHistoryTitle = skillHistory
                     .map(
                       (entry) =>
                         `${getGameStageLabel("夜晚", entry.message.round)}：${entry.body}`,
                     )
+                    .join("\n");
+                  const roleInfoTitle = [
+                    latestChoice
+                      ? `玩家选择：${latestChoice.choice.summary}`
+                      : "",
+                    skillHistoryTitle
+                      ? `上帝结果：\n${skillHistoryTitle}`
+                      : "",
+                  ]
+                    .filter(Boolean)
                     .join("\n");
                   const redHerring = isFortuneTellerRedHerring(player);
 
@@ -1263,7 +1345,7 @@ function GrimoirePanel({
                         teamLabels[role.team],
                         player.alive ? "" : "dead",
                         isSelected ? "selected" : "",
-                        latestSkill ? "has-role-info" : "",
+                        latestSkill || latestChoice ? "has-role-info" : "",
                         redHerring ? "has-red-herring" : "",
                         state.players.length > 10 ? "dense" : "",
                         state.players.length > 15 ? "very-dense" : "",
@@ -1294,10 +1376,10 @@ function GrimoirePanel({
                           ? ` / ${getRole(player.drunkRoleId).name}`
                           : ""}
                       </span>
-                      {latestSkill ? (
+                      {latestSkill || latestChoice ? (
                         <span
                           className="table-role-info"
-                          title={`已记录 ${skillHistory.length} 个夜晚的技能信息：\n${skillHistoryTitle}`}
+                          title={roleInfoTitle}
                         >
                           <MessageSquareText size={10} />
                           <span>{infoPreview}</span>
@@ -1737,10 +1819,12 @@ function NightPanel({
   const [sendingMode, setSendingMode] = useState<
     "message" | "skill" | null
   >(null);
-  const [fortuneTellerTargets, setFortuneTellerTargets] = useState({
+  const [skillTargets, setSkillTargets] = useState({
     first: "",
     second: "",
   });
+  const [skillRoleId, setSkillRoleId] = useState("");
+  const [librarianNoOutsider, setLibrarianNoOutsider] = useState(false);
   const [sendError, setSendError] = useState("");
   const timelineRef = useRef<HTMLDivElement>(null);
   const sending = sendingMode !== null;
@@ -1763,6 +1847,16 @@ function NightPanel({
     () => new Map(roomPlayers.map((player) => [player.id, player])),
     [roomPlayers],
   );
+  const selectedPlayer = rolePlayers.find(
+    (player) => player.id === targetPlayerId,
+  );
+  const selectedRoomPlayer = selectedPlayer
+    ? roomPlayersById.get(selectedPlayer.id)
+    : undefined;
+  const selectedPlayerName = selectedPlayer
+    ? selectedRoomPlayer?.name ||
+      `座位 ${String(selectedPlayer.seat).padStart(2, "0")}`
+    : "玩家";
 
   useEffect(() => {
     if (!rolePlayers.some((player) => player.id === targetPlayerId)) {
@@ -1783,34 +1877,108 @@ function NightPanel({
     () => state.players,
     [state.players],
   );
+  const latestPlayerSkillChoice = useMemo(() => {
+    if (!targetPlayerId || !currentRole) return null;
+    return playerMessages
+      .filter(
+        (message) =>
+          message.player_id === targetPlayerId &&
+          message.round === state.round,
+      )
+      .map((message) => ({
+        message,
+        choice: parsePlayerSkillChoiceMessage(message.body),
+      }))
+      .filter(
+        (
+          entry,
+        ): entry is {
+          message: PlayerMessage;
+          choice: NonNullable<
+            ReturnType<typeof parsePlayerSkillChoiceMessage>
+          >;
+        } => entry.choice?.roleId === currentRole.id,
+      )
+      .sort(
+        (left, right) =>
+          new Date(right.message.created_at).getTime() -
+          new Date(left.message.created_at).getTime(),
+      )[0]?.choice ?? null;
+  }, [currentRole, playerMessages, state.round, targetPlayerId]);
+  const pairSkillRole =
+    currentRole?.id === "washerwoman" ||
+    currentRole?.id === "librarian" ||
+    currentRole?.id === "investigator" ||
+    currentRole?.id === "fortune-teller";
 
   useEffect(() => {
-    if (currentRole?.id !== "fortune-teller") return;
+    if (!pairSkillRole) return;
     const candidateIds = new Set(
       fortuneTellerCandidates.map((player) => player.id),
     );
-    const nextFirst = candidateIds.has(fortuneTellerTargets.first)
-      ? fortuneTellerTargets.first
+    const submittedFirst =
+      currentRole?.id === "fortune-teller"
+        ? latestPlayerSkillChoice?.playerIds[0]
+        : "";
+    const submittedSecond =
+      currentRole?.id === "fortune-teller"
+        ? latestPlayerSkillChoice?.playerIds[1]
+        : "";
+    const nextFirst =
+      submittedFirst && candidateIds.has(submittedFirst)
+        ? submittedFirst
+        : candidateIds.has(skillTargets.first)
+          ? skillTargets.first
       : fortuneTellerCandidates[0]?.id ?? "";
     const nextSecond =
-      candidateIds.has(fortuneTellerTargets.second) &&
-      fortuneTellerTargets.second !== nextFirst
-        ? fortuneTellerTargets.second
+      submittedSecond &&
+      candidateIds.has(submittedSecond) &&
+      submittedSecond !== nextFirst
+        ? submittedSecond
+        : candidateIds.has(skillTargets.second) &&
+            skillTargets.second !== nextFirst
+          ? skillTargets.second
         : fortuneTellerCandidates.find(
             (player) => player.id !== nextFirst,
           )?.id ?? "";
     if (
-      nextFirst !== fortuneTellerTargets.first ||
-      nextSecond !== fortuneTellerTargets.second
+      nextFirst !== skillTargets.first ||
+      nextSecond !== skillTargets.second
     ) {
-      setFortuneTellerTargets({ first: nextFirst, second: nextSecond });
+      setSkillTargets({ first: nextFirst, second: nextSecond });
     }
   }, [
     currentRole?.id,
     fortuneTellerCandidates,
-    fortuneTellerTargets.first,
-    fortuneTellerTargets.second,
+    latestPlayerSkillChoice?.playerIds,
+    pairSkillRole,
+    skillTargets.first,
+    skillTargets.second,
   ]);
+
+  const skillRoleOptions = useMemo(() => {
+    const team =
+      currentRole?.id === "washerwoman"
+        ? "镇民"
+        : currentRole?.id === "librarian"
+          ? "外来者"
+          : currentRole?.id === "investigator"
+            ? "爪牙"
+            : null;
+    return team
+      ? getScriptRoles(state.scriptId).filter((role) => role.team === team)
+      : [];
+  }, [currentRole?.id, state.scriptId]);
+
+  useEffect(() => {
+    if (!skillRoleOptions.some((role) => role.id === skillRoleId)) {
+      setSkillRoleId(skillRoleOptions[0]?.id ?? "");
+    }
+  }, [skillRoleId, skillRoleOptions]);
+
+  useEffect(() => {
+    setLibrarianNoOutsider(false);
+  }, [currentRole?.id]);
 
   const redHerringPlayerId =
     state.players.find(isFortuneTellerRedHerring)?.id ?? "";
@@ -1831,29 +1999,6 @@ function NightPanel({
       roomPlayer?.name ? ` · ${roomPlayer.name}` : ""
     }`;
   };
-  const setEmpathResult = (count: number) => {
-    setMessageBody(`本晚两名存活邻座中有 ${count} 名邪恶玩家`);
-  };
-  const setFortuneTellerResult = (hasDemon: boolean) => {
-    const first = getNightPlayerLabel(fortuneTellerTargets.first);
-    const second = getNightPlayerLabel(fortuneTellerTargets.second);
-    setMessageBody(
-      `本晚查验${first}和${second}：${
-        hasDemon ? "是，其中一人被视为恶魔" : "否，两人都未被视为恶魔"
-      }`,
-    );
-  };
-
-  const selectedPlayer = rolePlayers.find(
-    (player) => player.id === targetPlayerId,
-  );
-  const selectedRoomPlayer = selectedPlayer
-    ? roomPlayersById.get(selectedPlayer.id)
-    : undefined;
-  const selectedPlayerName = selectedPlayer
-    ? selectedRoomPlayer?.name ||
-      `座位 ${String(selectedPlayer.seat).padStart(2, "0")}`
-    : "玩家";
   const conversation = useMemo(
     () =>
       [
@@ -1871,14 +2016,18 @@ function NightPanel({
           }),
         ...playerMessages
           .filter((message) => message.player_id === targetPlayerId)
-          .map((message) => ({
-            ...message,
-            direction: "incoming" as const,
-            label: `${selectedPlayerName} · 第 ${message.round} 回合`,
-            avatar: selectedPlayer
-              ? String(selectedPlayer.seat).padStart(2, "0")
-              : "?",
-          })),
+          .map((message) => {
+            const skillChoice = parsePlayerSkillChoiceMessage(message.body);
+            return {
+              ...message,
+              body: getPlayerMessageDisplayBody(message.body),
+              direction: "incoming" as const,
+              label: `${selectedPlayerName} · 第 ${message.round} 回合${skillChoice ? " · 技能选择" : ""}`,
+              avatar: selectedPlayer
+                ? String(selectedPlayer.seat).padStart(2, "0")
+                : "?",
+            };
+          }),
       ].sort(
         (left, right) =>
           new Date(left.created_at).getTime() -
@@ -1922,25 +2071,22 @@ function NightPanel({
     Boolean(selectedRoomPlayer?.is_claimed) &&
     Boolean(messageBody.trim()) &&
     !sending;
-  const roleSkillBody = messageBody.trim() || currentRole?.short.trim() || "";
-  const canSendSkill =
+  const canUseSkill =
     Boolean(room) &&
     Boolean(currentRole) &&
     Boolean(selectedRoomPlayer?.is_claimed) &&
-    Boolean(roleSkillBody) &&
     !sending;
 
-  const submitMessage = async (mode: "message" | "skill" = "message") => {
-    const body = mode === "skill" ? roleSkillBody : messageBody.trim();
-    const canSubmit = mode === "skill" ? canSendSkill : canSend;
-    if (!currentRole || !selectedPlayer || !body || !canSubmit) return;
-    setSendingMode(mode);
+  const submitMessage = async () => {
+    const body = messageBody.trim();
+    if (!currentRole || !selectedPlayer || !body || !canSend) return;
+    setSendingMode("message");
     setSendError("");
     try {
       await onSendMessage({
         playerId: selectedPlayer.id,
         roleId: currentRole.id,
-        body: mode === "skill" ? buildRoleSkillMessage(body) : body,
+        body,
       });
       setMessageBody("");
     } catch (reason) {
@@ -1955,6 +2101,69 @@ function NightPanel({
     } finally {
       setSendingMode(null);
     }
+  };
+
+  const submitSkill = async (body: string) => {
+    if (!currentRole || !selectedPlayer || !body.trim() || !canUseSkill) return;
+    setSendingMode("skill");
+    setSendError("");
+    try {
+      await onSendMessage({
+        playerId: selectedPlayer.id,
+        roleId: currentRole.id,
+        body: buildRoleSkillMessage(body),
+      });
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "";
+      setSendError(
+        /claimed player/i.test(message)
+          ? "该玩家尚未入座，暂时无法接收信息"
+          : /function|night_messages|schema cache/i.test(message)
+            ? "夜间消息数据库尚未配置"
+            : "技能信息发送失败，请稍后重试",
+      );
+    } finally {
+      setSendingMode(null);
+    }
+  };
+
+  const pairTargetsReady =
+    Boolean(skillTargets.first) &&
+    Boolean(skillTargets.second) &&
+    skillTargets.first !== skillTargets.second;
+  const sendPairRoleSkill = () => {
+    if (
+      !currentRole ||
+      (currentRole.id === "librarian" &&
+        librarianNoOutsider === false &&
+        !pairTargetsReady) ||
+      (currentRole.id !== "librarian" && !pairTargetsReady)
+    ) {
+      return;
+    }
+    const first = getNightPlayerLabel(skillTargets.first);
+    const second = getNightPlayerLabel(skillTargets.second);
+    const selectedInfoRole = getRole(skillRoleId);
+    const body =
+      currentRole.id === "washerwoman"
+        ? `${first}和${second}中，有一人是${selectedInfoRole.name}`
+        : currentRole.id === "librarian"
+          ? librarianNoOutsider
+            ? "本局没有外来者"
+            : `${first}和${second}中，有一人是${selectedInfoRole.name}`
+          : `${first}和${second}中，有一人是${selectedInfoRole.name}`;
+    void submitSkill(body);
+  };
+
+  const sendFortuneTellerResult = (hasDemon: boolean) => {
+    if (!pairTargetsReady) return;
+    const first = getNightPlayerLabel(skillTargets.first);
+    const second = getNightPlayerLabel(skillTargets.second);
+    void submitSkill(
+      `本晚查验${first}和${second}：${
+        hasDemon ? "是，其中一人被视为恶魔" : "否，两人都未被视为恶魔"
+      }`,
+    );
   };
 
   return (
@@ -2152,30 +2361,185 @@ function NightPanel({
             )}
 
             <div className="night-chat-composer">
-              {currentRole.id === "empath" ? (
-                <div className="night-skill-preset">
-                  <span>共情者本晚结果</span>
-                  <div className="night-skill-segments">
-                    {[0, 1, 2].map((count) => (
+              {currentRole.id === "washerwoman" ||
+              currentRole.id === "librarian" ||
+              currentRole.id === "investigator" ? (
+                <div className="night-skill-panel">
+                  <div className="night-skill-panel-heading">
+                    <span>
+                      <ScrollText size={14} />
+                      {currentRole.name}技能
+                    </span>
+                    <small>选择信息后直接发送，无需输入文字</small>
+                  </div>
+                  {currentRole.id === "librarian" ? (
+                    <div className="night-skill-mode">
+                      <button
+                        className={!librarianNoOutsider ? "active" : ""}
+                        onClick={() => setLibrarianNoOutsider(false)}
+                      >
+                        展示外来者
+                      </button>
+                      <button
+                        className={librarianNoOutsider ? "active" : ""}
+                        onClick={() => setLibrarianNoOutsider(true)}
+                      >
+                        没有外来者
+                      </button>
+                    </div>
+                  ) : null}
+                  {!librarianNoOutsider ||
+                  currentRole.id !== "librarian" ? (
+                    <div className="night-skill-fields">
+                      <div className="night-skill-target-grid">
+                        <select
+                          value={skillTargets.first}
+                          disabled={sending}
+                          aria-label={`${currentRole.name}第一名信息玩家`}
+                          onChange={(event) =>
+                            setSkillTargets((current) => ({
+                              ...current,
+                              first: event.target.value,
+                            }))
+                          }
+                        >
+                          {fortuneTellerCandidates.map((player) => (
+                            <option
+                              value={player.id}
+                              key={player.id}
+                              disabled={player.id === skillTargets.second}
+                            >
+                              {getNightPlayerLabel(player.id)}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={skillTargets.second}
+                          disabled={sending}
+                          aria-label={`${currentRole.name}第二名信息玩家`}
+                          onChange={(event) =>
+                            setSkillTargets((current) => ({
+                              ...current,
+                              second: event.target.value,
+                            }))
+                          }
+                        >
+                          {fortuneTellerCandidates.map((player) => (
+                            <option
+                              value={player.id}
+                              key={player.id}
+                              disabled={player.id === skillTargets.first}
+                            >
+                              {getNightPlayerLabel(player.id)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <label className="night-skill-role-field">
+                        <span>展示角色</span>
+                        <select
+                          value={skillRoleId}
+                          disabled={sending}
+                          onChange={(event) =>
+                            setSkillRoleId(event.target.value)
+                          }
+                        >
+                          {skillRoleOptions.map((role) => (
+                            <option value={role.id} key={role.id}>
+                              {role.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  ) : null}
+                  <button
+                    className="primary-button night-skill-submit"
+                    disabled={
+                      !canUseSkill ||
+                      (currentRole.id === "librarian" &&
+                      librarianNoOutsider
+                        ? false
+                        : !pairTargetsReady || !skillRoleId)
+                    }
+                    onClick={sendPairRoleSkill}
+                  >
+                    <Send size={15} />
+                    {sendingMode === "skill"
+                      ? "发送中"
+                      : librarianNoOutsider &&
+                          currentRole.id === "librarian"
+                        ? "发送“没有外来者”"
+                        : "发送技能信息"}
+                  </button>
+                </div>
+              ) : null}
+              {currentRole.id === "chef" ||
+              currentRole.id === "empath" ? (
+                <div className="night-skill-panel compact">
+                  <div className="night-skill-panel-heading">
+                    <span>
+                      <ScrollText size={14} />
+                      {currentRole.name}结果
+                    </span>
+                    <small>点击数字后立即发送</small>
+                  </div>
+                  <div className="night-skill-result-grid">
+                    {(currentRole.id === "chef"
+                      ? [0, 1, 2, 3, 4]
+                      : [0, 1, 2]
+                    ).map((count) => (
                       <button
                         className="secondary-button"
                         key={count}
-                        onClick={() => setEmpathResult(count)}
+                        disabled={!canUseSkill}
+                        onClick={() =>
+                          void submitSkill(
+                            currentRole.id === "chef"
+                              ? `相邻邪恶玩家共有 ${count} 对`
+                              : `本晚两名存活邻座中有 ${count} 名邪恶玩家`,
+                          )
+                        }
                       >
-                        {count} 名邪恶
+                        {count}
+                        <small>
+                          {currentRole.id === "chef" ? "对" : "名邪恶"}
+                        </small>
                       </button>
                     ))}
                   </div>
                 </div>
               ) : null}
               {currentRole.id === "fortune-teller" ? (
-                <div className="night-skill-preset fortune-teller-preset">
-                  <span>占卜师本晚查验</span>
-                  <div className="fortune-teller-targets">
+                <div className="night-skill-panel">
+                  <div className="night-skill-panel-heading">
+                    <span>
+                      <Target size={14} />
+                      占卜师本晚查验
+                    </span>
+                    <small>玩家选人，上帝只需发送结果</small>
+                  </div>
+                  {latestPlayerSkillChoice ? (
+                    <div className="night-player-choice">
+                      <Check size={14} />
+                      <span>
+                        玩家已选择：
+                        {getNightPlayerLabel(skillTargets.first)}、
+                        {getNightPlayerLabel(skillTargets.second)}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="night-player-choice waiting">
+                      <Target size={14} />
+                      <span>玩家尚未提交，本次可由上帝代选</span>
+                    </div>
+                  )}
+                  <div className="night-skill-target-grid">
                     <select
-                      value={fortuneTellerTargets.first}
+                      value={skillTargets.first}
+                      disabled={sending}
                       onChange={(event) =>
-                        setFortuneTellerTargets((current) => ({
+                        setSkillTargets((current) => ({
                           ...current,
                           first: event.target.value,
                         }))
@@ -2186,16 +2550,17 @@ function NightPanel({
                         <option
                           value={player.id}
                           key={player.id}
-                          disabled={player.id === fortuneTellerTargets.second}
+                          disabled={player.id === skillTargets.second}
                         >
                           {getNightPlayerLabel(player.id)}
                         </option>
                       ))}
                     </select>
                     <select
-                      value={fortuneTellerTargets.second}
+                      value={skillTargets.second}
+                      disabled={sending}
                       onChange={(event) =>
-                        setFortuneTellerTargets((current) => ({
+                        setSkillTargets((current) => ({
                           ...current,
                           second: event.target.value,
                         }))
@@ -2206,33 +2571,29 @@ function NightPanel({
                         <option
                           value={player.id}
                           key={player.id}
-                          disabled={player.id === fortuneTellerTargets.first}
+                          disabled={player.id === skillTargets.first}
                         >
                           {getNightPlayerLabel(player.id)}
                         </option>
                       ))}
                     </select>
                   </div>
-                  <div className="night-skill-segments fortune-result-segments">
+                  <div className="night-skill-result-grid fortune-results">
                     <button
-                      className="secondary-button"
-                      disabled={
-                        !fortuneTellerTargets.first ||
-                        !fortuneTellerTargets.second
-                      }
-                      onClick={() => setFortuneTellerResult(true)}
+                      className="secondary-button positive"
+                      disabled={!canUseSkill || !pairTargetsReady}
+                      onClick={() => sendFortuneTellerResult(true)}
                     >
-                      是 · 有恶魔
+                      是
+                      <small>有恶魔</small>
                     </button>
                     <button
-                      className="secondary-button"
-                      disabled={
-                        !fortuneTellerTargets.first ||
-                        !fortuneTellerTargets.second
-                      }
-                      onClick={() => setFortuneTellerResult(false)}
+                      className="secondary-button negative"
+                      disabled={!canUseSkill || !pairTargetsReady}
+                      onClick={() => sendFortuneTellerResult(false)}
                     >
-                      否 · 无恶魔
+                      否
+                      <small>无恶魔</small>
                     </button>
                   </div>
                 </div>
@@ -2243,7 +2604,7 @@ function NightPanel({
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
-                    void submitMessage("message");
+                    void submitMessage();
                   }
                 }}
                 placeholder={
@@ -2265,22 +2626,9 @@ function NightPanel({
                 </span>
                 <div className="night-chat-actions">
                   <button
-                    className="secondary-button night-skill-button"
-                    disabled={!canSendSkill}
-                    onClick={() => void submitMessage("skill")}
-                    title={
-                      messageBody.trim()
-                        ? "将输入内容作为技能信息发送并同步到座位卡"
-                        : `发送${currentRole.name}的角色能力并同步到座位卡`
-                    }
-                  >
-                    <ScrollText size={15} />
-                    {sendingMode === "skill" ? "发送中" : "发送技能"}
-                  </button>
-                  <button
                     className="primary-button night-send-button"
                     disabled={!canSend}
-                    onClick={() => void submitMessage("message")}
+                    onClick={() => void submitMessage()}
                   >
                     <Send size={15} />
                     {sendingMode === "message" ? "发送中" : "发送"}
@@ -2529,7 +2877,7 @@ function HostMessagesPanel({
       { body: string; createdAt: string; direction: "incoming" | "outgoing" }
     >();
     [...nightMessages.map((message) => ({ ...message, direction: "outgoing" as const })),
-      ...playerMessages.map((message) => ({ ...message, direction: "incoming" as const }))]
+          ...playerMessages.map((message) => ({ ...message, direction: "incoming" as const }))]
       .sort(
         (left, right) =>
           new Date(right.created_at).getTime() -
@@ -2541,7 +2889,7 @@ function HostMessagesPanel({
             body:
               message.direction === "outgoing"
                 ? getNightMessageDisplayBody(message.body)
-                : message.body,
+                : getPlayerMessageDisplayBody(message.body),
             createdAt: message.created_at,
             direction: message.direction,
           });
@@ -2609,15 +2957,19 @@ function HostMessagesPanel({
       }),
     ...playerMessages
       .filter((message) => message.player_id === selectedPlayerId)
-      .map((message) => ({
-        ...message,
-        direction: "incoming" as const,
-        label: `${selectedSenderName} · 第 ${message.round} 回合`,
-        avatar: selectedPlayer
-          ? String(selectedPlayer.seat).padStart(2, "0")
-          : "?",
-        demonBluffRoleIds: null,
-      })),
+      .map((message) => {
+        const skillChoice = parsePlayerSkillChoiceMessage(message.body);
+        return {
+          ...message,
+          body: getPlayerMessageDisplayBody(message.body),
+          direction: "incoming" as const,
+          label: `${selectedSenderName} · 第 ${message.round} 回合${skillChoice ? " · 技能选择" : ""}`,
+          avatar: selectedPlayer
+            ? String(selectedPlayer.seat).padStart(2, "0")
+            : "?",
+          demonBluffRoleIds: null,
+        };
+      }),
   ];
   const evilTimeline = evilMessages.map((message) => {
     const sender = message.sender_player_id

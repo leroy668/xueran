@@ -311,6 +311,31 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-chat-empty strong { margin: 10px 0 5px; color: var(--ink); font-size: 15px; }
 .night-chat-empty span { color: var(--muted); font-size: 10px; }
 .night-chat-composer { padding: 12px 16px 14px; border-top: 1px solid var(--line); background: #1a1a1d; }
+.night-skill-panel { margin-bottom: 11px; padding: 11px; border: 1px solid rgba(141,170,195,.34); border-left: 3px solid var(--blue); background: #161b1f; }
+.night-skill-panel.compact { padding-bottom: 10px; }
+.night-skill-panel-heading { min-height: 28px; margin-bottom: 9px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.night-skill-panel-heading > span { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 11px; font-weight: 800; }
+.night-skill-panel-heading > span svg { color: var(--blue); }
+.night-skill-panel-heading > small { color: var(--dim); font-size: 8px; text-align: right; }
+.night-skill-mode { width: fit-content; margin-bottom: 8px; display: grid; grid-template-columns: repeat(2, minmax(94px, 1fr)); border: 1px solid var(--line); background: #111113; }
+.night-skill-mode button { min-height: 30px; border: 0; background: transparent; color: var(--muted); padding: 0 10px; font-size: 9px; }
+.night-skill-mode button + button { border-left: 1px solid var(--line); }
+.night-skill-mode button.active { background: rgba(141,170,195,.16); color: #bad2e5; box-shadow: inset 0 -2px var(--blue); }
+.night-skill-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, .45fr); gap: 7px; }
+.night-skill-target-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.night-skill-target-grid select, .night-skill-role-field select { width: 100%; min-width: 0; min-height: 36px; border: 1px solid var(--line-light); background: #111113; color: var(--ink); padding: 0 8px; font-size: 10px; }
+.night-skill-role-field { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 7px; }
+.night-skill-role-field > span { color: var(--muted); font-size: 8px; white-space: nowrap; }
+.night-skill-submit { min-width: 132px; min-height: 34px; margin: 9px 0 0 auto; display: flex; font-size: 10px; }
+.night-skill-result-grid { display: grid; grid-template-columns: repeat(5, minmax(56px, 1fr)); gap: 6px; }
+.night-skill-result-grid .secondary-button { min-width: 0; min-height: 40px; padding: 4px 7px; flex-direction: column; gap: 1px; color: var(--ink); font-size: 14px; font-weight: 800; }
+.night-skill-result-grid .secondary-button small { color: var(--muted); font-size: 8px; font-weight: 600; }
+.night-skill-result-grid.fortune-results { grid-template-columns: repeat(2, minmax(90px, 1fr)); margin-top: 8px; }
+.night-skill-result-grid .positive { border-color: rgba(215,97,86,.5); color: #ef9a94; }
+.night-skill-result-grid .negative { border-color: rgba(121,181,138,.45); color: #a8cfaa; }
+.night-player-choice { min-height: 32px; margin-bottom: 8px; padding: 6px 8px; display: flex; align-items: center; gap: 7px; border: 1px solid rgba(121,181,138,.34); background: rgba(121,181,138,.08); color: #a8cfaa; font-size: 9px; line-height: 1.45; }
+.night-player-choice svg { flex: 0 0 auto; }
+.night-player-choice.waiting { border-color: var(--line); background: #18181b; color: var(--muted); }
 .night-skill-preset { margin-bottom: 9px; padding: 9px; border: 1px solid var(--line); background: #151517; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .night-skill-preset > span { color: var(--muted); font-size: 9px; font-weight: 700; white-space: nowrap; }
 .night-skill-segments { display: flex; align-items: center; gap: 5px; }
@@ -485,6 +510,19 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .player-message-view .player-view-heading { flex: 0 0 auto; padding: 17px 20px; }
 .evil-team-view .player-view-heading { border-bottom-color: rgba(215,97,86,.38); }
 .evil-team-view .player-view-heading > svg { color: var(--red); }
+.player-skill-action { flex: 0 0 auto; padding: 12px 14px; border-top: 1px solid var(--line); border-bottom: 1px solid rgba(141,170,195,.3); background: #171d21; }
+.player-skill-action-heading { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 9px; }
+.player-skill-action-icon { width: 34px; height: 34px; display: grid; place-items: center; overflow: hidden; border: 1px solid rgba(141,170,195,.42); background: #11161a; }
+.player-skill-action-heading > div { min-width: 0; }
+.player-skill-action-heading strong, .player-skill-action-heading small { display: block; }
+.player-skill-action-heading strong { color: var(--ink); font-size: 11px; }
+.player-skill-action-heading small { margin-top: 3px; color: var(--muted); font-size: 8px; line-height: 1.4; }
+.player-skill-submitted { min-height: 22px; padding: 0 7px; display: inline-flex; align-items: center; border: 1px solid rgba(121,181,138,.38); color: #a8cfaa; font-size: 8px; font-weight: 700; }
+.player-skill-targets { margin-top: 9px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; gap: 7px; }
+.player-skill-targets select { min-width: 0; min-height: 38px; border: 1px solid var(--line-light); background: #111113; color: var(--ink); padding: 0 8px; font-size: 10px; }
+.player-skill-targets button { min-width: 98px; min-height: 38px; padding: 0 10px; font-size: 10px; }
+.player-skill-latest { margin: 7px 0 0; color: var(--blue); font-size: 9px; line-height: 1.45; }
+.player-skill-action .inline-error { margin-top: 7px; }
 .player-chat-composer { position: sticky; z-index: 2; bottom: 0; flex: 0 0 auto; padding: 11px 13px 8px; border-top: 1px solid var(--line); background: #1b1b1e; }
 .player-chat-composer-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 9px; }
 .player-chat-composer textarea { width: 100%; min-height: 42px; max-height: 96px; resize: none; border: 1px solid var(--line-light); border-radius: 5px; background: #111113; color: var(--ink); padding: 9px 11px; font-size: 14px; line-height: 1.55; }
@@ -642,6 +680,17 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .night-chat-timeline, .night-chat-empty { min-height: 250px; }
   .night-chat-timeline { max-height: 46vh; padding: 14px 10px; }
   .night-chat-composer { padding: 10px; }
+  .night-skill-panel { padding: 9px; }
+  .night-skill-panel-heading { align-items: flex-start; }
+  .night-skill-panel-heading > small { max-width: 138px; line-height: 1.35; }
+  .night-skill-mode { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .night-skill-fields { grid-template-columns: 1fr; }
+  .night-skill-target-grid { grid-template-columns: 1fr; }
+  .night-skill-role-field { grid-template-columns: 62px minmax(0, 1fr); }
+  .night-skill-submit { width: 100%; margin-top: 8px; }
+  .night-skill-result-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .night-skill-result-grid .secondary-button { min-height: 38px; padding: 3px; font-size: 13px; }
+  .night-skill-result-grid.fortune-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .night-skill-preset { align-items: stretch; flex-direction: column; gap: 7px; }
   .night-skill-segments { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .night-skill-segments .secondary-button { min-width: 0; padding: 0 5px; }
@@ -679,6 +728,9 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .player-message-view { height: calc(100dvh - 146px); min-height: 430px; padding: 0; }
   .player-message-view .player-view-heading { min-height: 60px; padding: 12px 14px; }
   .player-message-view .player-view-heading h2 { font-size: 18px; }
+  .player-skill-action { padding: 10px; }
+  .player-skill-targets { grid-template-columns: 1fr 1fr; }
+  .player-skill-targets button { grid-column: 1 / -1; width: 100%; min-width: 0; }
   .player-message-timeline { min-height: 0; padding: 14px 10px 18px; }
   .player-message-content { width: min(78%, 410px); }
   .player-message-bubble p { font-size: 14px; }
