@@ -874,7 +874,7 @@ function GrimoireApp() {
     ]);
   };
 
-  const handleSimulatePlayerMessage = async (
+  const handleSimulatePlayerSkillReply = async (
     playerId: string,
     body: string,
   ) => {
@@ -890,13 +890,17 @@ function GrimoireApp() {
         ...current.filter((item) => item.id !== message.id),
       ]);
       const target = roomPlayers.find((player) => player.id === playerId);
-      setToast(`已模拟 ${target?.seat ?? "?"} 号玩家来信`);
+      const gamePlayer = state.players.find((player) => player.id === playerId);
+      const roleName = gamePlayer ? getRole(gamePlayer.roleId).name : "玩家";
+      setToast(
+        `已模拟 ${target?.seat ?? "?"} 号${roleName}技能回复`,
+      );
     } catch (reason) {
       setToast(
         reason instanceof Error &&
           /function|schema cache|simulate_player_message/i.test(reason.message)
-          ? "模拟消息数据库尚未配置"
-          : "模拟来信发送失败",
+          ? "模拟技能回复数据库尚未配置"
+          : "模拟技能回复发送失败",
       );
       throw reason;
     }
@@ -974,6 +978,7 @@ function GrimoireApp() {
                 room={room}
                 roomUrl={room ? buildRoomUrl(room.code) : ""}
                 players={roomPlayers}
+                gamePlayers={state.players}
                 busy={roomBusy}
                 syncStatus={syncStatus}
                 onCreate={() => void startSharedRoom()}
@@ -982,7 +987,7 @@ function GrimoireApp() {
                 onToggleSimulation={(enabled) =>
                   void handleToggleSimulation(enabled)
                 }
-                onSimulatePlayerMessage={handleSimulatePlayerMessage}
+                onSimulatePlayerSkillReply={handleSimulatePlayerSkillReply}
                 onClose={() => void endSharedRoom()}
               />
             }
