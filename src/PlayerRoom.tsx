@@ -14,7 +14,6 @@ import {
   Users,
 } from "lucide-react";
 import {
-  getPlayerVisibleRoleId,
   getRole,
   getScriptRoles,
   scripts,
@@ -33,8 +32,8 @@ import {
   sendPlayerMessage,
   type EvilMessage,
   type NightMessage,
+  type PlayerIdentity,
   type PlayerMessage,
-  type PrivateIdentity,
   type PublicRoomPlayer,
   type SharedRoom,
 } from "./room";
@@ -63,7 +62,7 @@ const scriptTeams: Team[] = ["镇民", "外来者", "爪牙", "恶魔"];
 export function PlayerRoom({ roomCode }: { roomCode: string }) {
   const [room, setRoom] = useState<SharedRoom | null>(null);
   const [players, setPlayers] = useState<PublicRoomPlayer[]>([]);
-  const [identity, setIdentity] = useState<PrivateIdentity | null>(null);
+  const [identity, setIdentity] = useState<PlayerIdentity | null>(null);
   const [nightMessages, setNightMessages] = useState<NightMessage[]>([]);
   const [playerMessages, setPlayerMessages] = useState<PlayerMessage[]>([]);
   const [evilMessages, setEvilMessages] = useState<EvilMessage[]>([]);
@@ -260,15 +259,11 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
 
   if (identity) {
     const player = players.find((item) => item.id === identity.player_id);
-    const displayedRoleId = getPlayerVisibleRoleId(
-      identity.role_id,
-      identity.drunk_role_id || "washerwoman",
-    );
     const payload: IdentityPayload = {
       version: 1,
       playerName: player?.name.trim() || formatSeat(player?.seat),
       seat: player?.seat ?? 0,
-      roleId: displayedRoleId,
+      roleId: identity.role_id,
       message: identity.identity_message,
     };
     return (

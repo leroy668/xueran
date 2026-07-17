@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  AlertTriangle,
   BookOpen,
   Check,
   ChevronLeft,
@@ -1014,10 +1015,14 @@ function GrimoireApp() {
     body: string;
   }) => {
     if (!room) throw new Error("请先创建共享房间");
+    const recipient = state.players.find((player) => player.id === playerId);
+    const playerVisibleRoleId = recipient
+      ? getPlayerVisibleRoleId(recipient.roleId, recipient.drunkRoleId)
+      : roleId;
     const message = await sendNightMessage({
       roomId: room.id,
       playerId,
-      roleId,
+      roleId: playerVisibleRoleId,
       round: state.round,
       body,
     });
@@ -1776,6 +1781,10 @@ function PlayerEditor({
   const role = getRole(player.roleId);
   const roleSkill = getTroubleBrewingSkill(role.id);
   const roleState = getPlayerRoleState(player, role.id);
+  const visibleRoleId = getPlayerVisibleRoleId(
+    player.roleId,
+    player.drunkRoleId,
+  );
   const disguiseRole = player.drunkRoleId
     ? getRole(player.drunkRoleId)
     : null;
@@ -1784,6 +1793,12 @@ function PlayerEditor({
       .filter((item) => item.id !== player.id)
       .flatMap((item) => [item.roleId, item.drunkRoleId])
       .filter(Boolean),
+  );
+  const disguiseConflictsWithActualRole = Boolean(
+    disguiseRole &&
+      players.some(
+        (item) => item.id !== player.id && item.roleId === disguiseRole.id,
+      ),
   );
   const [noteDraft, setNoteDraft] = useState("");
   const parsedNoteEntries = parsePlayerNotes(player.notes);
@@ -1804,7 +1819,7 @@ function PlayerEditor({
       new Date(left.created_at).getTime(),
   );
   const fortuneHistory = useMemo(() => {
-    if (role.id !== "fortune-teller") return [];
+    if (visibleRoleId !== "fortune-teller") return [];
     const choicesByRound = new Map<
       number,
       {
@@ -1816,7 +1831,7 @@ function PlayerEditor({
     >();
     for (const message of playerMessages) {
       const choice = parsePlayerSkillChoiceMessage(message.body);
-      if (!choice || choice.roleId !== role.id) continue;
+      if (!choice || choice.roleId !== visibleRoleId) continue;
       const current = choicesByRound.get(message.round);
       if (
         !current ||
@@ -1831,7 +1846,7 @@ function PlayerEditor({
       { message: NightMessage; body: string }
     >();
     for (const message of messageHistory) {
-      if (message.role_id !== role.id) continue;
+      if (message.role_id !== visibleRoleId) continue;
       const body = getRoleSkillMessage(message.body);
       if (!body) continue;
       const current = resultsByRound.get(message.round);
@@ -1886,7 +1901,7 @@ function PlayerEditor({
           new Date(right.createdAt).getTime() -
           new Date(left.createdAt).getTime(),
       );
-  }, [messageHistory, playerMessages, players, role.id]);
+  }, [messageHistory, playerMessages, players, visibleRoleId]);
   const addNote = () => {
     const body = noteDraft.trim();
     if (!body) return;
@@ -2024,6 +2039,11 @@ function PlayerEditor({
                 </option>
               ))}
           </select>
+          {disguiseConflictsWithActualRole ? (
+            <span className="drunk-disguise-warning">
+              该展示身份已经在场，请更换一个不在本局的镇民身份
+            </span>
+          ) : null}
         </label>
       ) : null}
 
@@ -2388,6 +2408,11 @@ function NightPanel({
   );
   const selectedPlayer = rolePlayers.find(
     (player) => player.id === targetPlayerId,
+  );
+  const selectedPlayerHasNoShownAbility = Boolean(
+    selectedPlayer &&
+      (selectedPlayer.roleId === "drunk" ||
+        selectedPlayer.roleId === "marionette"),
   );
   const selectedRoomPlayer = selectedPlayer
     ? roomPlayersById.get(selectedPlayer.id)
@@ -3025,9 +3050,17 @@ function NightPanel({
     if (!target) return;
     const targetLabel = formatSeat(target.seat);
     const sourceLabel = formatSeat(selectedPlayer.seat);
+    if (selectedPlayerHasNoShownAbility) {
+      await submitSkillToPlayer(
+        selectedPlayer.id,
+        "nightwatchman",
+        `你选择了${targetLabel}接收守夜人通知`,
+      );
+      return;
+    }
     const sent = await submitSkillToPlayer(
       target.id,
-      target.roleId,
+      getPlayerVisibleRoleId(target.roleId, target.drunkRoleId),
       `${sourceLabel}是守夜人`,
       false,
     );
@@ -3214,16 +3247,36 @@ function NightPanel({
                         roomPlayer?.is_claimed && roomPlayer.name
                           ? roomPlayer.name
                           : "未入座";
+                      const actualRole = getRole(player.roleId);
+                      const visibleRole = getRole(
+                        getPlayerVisibleRoleId(
+                          player.roleId,
+                          player.drunkRoleId,
+                        ),
+                      );
+                      const roleLabel =
+                        actualRole.id === visibleRole.id
+                          ? visibleRole.name
+                          : `${visibleRole.name}（真实：${actualRole.name}）`;
                       return (
                         <option key={player.id} value={player.id}>
                           {formatSeat(player.seat)}
-                          {` · ${playerName} · ${getRole(player.roleId).name}`}
+                          {` · ${playerName} · ${roleLabel}`}
                         </option>
                       );
                     })}
                   </select>
                 </label>
               </div>
+              {selectedPlayerHasNoShownAbility ? (
+                <div className="night-disguise-warning">
+                  <AlertTriangle size={14} />
+                  <span>
+                    该玩家真实身份是{getRole(selectedPlayer?.roleId ?? "drunk").name}，
+                    展示能力不会产生真实效果；可以发送误导信息，但不要实际改变其他玩家状态。
+                  </span>
+                </div>
+              ) : null}
             {currentRole.id === "fortune-teller" ? (
               <div className="fortune-teller-setting">
                 <div>
@@ -3597,7 +3650,7 @@ function NightPanel({
                 <div className="night-skill-panel">
                   <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><Target size={14} />守夜人通知</span><small>{currentRole.short}</small></div></div>
                   <div className={latestPlayerSkillChoice ? "night-player-choice" : "night-player-choice waiting"}><Target size={14} /><span>{latestPlayerSkillChoice ? `玩家已提交：${latestPlayerSkillChoice.summary}` : "玩家尚未提交，可由上帝代选"}</span></div>
-                  <div className="night-skill-single-row"><select value={singleSkillTargetId} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</select><button className="primary-button" disabled={!canUseSkill || !singleSkillTargetId} onClick={() => void sendNightwatchmanNotice()}><Send size={15} />通知双方</button></div>
+                  <div className="night-skill-single-row"><select value={singleSkillTargetId} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</select><button className="primary-button" disabled={!canUseSkill || !singleSkillTargetId} onClick={() => void sendNightwatchmanNotice()}><Send size={15} />{selectedPlayerHasNoShownAbility ? "仅回复该玩家" : "通知双方"}</button></div>
                 </div>
               ) : null}
               {currentRole.id === "moonchild" || currentRole.id === "klutz" ? (
@@ -4242,7 +4295,10 @@ function HostMessagesPanel({
       } else if (selectedPlayer) {
         await onSendMessage({
           playerId: selectedPlayer.id,
-          roleId: selectedPlayer.roleId,
+          roleId: getPlayerVisibleRoleId(
+            selectedPlayer.roleId,
+            selectedPlayer.drunkRoleId,
+          ),
           body: messageBody.trim(),
         });
       }

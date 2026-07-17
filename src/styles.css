@@ -101,6 +101,9 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .simulation-skill-summary small { margin-top: 2px; color: var(--dim); font-size: 8px; line-height: 1.4; }
 .simulation-skill-summary .simulation-skill-ability { margin-top: 4px; color: #c9c5bd; }
 .simulation-skill-summary .simulation-skill-status { color: var(--blue); }
+.drunk-disguise-warning { grid-column: 1 / -1; color: #e7a89f; font-size: 8px; line-height: 1.4; }
+.night-disguise-warning { margin: 8px 0 0; padding: 8px 10px; display: flex; align-items: flex-start; gap: 7px; border-left: 2px solid var(--red); background: rgba(215,97,86,.08); color: #e4b5ae; font-size: 9px; line-height: 1.5; }
+.night-disguise-warning svg { flex: 0 0 auto; margin-top: 1px; }
 .simulation-skill-targets { margin-top: 6px; display: grid; gap: 6px; }
 .simulation-skill-targets .primary-button { width: 100%; min-height: 32px; font-size: 10px; }
 .simulation-skill-submitted { margin: 0; padding: 6px 8px; border-left: 2px solid var(--green); background: rgba(121,181,138,.08); color: #a8cfaa; font-size: 9px; line-height: 1.4; }

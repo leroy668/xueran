@@ -38,6 +38,13 @@ export type PrivateIdentity = {
   claimed_by?: string | null;
 };
 
+export type PlayerIdentity = {
+  player_id: string;
+  room_id: string;
+  role_id: string;
+  identity_message: string;
+};
+
 export type NightMessage = {
   id: string;
   room_id: string;
@@ -269,13 +276,12 @@ export const getRoomPlayers = async (roomId: string) => {
 };
 
 export const getMyIdentity = async (roomId: string) => {
-  const { data, error } = await supabase
-    .from("xueran_identities")
-    .select("player_id, room_id, role_id, drunk_role_id, identity_message")
-    .eq("room_id", roomId)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("xueran_get_my_identity", {
+    p_room_id: roomId,
+  });
   if (error) throw error;
-  return data as PrivateIdentity | null;
+  return ((data as PlayerIdentity[] | null)?.[0] ??
+    null) as PlayerIdentity | null;
 };
 
 const isMissingNightMessagesTable = (error: { code?: string; message?: string }) =>
