@@ -22,7 +22,10 @@ import {
   getRoleSkillMessage,
 } from "./roleSkillMessages";
 import { RoleIcon } from "./RoleIcon";
-import { getTroubleBrewingSkill } from "./troubleBrewingSkills";
+import {
+  getTroubleBrewingSkill,
+  ravenkeeperDeathNotice,
+} from "./troubleBrewingSkills";
 import type {
   NightMessage,
   PlayerMessage,
@@ -375,7 +378,8 @@ function SimulatedPlayerSkillReplyForm({
     .filter(
       (message) =>
         message.player_id === playerId &&
-        Boolean(getRoleSkillMessage(message.body)),
+        (Boolean(getRoleSkillMessage(message.body)) ||
+          message.body === ravenkeeperDeathNotice),
     )
     .sort(
       (left, right) =>

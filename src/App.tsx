@@ -87,7 +87,10 @@ import {
   loadState,
 } from "./storage";
 import { formatSeat } from "./seat";
-import { getTroubleBrewingSkill } from "./troubleBrewingSkills";
+import {
+  getTroubleBrewingSkill,
+  ravenkeeperDeathNotice,
+} from "./troubleBrewingSkills";
 import { ensureAnonymousSession, supabase } from "./supabase";
 import type {
   GameState,
@@ -2458,6 +2461,12 @@ function NightPanel({
           new Date(left.message.created_at).getTime(),
       )[0]?.choice ?? null;
   }, [currentRole, playerMessages, state.phase, state.round, targetPlayerId]);
+  const ravenkeeperDeathNotified = nightMessages.some(
+    (message) =>
+      message.player_id === targetPlayerId &&
+      message.round === state.round &&
+      message.body === ravenkeeperDeathNotice,
+  );
   const pairSkillRole =
     currentRole?.id === "washerwoman" ||
     currentRole?.id === "librarian" ||
@@ -2826,6 +2835,8 @@ function NightPanel({
     Boolean(currentRole) &&
     Boolean(selectedRoomPlayer?.is_claimed) &&
     !sending;
+  const canResolveRoleReveal =
+    currentRole?.id !== "ravenkeeper" || Boolean(latestPlayerSkillChoice);
 
   const submitMessage = async () => {
     const body = messageBody.trim();
@@ -3007,13 +3018,39 @@ function NightPanel({
   };
 
   const sendRoleRevealSkill = () => {
-    if (!currentRole || !singleSkillTargetId || !revealedSkillRoleId) return;
+    if (
+      !currentRole ||
+      !singleSkillTargetId ||
+      !revealedSkillRoleId ||
+      !canResolveRoleReveal
+    ) return;
     const targetLabel = getNightSeatLabel(singleSkillTargetId);
     const shownRole = getRole(revealedSkillRoleId);
     const body = currentRole.id === "undertaker"
       ? "今天被处决的" + targetLabel + "是" + shownRole.name
       : "你查验的" + targetLabel + "是" + shownRole.name;
     void submitSkill(body);
+  };
+
+  const notifyRavenkeeperDeath = async () => {
+    if (!selectedPlayer || currentRole?.id !== "ravenkeeper" || !canUseSkill) {
+      return;
+    }
+    if (selectedPlayer.alive) {
+      onUpdate({
+        players: state.players.map((player) =>
+          player.id === selectedPlayer.id
+            ? { ...player, alive: false }
+            : player,
+        ),
+      });
+    }
+    await submitSkillToPlayer(
+      selectedPlayer.id,
+      "ravenkeeper",
+      ravenkeeperDeathNotice,
+      false,
+    );
   };
 
   const sendSpyGrimoire = () => {
@@ -3491,14 +3528,39 @@ function NightPanel({
                       <small>{currentRole.short}</small>
                     </div>
                   </div>
-                  {currentRole.id === "ravenkeeper" && latestPlayerSkillChoice ? (
-                    <div className="night-player-choice"><Check size={14} /><span>玩家已提交：{latestPlayerSkillChoice.summary}</span></div>
+                  {currentRole.id === "ravenkeeper" ? (
+                    <>
+                      <button
+                        className="secondary-button night-ravenkeeper-notify"
+                        disabled={!canUseSkill}
+                        onClick={() => void notifyRavenkeeperDeath()}
+                      >
+                        <Skull size={15} />
+                        {sendingMode === "skill"
+                          ? "通知中"
+                          : selectedPlayer?.alive
+                            ? "确认夜间死亡并通知"
+                            : ravenkeeperDeathNotified
+                              ? "再次发送死亡通知"
+                              : "发送死亡通知"}
+                      </button>
+                      <div className={latestPlayerSkillChoice ? "night-player-choice" : "night-player-choice waiting"}>
+                        {latestPlayerSkillChoice ? <Check size={14} /> : <Target size={14} />}
+                        <span>
+                          {latestPlayerSkillChoice
+                            ? `玩家已提交：${latestPlayerSkillChoice.summary}`
+                            : ravenkeeperDeathNotified
+                              ? "已通知玩家死亡，等待玩家选择查验目标"
+                              : "请先确认夜间死亡并通知玩家"}
+                        </span>
+                      </div>
+                    </>
                   ) : null}
                   <div className="night-skill-reveal-grid">
-                    <label><span>{currentRole.id === "undertaker" ? "被处决玩家" : "查验玩家"}</span><select value={singleSkillTargetId} disabled={sending} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</select></label>
-                    <label><span>展示角色</span><select value={revealedSkillRoleId} disabled={sending} onChange={(event) => setRevealedSkillRoleId(event.target.value)}>{getScriptRoles(state.scriptId).map((role) => <option value={role.id} key={role.id}>{role.name} · {role.team}</option>)}</select></label>
+                    <label><span>{currentRole.id === "undertaker" ? "被处决玩家" : "查验玩家"}</span><select value={singleSkillTargetId} disabled={sending || !canResolveRoleReveal} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</select></label>
+                    <label><span>展示角色</span><select value={revealedSkillRoleId} disabled={sending || !canResolveRoleReveal} onChange={(event) => setRevealedSkillRoleId(event.target.value)}>{getScriptRoles(state.scriptId).map((role) => <option value={role.id} key={role.id}>{role.name} · {role.team}</option>)}</select></label>
                   </div>
-                  <button className="primary-button night-skill-submit" disabled={!canUseSkill || !singleSkillTargetId || !revealedSkillRoleId} onClick={sendRoleRevealSkill}><Send size={15} />{sendingMode === "skill" ? "发送中" : "发送角色信息"}</button>
+                  <button className="primary-button night-skill-submit" disabled={!canUseSkill || !canResolveRoleReveal || !singleSkillTargetId || !revealedSkillRoleId} onClick={sendRoleRevealSkill}><Send size={15} />{sendingMode === "skill" ? "发送中" : "发送角色信息"}</button>
                 </div>
               ) : null}
               {currentRole.id === "spy" ? (

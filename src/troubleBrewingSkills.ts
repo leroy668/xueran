@@ -27,6 +27,9 @@ export type TroubleBrewingSkill = {
   trackerOptions?: string[];
 };
 
+export const ravenkeeperDeathNotice =
+  "你已在夜晚死亡，请发动守鸦人能力并选择一名玩家查验。";
+
 const skills: TroubleBrewingSkill[] = [
   { roleId: "washerwoman", phase: "首夜", interaction: "系统生成两名玩家与一张镇民身份，上帝可重随或修改后发送", hostHint: "保证两名玩家中至少一人的真实身份与展示身份相符。" },
   { roleId: "librarian", phase: "首夜", interaction: "系统生成两名玩家与一张外来者身份，或发送场上没有外来者", hostHint: "没有外来者时直接发送零外来者信息。" },
@@ -43,7 +46,7 @@ const skills: TroubleBrewingSkill[] = [
   },
   { roleId: "undertaker", phase: "夜晚", interaction: "上帝选择当天被处决者，并发送其角色", hostHint: "仅在当天确有玩家被处决时发送。" },
   {
-    roleId: "ravenkeeper", phase: "夜晚", interaction: "守鸦人夜间死亡后选择一人，上帝发送一个角色", hostHint: "只有夜间死亡才触发；中毒或醉酒时可展示错误角色。",
+    roleId: "ravenkeeper", phase: "夜晚", interaction: "上帝确认守鸦人夜间死亡并通知，等待玩家选择后发送一个角色", hostHint: "必须先发送死亡通知；收到玩家选择后再回复角色。中毒或醉酒时可展示错误角色。",
     playerChoice: { kind: "single", title: "守鸦人查验", help: "你在夜晚死亡后，选择一名玩家查看角色", submitLabel: "提交查验", summaryPrefix: "守鸦人查验", phase: "night", allowFirstNight: false, excludeSelf: false, aliveOnly: false, onlyWhenDead: true, oneUse: true },
   },
   { roleId: "virgin", phase: "白天", interaction: "记录首次提名者及能力是否触发", hostHint: "首次被镇民提名时，提名者立即被处决并结束白天。", trackerOptions: ["能力未触发", "被非镇民首次提名", "已触发并处决提名者"] },
