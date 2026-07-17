@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { getRole } from "./data";
+import { getPlayerVisibleRoleId, getRole } from "./data";
 import {
   buildPlayerSkillChoiceMessage,
   parsePlayerSkillChoiceMessage,
@@ -248,18 +248,19 @@ function SimulatedPlayerSkillReplyForm({
   );
   const getVisibleRole = (gamePlayer?: Player) =>
     getRole(
-      gamePlayer?.drunkRoleId &&
-        (gamePlayer.roleId === "drunk" || gamePlayer.roleId === "marionette")
-        ? gamePlayer.drunkRoleId
-        : gamePlayer?.roleId ?? "washerwoman",
+      gamePlayer
+        ? getPlayerVisibleRoleId(gamePlayer.roleId, gamePlayer.drunkRoleId)
+        : "washerwoman",
     );
-  const selectedRoleId =
-    selectedGamePlayer?.drunkRoleId &&
-    (selectedGamePlayer.roleId === "drunk" ||
-      selectedGamePlayer.roleId === "marionette")
-      ? selectedGamePlayer.drunkRoleId
-      : selectedGamePlayer?.roleId;
-  const selectedRole = selectedRoleId
+  const getSimulationRoleLabel = (gamePlayer?: Player) => {
+    if (!gamePlayer) return "未知角色";
+    const actualRole = getRole(gamePlayer.roleId);
+    const visibleRole = getVisibleRole(gamePlayer);
+    return actualRole.id === visibleRole.id
+      ? visibleRole.name
+      : `${actualRole.name}（玩家看到：${visibleRole.name}）`;
+  };
+  const selectedRole = selectedGamePlayer
     ? getVisibleRole(selectedGamePlayer)
     : null;
   const choiceSpec = selectedRole
@@ -431,11 +432,10 @@ function SimulatedPlayerSkillReplyForm({
                 const gamePlayer = gamePlayers.find(
                   (item) => item.id === player.id,
                 );
-                const role = getVisibleRole(gamePlayer);
                 return (
                   <option value={player.id} key={player.id}>
                     {formatSeat(player.seat)} · {player.name} ·{" "}
-                    {role.name}
+                    {getSimulationRoleLabel(gamePlayer)}
                   </option>
                 );
               })}
@@ -451,7 +451,7 @@ function SimulatedPlayerSkillReplyForm({
             <div>
               <strong>
                 {selectedPlayer
-                  ? `${formatSeat(selectedPlayer.seat)} · ${selectedRole?.name ?? "未知角色"}`
+                  ? `${formatSeat(selectedPlayer.seat)} · ${getSimulationRoleLabel(selectedGamePlayer)}`
                   : "未选择玩家"}
               </strong>
               <small>

@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import {
   getNightActions,
+  getPlayerVisibleRoleId,
   getRole,
   getScriptRoles,
   scripts,
@@ -2182,9 +2183,8 @@ function NightPanel({
       currentRole
         ? state.players.filter(
             (player) =>
-              player.roleId === currentRole.id ||
-              (player.roleId === "drunk" &&
-                player.drunkRoleId === currentRole.id),
+              getPlayerVisibleRoleId(player.roleId, player.drunkRoleId) ===
+              currentRole.id,
           )
         : [],
     [currentRole, state.players],

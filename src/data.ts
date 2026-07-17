@@ -124,6 +124,14 @@ export const roleMap = new Map(roles.map((role) => [role.id, role]));
 export const normalizeRoleId = (roleId: string) =>
   roleId === "goon" ? "klutz" : roleId;
 
+export const getPlayerVisibleRoleId = (
+  roleId: string,
+  drunkRoleId = "",
+) =>
+  (roleId === "drunk" || roleId === "marionette") && drunkRoleId
+    ? normalizeRoleId(drunkRoleId)
+    : normalizeRoleId(roleId);
+
 export const getRole = (roleId: string) =>
   roleMap.get(normalizeRoleId(roleId)) ?? roles[0];
 
@@ -145,9 +153,7 @@ export const getNightActions = (
     getScriptRoles(scriptId).map((role) => role.id),
   );
   const getActionRole = (player: { roleId: string; drunkRoleId?: string }) =>
-    player.roleId === "drunk" && player.drunkRoleId
-      ? getRole(player.drunkRoleId)
-      : getRole(player.roleId);
+    getRole(getPlayerVisibleRoleId(player.roleId, player.drunkRoleId));
   return players
     .filter((player) => {
       const role = getActionRole(player);
