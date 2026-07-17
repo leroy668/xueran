@@ -1,4 +1,26 @@
+import { roles } from "./data";
+
 const roleSkillMessagePrefix = "【角色技能】";
+const pairInfoRoleIds = new Set([
+  "washerwoman",
+  "librarian",
+  "investigator",
+]);
+
+const hidePairTargetRoles = (body: string) => {
+  const resultMarker = "中，有一人是";
+  const markerIndex = body.indexOf(resultMarker);
+  if (markerIndex < 0) return body;
+
+  const targets = roles.reduce(
+    (current, role) => current.replaceAll(` · ${role.name}`, ""),
+    body.slice(0, markerIndex),
+  );
+  const spacedTargets = targets
+    .replace(/\s*和(?=\d+号)/g, " 和 ")
+    .trimEnd();
+  return `${spacedTargets} ${body.slice(markerIndex)}`;
+};
 
 export const buildRoleSkillMessage = (body: string) =>
   `${roleSkillMessagePrefix}${body.trim()}`;
@@ -16,6 +38,9 @@ export const getPlayerNightMessageDisplayBody = (
   roleId?: string,
 ) => {
   const displayBody = getNightMessageDisplayBody(body);
+  if (roleId && pairInfoRoleIds.has(roleId)) {
+    return hidePairTargetRoles(displayBody);
+  }
   if (roleId !== "fortune-teller" || !displayBody.startsWith("本晚查验")) {
     return displayBody;
   }

@@ -2547,6 +2547,12 @@ function NightPanel({
     const playerName = roomPlayer?.name || "未入座";
     return `${formatSeat(player.seat)} · ${playerName} · ${getRole(player.roleId).name}`;
   };
+  const getNightPublicPlayerLabel = (playerId: string) => {
+    const player = state.players.find((item) => item.id === playerId);
+    if (!player) return "未知座位";
+    const roomPlayer = roomPlayersById.get(player.id);
+    return `${formatSeat(player.seat)} · ${roomPlayer?.name || "未入座"}`;
+  };
   const getNightSeatLabel = (playerId: string) => {
     const player = state.players.find((item) => item.id === playerId);
     return player ? formatSeat(player.seat) : "未知座位";
@@ -2692,17 +2698,17 @@ function NightPanel({
     ) {
       return;
     }
-    const first = getNightPlayerLabel(skillTargets.first);
-    const second = getNightPlayerLabel(skillTargets.second);
+    const first = getNightPublicPlayerLabel(skillTargets.first);
+    const second = getNightPublicPlayerLabel(skillTargets.second);
     const selectedInfoRole = getRole(skillRoleId);
     const body =
       currentRole.id === "washerwoman"
-        ? `${first}和${second}中，有一人是${selectedInfoRole.name}`
+        ? `${first} 和 ${second} 中，有一人是${selectedInfoRole.name}`
         : currentRole.id === "librarian"
           ? librarianNoOutsider
             ? "本局没有外来者"
-            : `${first}和${second}中，有一人是${selectedInfoRole.name}`
-          : `${first}和${second}中，有一人是${selectedInfoRole.name}`;
+            : `${first} 和 ${second} 中，有一人是${selectedInfoRole.name}`
+          : `${first} 和 ${second} 中，有一人是${selectedInfoRole.name}`;
     void submitSkill(body);
   };
 
