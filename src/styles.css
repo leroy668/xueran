@@ -286,6 +286,12 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-stage-toolbar .stage-control { min-width: 190px; }
 .night-action-section { margin-bottom: 24px; }
 .night-action-heading { margin-bottom: 12px; }
+.night-current-role-section { margin: 0 0 24px; border: 1px solid var(--line); background: #19191c; overflow: hidden; }
+.night-current-role-header { min-height: 78px; padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); }
+.night-current-role-heading { min-width: 0; display: flex; align-items: center; gap: 11px; }
+.night-current-role-heading > .mini-role-icon { width: 40px; height: 40px; flex: 0 0 auto; }
+.night-current-role-heading h3 { margin: 0; font-size: 17px; }
+.night-current-role-heading small { display: block; max-width: 660px; margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.45; }
 .night-message-chat { margin: 0 0 24px; border: 1px solid var(--line); background: #19191c; overflow: hidden; }
 .night-message-chat-header { min-height: 78px; padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); }
 .night-message-heading { display: flex; align-items: center; gap: 11px; }
@@ -673,7 +679,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .player-editor { padding: 14px; }
   .empty-state { min-height: 290px; }
   .empty-actions { flex-direction: column; width: 100%; max-width: 220px; }
-  .night-message-chat-header { align-items: stretch; flex-direction: column; gap: 10px; padding: 12px; }
+  .night-current-role-header, .night-message-chat-header { align-items: stretch; flex-direction: column; gap: 10px; padding: 12px; }
   .night-chat-recipient { width: 100%; min-width: 0; }
   .fortune-teller-setting { padding: 9px 10px; align-items: stretch; flex-direction: column; gap: 8px; }
   .fortune-teller-setting-control { width: 100%; }

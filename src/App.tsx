@@ -2377,39 +2377,44 @@ function NightPanel({
           )}
         </section>
         {currentRole ? (
-          <section className="night-message-chat">
-            <div className="night-message-chat-header">
-              <div className="night-message-heading">
-                <MessageSquareText size={20} />
-                <div>
-                  <p className="eyebrow">PRIVATE NIGHT MESSAGE</p>
-                  <h3>发送夜间信息</h3>
+          <>
+            <section className="night-current-role-section">
+              <div className="night-current-role-header">
+                <div className="night-current-role-heading">
+                  <span
+                    className={`mini-role-icon ${teamLabels[currentRole.team]}`}
+                  >
+                    <RoleIcon roleId={currentRole.id} size={22} />
+                  </span>
+                  <div>
+                    <p className="eyebrow">CURRENT NIGHT ROLE</p>
+                    <h3>当前角色 · {currentRole.name}</h3>
+                    <small>{currentRole.short}</small>
+                  </div>
                 </div>
+                <label className="night-chat-recipient">
+                  <span>技能接收玩家</span>
+                  <select
+                    value={targetPlayerId}
+                    onChange={(event) => setTargetPlayerId(event.target.value)}
+                    disabled={!rolePlayers.length || sending}
+                  >
+                    {rolePlayers.map((player) => {
+                      const roomPlayer = roomPlayersById.get(player.id);
+                      const playerName =
+                        roomPlayer?.is_claimed && roomPlayer.name
+                          ? roomPlayer.name
+                          : "未入座";
+                      return (
+                        <option key={player.id} value={player.id}>
+                          座位 {String(player.seat).padStart(2, "0")}
+                          {` · ${playerName} · ${currentRole.name}`}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
               </div>
-              <label className="night-chat-recipient">
-                <span>对话玩家</span>
-                <select
-                  value={targetPlayerId}
-                  onChange={(event) => setTargetPlayerId(event.target.value)}
-                  disabled={!rolePlayers.length || sending}
-                >
-                  {rolePlayers.map((player) => {
-                    const roomPlayer = roomPlayersById.get(player.id);
-                    const roleName = getRole(player.roleId).name;
-                    const playerName =
-                      roomPlayer?.is_claimed && roomPlayer.name
-                        ? roomPlayer.name
-                        : "未入座";
-                    return (
-                      <option key={player.id} value={player.id}>
-                        座位 {String(player.seat).padStart(2, "0")}
-                        {` · ${playerName} · ${roleName}`}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
-            </div>
             {currentRole.id === "fortune-teller" ? (
               <div className="fortune-teller-setting">
                 <div>
@@ -2752,6 +2757,41 @@ function NightPanel({
                 </div>
               ) : null}
             </div>
+            </section>
+
+            <section className="night-message-chat">
+              <div className="night-message-chat-header">
+                <div className="night-message-heading">
+                  <MessageSquareText size={20} />
+                  <div>
+                    <p className="eyebrow">PRIVATE NIGHT MESSAGE</p>
+                    <h3>发送夜间信息</h3>
+                  </div>
+                </div>
+                <label className="night-chat-recipient">
+                  <span>对话玩家</span>
+                  <select
+                    value={targetPlayerId}
+                    onChange={(event) => setTargetPlayerId(event.target.value)}
+                    disabled={!rolePlayers.length || sending}
+                  >
+                    {rolePlayers.map((player) => {
+                      const roomPlayer = roomPlayersById.get(player.id);
+                      const roleName = getRole(player.roleId).name;
+                      const playerName =
+                        roomPlayer?.is_claimed && roomPlayer.name
+                          ? roomPlayer.name
+                          : "未入座";
+                      return (
+                        <option key={player.id} value={player.id}>
+                          座位 {String(player.seat).padStart(2, "0")}
+                          {` · ${playerName} · ${roleName}`}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+              </div>
 
             {conversation.length ? (
               <div className="night-chat-timeline" ref={timelineRef}>
@@ -2830,7 +2870,8 @@ function NightPanel({
               </div>
               {sendError ? <div className="inline-error">{sendError}</div> : null}
             </div>
-          </section>
+            </section>
+          </>
         ) : null}
       </section>
     </div>
