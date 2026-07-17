@@ -5,12 +5,14 @@ import {
   LogOut,
   RefreshCw,
   ShieldCheck,
+  Trash2,
   Users,
   XCircle,
 } from "lucide-react";
 import { scripts } from "./data";
 import {
   adminCloseRoom,
+  adminDeleteRoom,
   getAdminRooms,
   type AdminRoom,
 } from "./room";
@@ -52,6 +54,8 @@ export function AdminRooms() {
   const [rooms, setRooms] = useState<AdminRoom[]>([]);
   const [loading, setLoading] = useState(Boolean(activeToken));
   const [closingRoomId, setClosingRoomId] = useState("");
+  const [deletingRoomId, setDeletingRoomId] = useState("");
+  const [roomView, setRoomView] = useState<"open" | "closed">("open");
   const [error, setError] = useState("");
   const [authorized, setAuthorized] = useState(false);
 
@@ -129,6 +133,30 @@ export function AdminRooms() {
     }
   };
 
+  const deleteManagedRoom = async (room: AdminRoom) => {
+    if (!activeToken) return;
+    const confirmation = window.prompt(
+      `彻底删除房间 ${room.code} 及其全部数据？\n\n请输入房间码 ${room.code} 确认。`,
+    );
+    if (confirmation?.trim().toUpperCase() !== room.code) return;
+
+    setDeletingRoomId(room.room_id);
+    setError("");
+    try {
+      await adminDeleteRoom(activeToken, room.room_id);
+      await loadRooms(activeToken, true);
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "";
+      setError(
+        /invalid admin token/i.test(message)
+          ? "管理密钥已失效"
+          : "删除房间数据失败，请稍后重试",
+      );
+    } finally {
+      setDeletingRoomId("");
+    }
+  };
+
   const lockAdmin = () => {
     sessionStorage.removeItem(adminTokenStorageKey);
     setActiveToken("");
@@ -137,6 +165,10 @@ export function AdminRooms() {
     setAuthorized(false);
     setError("");
   };
+
+  const openRooms = rooms.filter((room) => room.status === "open");
+  const closedRooms = rooms.filter((room) => room.status === "closed");
+  const visibleRooms = roomView === "open" ? openRooms : closedRooms;
 
   if (!authorized) {
     return (
@@ -175,7 +207,7 @@ export function AdminRooms() {
       <header className="admin-topbar">
         <div>
           <p className="eyebrow">ROOM ADMIN</p>
-          <h1>运行中的对局</h1>
+          <h1>对局管理</h1>
         </div>
         <div className="admin-toolbar">
           <button className="icon-button" title="刷新" aria-label="刷新对局" disabled={loading} onClick={() => void loadRooms(activeToken)}>
@@ -189,13 +221,20 @@ export function AdminRooms() {
 
       <main className="admin-content">
         <div className="admin-summary">
-          <span><ShieldCheck size={16} />进行中</span>
-          <strong>{rooms.length}</strong>
+          <div className="admin-room-filters" aria-label="对局状态">
+            <button className={roomView === "open" ? "active" : ""} onClick={() => setRoomView("open")}>
+              进行中 <strong>{openRooms.length}</strong>
+            </button>
+            <button className={roomView === "closed" ? "active" : ""} onClick={() => setRoomView("closed")}>
+              已关闭 <strong>{closedRooms.length}</strong>
+            </button>
+          </div>
+          <span><ShieldCheck size={16} />管理权限已验证</span>
         </div>
         {error ? <div className="inline-error admin-error">{error}</div> : null}
-        {rooms.length ? (
+        {visibleRooms.length ? (
           <div className="admin-room-list">
-            {rooms.map((room) => (
+            {visibleRooms.map((room) => (
               <article className="admin-room-card" key={room.room_id}>
                 <div className="admin-room-code">
                   <span>房间</span>
@@ -212,21 +251,33 @@ export function AdminRooms() {
                     <span><Clock3 size={13} />{formatTime(room.updated_at)}</span>
                   </div>
                 </div>
-                <button
-                  className="admin-close-room"
-                  disabled={closingRoomId === room.room_id}
-                  onClick={() => void closeManagedRoom(room)}
-                >
-                  {closingRoomId === room.room_id ? <RefreshCw className="spin" size={15} /> : <XCircle size={15} />}
-                  {closingRoomId === room.room_id ? "关闭中" : "关闭对局"}
-                </button>
+                <div className="admin-room-actions">
+                  {room.status === "open" ? (
+                    <button
+                      className="admin-close-room"
+                      disabled={closingRoomId === room.room_id || deletingRoomId === room.room_id}
+                      onClick={() => void closeManagedRoom(room)}
+                    >
+                      {closingRoomId === room.room_id ? <RefreshCw className="spin" size={15} /> : <XCircle size={15} />}
+                      {closingRoomId === room.room_id ? "关闭中" : "关闭"}
+                    </button>
+                  ) : null}
+                  <button
+                    className="admin-delete-room"
+                    disabled={deletingRoomId === room.room_id || closingRoomId === room.room_id}
+                    onClick={() => void deleteManagedRoom(room)}
+                  >
+                    {deletingRoomId === room.room_id ? <RefreshCw className="spin" size={15} /> : <Trash2 size={15} />}
+                    {deletingRoomId === room.room_id ? "删除中" : "删除数据"}
+                  </button>
+                </div>
               </article>
             ))}
           </div>
         ) : (
           <div className="admin-empty">
             <ShieldCheck size={26} />
-            <h2>暂无运行中的对局</h2>
+            <h2>{roomView === "open" ? "暂无运行中的对局" : "暂无已关闭的对局"}</h2>
           </div>
         )}
       </main>

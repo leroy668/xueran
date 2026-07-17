@@ -74,6 +74,7 @@ export type AdminRoom = {
   script_id: string;
   phase: GameState["phase"];
   round: number;
+  status: "open" | "closed";
   simulation_enabled: boolean;
   player_count: number;
   claimed_count: number;
@@ -95,6 +96,16 @@ export const getAdminRooms = async (token: string) => {
 export const adminCloseRoom = async (token: string, roomId: string) => {
   await ensureAnonymousSession();
   const { data, error } = await supabase.rpc("xueran_admin_close_room", {
+    p_token: token,
+    p_room_id: roomId,
+  });
+  if (error) throw error;
+  return Boolean(data);
+};
+
+export const adminDeleteRoom = async (token: string, roomId: string) => {
+  await ensureAnonymousSession();
+  const { data, error } = await supabase.rpc("xueran_admin_delete_room", {
     p_token: token,
     p_room_id: roomId,
   });
