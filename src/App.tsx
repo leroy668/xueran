@@ -158,6 +158,16 @@ const getGameStageLabel = (phase: Phase, round: number) => {
   return `第${chineseNumber(sequence)}${phase === "白天" ? "天" : "晚"}`;
 };
 
+const infoRoleIds = new Set([
+  "washerwoman",
+  "librarian",
+  "investigator",
+  "chef",
+]);
+
+const compactMessage = (body: string) =>
+  body.replace(/\s+/g, " ").trim();
+
 const getNextGameStage = (
   phase: Phase,
   round: number,
@@ -1056,6 +1066,22 @@ function GrimoirePanel({
     () => new Map(roomPlayers.map((player) => [player.seat, player])),
     [roomPlayers],
   );
+  const latestInfoByPlayer = useMemo(() => {
+    const messages = new Map<string, NightMessage>();
+    for (const message of nightMessages) {
+      if (!infoRoleIds.has(message.role_id)) continue;
+      const key = `${message.player_id}:${message.role_id}`;
+      const current = messages.get(key);
+      if (
+        !current ||
+        new Date(message.created_at).getTime() >
+          new Date(current.created_at).getTime()
+      ) {
+        messages.set(key, message);
+      }
+    }
+    return messages;
+  }, [nightMessages]);
   const selectedPlayer =
     state.players.find((player) => player.id === selectedPlayerId) ??
     state.players[0];
@@ -1206,6 +1232,12 @@ function GrimoirePanel({
                   const left = 50 + Math.cos(angle) * radius;
                   const top = 50 + Math.sin(angle) * radius;
                   const isSelected = selectedPlayer?.id === player.id;
+                  const latestInfo = infoRoleIds.has(role.id)
+                    ? latestInfoByPlayer.get(`${player.id}:${role.id}`)
+                    : undefined;
+                  const infoPreview = latestInfo
+                    ? compactMessage(latestInfo.body)
+                    : "";
 
                   return (
                     <button
@@ -1214,6 +1246,7 @@ function GrimoirePanel({
                         teamLabels[role.team],
                         player.alive ? "" : "dead",
                         isSelected ? "selected" : "",
+                        latestInfo ? "has-role-info" : "",
                         state.players.length > 10 ? "dense" : "",
                         state.players.length > 15 ? "very-dense" : "",
                       ]
@@ -1222,7 +1255,7 @@ function GrimoirePanel({
                       style={{ left: `${left}%`, top: `${top}%` }}
                       key={player.id}
                       onClick={() => setSelectedPlayerId(player.id)}
-                      aria-label={`座位 ${player.seat}，${getDisplayName(player)}，${role.name}，${player.alive ? "存活" : "死亡"}`}
+                      aria-label={`座位 ${player.seat}，${getDisplayName(player)}，${role.name}，${player.alive ? "存活" : "死亡"}${infoPreview ? `，已传达信息：${infoPreview}` : ""}`}
                       aria-pressed={isSelected}
                     >
                       <span className="table-seat-number">
@@ -1243,6 +1276,15 @@ function GrimoirePanel({
                           ? ` / ${getRole(player.drunkRoleId).name}`
                           : ""}
                       </span>
+                      {latestInfo ? (
+                        <span
+                          className="table-role-info"
+                          title={`已传达：${latestInfo.body}`}
+                        >
+                          <MessageSquareText size={10} />
+                          <span>{infoPreview}</span>
+                        </span>
+                      ) : null}
                       {roomPlayer?.is_claimed ? (
                         <span className="table-claimed-dot" title="玩家已入座" />
                       ) : null}
