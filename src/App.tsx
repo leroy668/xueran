@@ -2540,9 +2540,23 @@ function NightPanel({
       (player) =>
         player.id !== trueTarget.id && player.id !== targetPlayerId,
     );
-    const distractorPool = preferredDistractors.length
+    const allDistractors = preferredDistractors.length
       ? preferredDistractors
       : state.players.filter((player) => player.id !== trueTarget.id);
+    const sameTeamDistractors = allDistractors.filter(
+      (player) => getRole(player.roleId).team === targetTeam,
+    );
+    const otherTeamDistractors = allDistractors.filter(
+      (player) => getRole(player.roleId).team !== targetTeam,
+    );
+    const distractorPool =
+      sameTeamDistractors.length && otherTeamDistractors.length
+        ? Math.random() < 0.5
+          ? sameTeamDistractors
+          : otherTeamDistractors
+        : sameTeamDistractors.length
+          ? sameTeamDistractors
+          : otherTeamDistractors;
     const distractor =
       distractorPool[Math.floor(Math.random() * distractorPool.length)];
     const swapOrder = Math.random() >= 0.5;
