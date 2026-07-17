@@ -2390,11 +2390,15 @@ function NightPanel({
                 >
                   {rolePlayers.map((player) => {
                     const roomPlayer = roomPlayersById.get(player.id);
+                    const roleName = getRole(player.roleId).name;
+                    const playerName =
+                      roomPlayer?.is_claimed && roomPlayer.name
+                        ? roomPlayer.name
+                        : "未入座";
                     return (
                       <option key={player.id} value={player.id}>
                         座位 {String(player.seat).padStart(2, "0")}
-                        {roomPlayer?.name ? ` · ${roomPlayer.name}` : ""}
-                        {roomPlayer?.is_claimed ? "" : " · 未入座"}
+                        {` · ${playerName} · ${roleName}`}
                       </option>
                     );
                   })}
@@ -2444,44 +2448,7 @@ function NightPanel({
               </div>
             ) : null}
 
-            {conversation.length ? (
-              <div className="night-chat-timeline" ref={timelineRef}>
-                {conversation.map((message) => (
-                  <article
-                    className={`host-chat-message ${message.direction}`}
-                    key={`${message.direction}-${message.id}`}
-                  >
-                    <span className="host-chat-avatar" aria-hidden="true">
-                      {message.avatar}
-                    </span>
-                    <div className="host-chat-message-content">
-                      <div className="host-chat-message-meta">
-                        <span>{message.label}</span>
-                        <time>
-                          {new Date(message.created_at).toLocaleString("zh-CN", {
-                            month: "numeric",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </time>
-                      </div>
-                      <div className="host-chat-bubble">
-                        <p>{message.body}</p>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className="night-chat-empty">
-                <MessageSquareText size={24} />
-                <strong>暂无聊天记录</strong>
-                <span>你和该玩家发送的信息会显示在这里</span>
-              </div>
-            )}
-
-            <div className="night-chat-composer">
+            <div className="night-skill-composer">
               {currentRole.id === "washerwoman" ||
               currentRole.id === "librarian" ||
               currentRole.id === "investigator" ? (
@@ -2779,6 +2746,46 @@ function NightPanel({
                   </div>
                 </div>
               ) : null}
+            </div>
+
+            {conversation.length ? (
+              <div className="night-chat-timeline" ref={timelineRef}>
+                {conversation.map((message) => (
+                  <article
+                    className={`host-chat-message ${message.direction}`}
+                    key={`${message.direction}-${message.id}`}
+                  >
+                    <span className="host-chat-avatar" aria-hidden="true">
+                      {message.avatar}
+                    </span>
+                    <div className="host-chat-message-content">
+                      <div className="host-chat-message-meta">
+                        <span>{message.label}</span>
+                        <time>
+                          {new Date(message.created_at).toLocaleString("zh-CN", {
+                            month: "numeric",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </time>
+                      </div>
+                      <div className="host-chat-bubble">
+                        <p>{message.body}</p>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="night-chat-empty">
+                <MessageSquareText size={24} />
+                <strong>暂无聊天记录</strong>
+                <span>你和该玩家发送的信息会显示在这里</span>
+              </div>
+            )}
+
+            <div className="night-chat-composer">
               <textarea
                 value={messageBody}
                 onChange={(event) => setMessageBody(event.target.value)}

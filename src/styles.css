@@ -302,6 +302,8 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-chat-empty { min-height: 260px; padding: 30px 18px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; background: #151517; color: var(--dim); }
 .night-chat-empty strong { margin: 10px 0 5px; color: var(--ink); font-size: 15px; }
 .night-chat-empty span { color: var(--muted); font-size: 10px; }
+.night-skill-composer { padding: 12px 16px 1px; border-top: 1px solid var(--line); background: #1a1a1d; }
+.night-skill-composer:empty { display: none; }
 .night-chat-composer { padding: 12px 16px 14px; border-top: 1px solid var(--line); background: #1a1a1d; }
 .night-skill-panel { margin-bottom: 11px; padding: 11px; border: 1px solid rgba(141,170,195,.34); border-left: 3px solid var(--blue); background: #161b1f; }
 .night-skill-panel.compact { padding-bottom: 10px; }
@@ -673,6 +675,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .fortune-teller-setting-control { width: 100%; }
   .night-chat-timeline, .night-chat-empty { min-height: 250px; }
   .night-chat-timeline { max-height: 46vh; padding: 14px 10px; }
+  .night-skill-composer { padding: 10px 10px 1px; }
   .night-chat-composer { padding: 10px; }
   .night-skill-panel { padding: 9px; }
   .night-skill-panel-heading { align-items: flex-start; }
