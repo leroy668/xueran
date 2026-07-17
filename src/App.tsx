@@ -1000,6 +1000,7 @@ function GrimoireApp() {
                 roomUrl={room ? buildRoomUrl(room.code) : ""}
                 players={roomPlayers}
                 gamePlayers={state.players}
+                nightMessages={nightMessages}
                 busy={roomBusy}
                 syncStatus={syncStatus}
                 onCreate={() => void startSharedRoom()}

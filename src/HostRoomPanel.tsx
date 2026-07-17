@@ -3,6 +3,7 @@ import {
   Copy,
   Link2,
   LoaderCircle,
+  MessageSquareText,
   Radio,
   Send,
   Share2,
@@ -13,8 +14,16 @@ import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { getRole } from "./data";
 import { buildPlayerSkillChoiceMessage } from "./playerSkillChoices";
+import {
+  getPlayerNightMessageDisplayBody,
+  getRoleSkillMessage,
+} from "./roleSkillMessages";
 import { RoleIcon } from "./RoleIcon";
-import type { PublicRoomPlayer, SharedRoom } from "./room";
+import type {
+  NightMessage,
+  PublicRoomPlayer,
+  SharedRoom,
+} from "./room";
 import { formatSeat } from "./seat";
 import type { Player } from "./types";
 
@@ -23,6 +32,7 @@ type Props = {
   roomUrl: string;
   players: PublicRoomPlayer[];
   gamePlayers: Player[];
+  nightMessages: NightMessage[];
   busy: boolean;
   syncStatus: "idle" | "syncing" | "synced" | "error";
   onCreate: () => void;
@@ -41,6 +51,7 @@ export function HostRoomPanel({
   roomUrl,
   players,
   gamePlayers,
+  nightMessages,
   busy,
   syncStatus,
   onCreate,
@@ -134,6 +145,7 @@ export function HostRoomPanel({
           <SimulatedPlayerSkillReplyForm
             players={players}
             gamePlayers={gamePlayers}
+            nightMessages={nightMessages}
             busy={busy}
             onSend={onSimulatePlayerSkillReply}
           />
@@ -184,19 +196,18 @@ export function HostRoomPanel({
 function SimulatedPlayerSkillReplyForm({
   players,
   gamePlayers,
+  nightMessages,
   busy,
   onSend,
 }: {
   players: PublicRoomPlayer[];
   gamePlayers: Player[];
+  nightMessages: NightMessage[];
   busy: boolean;
   onSend: (playerId: string, body: string) => Promise<void>;
 }) {
-  const skillPlayers = players.filter((player) => {
-    const gamePlayer = gamePlayers.find((item) => item.id === player.id);
-    return player.is_simulated && gamePlayer?.roleId === "fortune-teller";
-  });
-  const [playerId, setPlayerId] = useState(skillPlayers[0]?.id ?? "");
+  const simulatedPlayers = players.filter((player) => player.is_simulated);
+  const [playerId, setPlayerId] = useState(simulatedPlayers[0]?.id ?? "");
   const [firstTargetId, setFirstTargetId] = useState(players[0]?.id ?? "");
   const [secondTargetId, setSecondTargetId] = useState(
     players.find((player) => player.id !== players[0]?.id)?.id ?? "",
@@ -204,10 +215,10 @@ function SimulatedPlayerSkillReplyForm({
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    if (!skillPlayers.some((player) => player.id === playerId)) {
-      setPlayerId(skillPlayers[0]?.id ?? "");
+    if (!simulatedPlayers.some((player) => player.id === playerId)) {
+      setPlayerId(simulatedPlayers[0]?.id ?? "");
     }
-  }, [playerId, skillPlayers]);
+  }, [playerId, simulatedPlayers]);
 
   useEffect(() => {
     const playerIds = new Set(players.map((player) => player.id));
@@ -226,9 +237,31 @@ function SimulatedPlayerSkillReplyForm({
     const player = players.find((item) => item.id === targetPlayerId);
     return player ? formatSeat(player.seat) : "未知座位";
   };
+  const selectedPlayer = simulatedPlayers.find(
+    (player) => player.id === playerId,
+  );
+  const selectedGamePlayer = gamePlayers.find(
+    (player) => player.id === playerId,
+  );
+  const selectedRole = selectedGamePlayer
+    ? getRole(selectedGamePlayer.roleId)
+    : null;
+  const canSubmitSkillChoice = selectedRole?.id === "fortune-teller";
+  const receivedSkillMessages = nightMessages
+    .filter(
+      (message) =>
+        message.player_id === playerId &&
+        Boolean(getRoleSkillMessage(message.body)),
+    )
+    .sort(
+      (left, right) =>
+        new Date(right.created_at).getTime() -
+        new Date(left.created_at).getTime(),
+    );
 
   const submit = async () => {
     if (
+      !canSubmitSkillChoice ||
       !playerId ||
       !firstTargetId ||
       !secondTargetId ||
@@ -257,24 +290,24 @@ function SimulatedPlayerSkillReplyForm({
   return (
     <div className="simulation-message-panel">
       <div className="simulation-message-heading">
-        <strong>模拟玩家技能回复</strong>
-        <small>按玩家角色提交技能选择，结果会进入上帝的夜晚行动</small>
+        <strong>模拟玩家视角</strong>
+        <small>提交玩家技能选择，并查看该玩家收到的上帝技能回复</small>
       </div>
-      {skillPlayers.length ? (
+      {simulatedPlayers.length ? (
         <>
           <label className="simulation-skill-player">
-            <span>回复玩家</span>
+            <span>模拟玩家</span>
             <select
               value={playerId}
               disabled={busy || sending}
               onChange={(event) => setPlayerId(event.target.value)}
-              aria-label="选择模拟技能回复玩家"
+              aria-label="选择模拟玩家"
             >
-              {skillPlayers.map((player) => {
+              {simulatedPlayers.map((player) => {
                 const gamePlayer = gamePlayers.find(
                   (item) => item.id === player.id,
                 );
-                const role = getRole(gamePlayer?.roleId ?? "fortune-teller");
+                const role = getRole(gamePlayer?.roleId ?? "washerwoman");
                 return (
                   <option value={player.id} key={player.id}>
                     {formatSeat(player.seat)} · {player.name} ·{" "}
@@ -286,72 +319,121 @@ function SimulatedPlayerSkillReplyForm({
           </label>
           <div className="simulation-skill-summary">
             <span>
-              <RoleIcon roleId="fortune-teller" size={18} />
+              <RoleIcon
+                roleId={selectedRole?.id ?? "washerwoman"}
+                size={18}
+              />
             </span>
             <div>
-              <strong>占卜师本晚查验</strong>
-              <small>模拟玩家选择两名查验目标并提交给上帝</small>
+              <strong>
+                {selectedPlayer
+                  ? `${formatSeat(selectedPlayer.seat)} · ${selectedRole?.name ?? "未知角色"}`
+                  : "未选择玩家"}
+              </strong>
+              <small>
+                {canSubmitSkillChoice
+                  ? "模拟玩家选择两名查验目标并提交给上帝"
+                  : "当前角色暂无需要主动提交的技能选择"}
+              </small>
             </div>
           </div>
-          <div className="simulation-skill-targets">
-            <select
-              value={firstTargetId}
-              disabled={busy || sending}
-              aria-label="模拟占卜师第一名查验目标"
-              onChange={(event) => setFirstTargetId(event.target.value)}
-            >
-              {players.map((player) => (
-                <option
-                  value={player.id}
-                  key={player.id}
-                  disabled={player.id === secondTargetId}
-                >
-                  {formatSeat(player.seat)} ·{" "}
-                  {player.name || "玩家"}
-                </option>
-              ))}
-            </select>
-            <select
-              value={secondTargetId}
-              disabled={busy || sending}
-              aria-label="模拟占卜师第二名查验目标"
-              onChange={(event) => setSecondTargetId(event.target.value)}
-            >
-              {players.map((player) => (
-                <option
-                  value={player.id}
-                  key={player.id}
-                  disabled={player.id === firstTargetId}
-                >
-                  {formatSeat(player.seat)} ·{" "}
-                  {player.name || "玩家"}
-                </option>
-              ))}
-            </select>
-            <button
-              className="primary-button"
-              type="button"
-              disabled={
-                busy ||
-                sending ||
-                !firstTargetId ||
-                !secondTargetId ||
-                firstTargetId === secondTargetId
-              }
-              onClick={() => void submit()}
-              aria-label="提交模拟玩家技能回复"
-            >
-              {sending ? (
-                <LoaderCircle className="spin" size={15} />
-              ) : (
-                <Send size={15} />
-              )}
-              {sending ? "提交中" : "提交技能回复"}
-            </button>
-          </div>
+          {canSubmitSkillChoice ? (
+            <div className="simulation-skill-targets">
+              <select
+                value={firstTargetId}
+                disabled={busy || sending}
+                aria-label="模拟占卜师第一名查验目标"
+                onChange={(event) => setFirstTargetId(event.target.value)}
+              >
+                {players.map((player) => (
+                  <option
+                    value={player.id}
+                    key={player.id}
+                    disabled={player.id === secondTargetId}
+                  >
+                    {formatSeat(player.seat)} ·{" "}
+                    {player.name || "玩家"}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={secondTargetId}
+                disabled={busy || sending}
+                aria-label="模拟占卜师第二名查验目标"
+                onChange={(event) => setSecondTargetId(event.target.value)}
+              >
+                {players.map((player) => (
+                  <option
+                    value={player.id}
+                    key={player.id}
+                    disabled={player.id === firstTargetId}
+                  >
+                    {formatSeat(player.seat)} ·{" "}
+                    {player.name || "玩家"}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={
+                  busy ||
+                  sending ||
+                  !firstTargetId ||
+                  !secondTargetId ||
+                  firstTargetId === secondTargetId
+                }
+                onClick={() => void submit()}
+                aria-label="提交模拟玩家技能回复"
+              >
+                {sending ? (
+                  <LoaderCircle className="spin" size={15} />
+                ) : (
+                  <Send size={15} />
+                )}
+                {sending ? "提交中" : "提交技能回复"}
+              </button>
+            </div>
+          ) : null}
+          <section className="simulation-received">
+            <div className="simulation-received-heading">
+              <span>
+                <MessageSquareText size={13} />
+                上帝技能回复
+              </span>
+              <strong>{receivedSkillMessages.length}</strong>
+            </div>
+            {receivedSkillMessages.length ? (
+              <div className="simulation-received-list">
+                {receivedSkillMessages.map((message) => (
+                  <article key={message.id}>
+                    <small>
+                      第 {message.round} 回合 ·{" "}
+                      {new Date(message.created_at).toLocaleString("zh-CN", {
+                        month: "numeric",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </small>
+                    <p>
+                      {getPlayerNightMessageDisplayBody(
+                        message.body,
+                        message.role_id,
+                      )}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="simulation-received-empty">
+                该玩家还没有收到上帝技能回复
+              </p>
+            )}
+          </section>
         </>
       ) : (
-        <p>当前模拟玩家中没有需要主动提交选择的角色。</p>
+        <p>当前没有模拟玩家。</p>
       )}
     </div>
   );
