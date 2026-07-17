@@ -283,8 +283,17 @@ const getSeatCardSkillPreview = (roleId: string, body: string) => {
   }
 };
 
-const getSeatCardNightLabel = (round: number) =>
-  round <= 1 ? "首夜" : `${round - 1}晚`;
+const getSkillStageLabel = (roleId: string, round: number) =>
+  getTroubleBrewingSkill(roleId)?.playerChoice?.phase === "day"
+    ? getGameStageLabel("白天", round)
+    : getGameStageLabel("夜晚", round);
+
+const getSeatCardSkillStageLabel = (roleId: string, round: number) =>
+  getTroubleBrewingSkill(roleId)?.playerChoice?.phase === "day"
+    ? `${round}天`
+    : round <= 1
+      ? "首"
+      : `${round - 1}晚`;
 
 const getFortuneTellerResult = (body: string) => {
   if (
@@ -1409,60 +1418,59 @@ function GrimoirePanel({
                     `${player.id}:${skillRoleId}`,
                   ) ?? [];
                   const latestChoice = choiceHistory[0];
-                  const choicePreview = latestChoice
-                    ? getSeatCardChoicePreview(
-                        skillRoleId,
-                        latestChoice.choice.summary,
-                      )
-                    : "";
-                  const latestInfo =
-                    latestSkill && latestChoice
-                      ? new Date(latestChoice.message.created_at).getTime() >
-                        new Date(latestSkill.message.created_at).getTime()
-                        ? {
-                            round: latestChoice.message.round,
-                            body: choicePreview,
-                          }
-                        : {
-                            round: latestSkill.message.round,
-                            body: getSeatCardSkillPreview(
+                  const roleSkillTimeline = Array.from(
+                    new Set([
+                      ...skillHistory.map((entry) => entry.message.round),
+                      ...choiceHistory.map((entry) => entry.message.round),
+                    ]),
+                  )
+                    .sort((left, right) => left - right)
+                    .map((round) => {
+                      const skillEntry = skillHistory.find(
+                        (entry) => entry.message.round === round,
+                      );
+                      const choiceEntry = choiceHistory.find(
+                        (entry) => entry.message.round === round,
+                      );
+                      const useChoice =
+                        Boolean(choiceEntry) &&
+                        (!skillEntry ||
+                          new Date(
+                            choiceEntry?.message.created_at ?? 0,
+                          ).getTime() >
+                            new Date(
+                              skillEntry?.message.created_at ?? 0,
+                            ).getTime());
+                      return {
+                        round,
+                        preview: useChoice
+                          ? getSeatCardChoicePreview(
                               skillRoleId,
-                              latestSkill.body,
-                            ),
-                          }
-                      : latestSkill
-                        ? {
-                            round: latestSkill.message.round,
-                            body: getSeatCardSkillPreview(
+                              choiceEntry?.choice.summary ?? "",
+                            )
+                          : getSeatCardSkillPreview(
                               skillRoleId,
-                              latestSkill.body,
+                              skillEntry?.body ?? "",
                             ),
-                          }
-                        : latestChoice
-                          ? {
-                              round: latestChoice.message.round,
-                              body: choicePreview,
-                            }
-                          : null;
+                        choice: choiceEntry?.choice.summary ?? "",
+                        result: skillEntry?.body ?? "",
+                      };
+                    });
+                  const latestInfo = roleSkillTimeline.at(-1) ?? null;
                   const infoPreview = latestInfo
-                    ? `${getSeatCardNightLabel(latestInfo.round)} · ${latestInfo.body}`
+                    ? `${getSkillStageLabel(skillRoleId, latestInfo.round)} · ${latestInfo.preview}`
                     : "";
-                  const skillHistoryTitle = skillHistory
-                    .map(
-                      (entry) =>
-                        `${getGameStageLabel("夜晚", entry.message.round)}：${entry.body}`,
+                  const roleInfoTitle = roleSkillTimeline
+                    .map((entry) =>
+                      [
+                        getSkillStageLabel(skillRoleId, entry.round),
+                        entry.choice ? `玩家：${entry.choice}` : "",
+                        entry.result ? `上帝：${entry.result}` : "",
+                      ]
+                        .filter(Boolean)
+                        .join("\n"),
                     )
-                    .join("\n");
-                  const roleInfoTitle = [
-                    latestChoice
-                      ? `玩家选择：${latestChoice.choice.summary}`
-                      : "",
-                    skillHistoryTitle
-                      ? `上帝结果：\n${skillHistoryTitle}`
-                      : "",
-                  ]
-                    .filter(Boolean)
-                    .join("\n");
+                    .join("\n\n");
                   const isFortuneTeller = skillRoleId === "fortune-teller";
                   const latestFortuneActivity = isFortuneTeller
                     ? [
@@ -1628,9 +1636,24 @@ function GrimoirePanel({
                           title={roleInfoTitle}
                         >
                           <MessageSquareText size={10} />
-                          <span>{infoPreview}</span>
-                          {skillHistory.length > 1 ? (
-                            <b>{skillHistory.length}</b>
+                          <span className="table-role-timeline">
+                            {roleSkillTimeline.map((entry) => (
+                              <span
+                                className="table-role-timeline-item"
+                                key={entry.round}
+                              >
+                                <strong>
+                                  {getSeatCardSkillStageLabel(
+                                    skillRoleId,
+                                    entry.round,
+                                  )}
+                                </strong>
+                                <span>{entry.preview}</span>
+                              </span>
+                            ))}
+                          </span>
+                          {roleSkillTimeline.length > 1 ? (
+                            <b>{roleSkillTimeline.length}次</b>
                           ) : null}
                         </span>
                       ) : null}

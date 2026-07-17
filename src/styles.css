@@ -181,7 +181,12 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .table-role-name-text { flex: 1 1 auto; }
 .table-role-info { grid-column: 1 / -1; grid-row: 3; min-width: 0; padding-top: 4px; border-top: 1px solid rgba(141,170,195,.2); display: flex; align-items: center; gap: 3px; color: var(--blue); font-size: 8px; line-height: 1.15; }
 .table-role-info svg { flex: 0 0 auto; }
-.table-role-info > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table-role-timeline { min-width: 0; display: flex; align-items: center; gap: 4px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; overscroll-behavior-x: contain; }
+.table-role-timeline::-webkit-scrollbar { display: none; }
+.table-role-timeline-item { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 2px; }
+.table-role-timeline-item + .table-role-timeline-item { padding-left: 4px; border-left: 1px solid rgba(141,170,195,.25); }
+.table-role-timeline-item > strong { color: var(--gold); font-size: 7px; line-height: 1; }
+.table-role-timeline-item > span { color: var(--blue); }
 .table-role-info > b { flex: 0 0 auto; min-width: 14px; height: 14px; padding: 0 3px; display: grid; place-items: center; border: 1px solid rgba(141,170,195,.38); color: var(--blue); font-size: 7px; line-height: 1; }
 .table-role-state { grid-column: 1 / -1; grid-row: 3; min-width: 0; padding-top: 4px; border-top: 1px solid rgba(194,151,86,.22); display: flex; align-items: center; gap: 4px; color: #d8bd91; font-size: 8px; line-height: 1.15; }
 .table-role-state svg { flex: 0 0 auto; color: var(--gold); }
