@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   Eye,
+  Gavel,
   LoaderCircle,
   MessageSquareText,
   MoonStar,
@@ -27,11 +28,17 @@ import {
   getMyIdentity,
   getMyNightMessages,
   getMyPlayerMessages,
+  getRoomDayResolutions,
+  getRoomNominations,
   getRoomPlayers,
+  getRoomVotes,
   sendEvilMessage,
   sendPlayerMessage,
   type EvilMessage,
+  type DayResolution,
+  type DayVote,
   type NightMessage,
+  type Nomination,
   type PlayerIdentity,
   type PlayerMessage,
   type PublicRoomPlayer,
@@ -55,8 +62,9 @@ import {
 } from "./troubleBrewingSkills";
 import { ensureAnonymousSession, supabase } from "./supabase";
 import type { IdentityPayload, Team } from "./types";
+import { PlayerVotingPanel } from "./VotingPanels";
 
-type PlayerView = "identity" | "script" | "messages" | "evil";
+type PlayerView = "identity" | "script" | "messages" | "voting" | "evil";
 
 const scriptTeams: Team[] = ["镇民", "外来者", "爪牙", "恶魔"];
 
@@ -67,6 +75,9 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
   const [nightMessages, setNightMessages] = useState<NightMessage[]>([]);
   const [playerMessages, setPlayerMessages] = useState<PlayerMessage[]>([]);
   const [evilMessages, setEvilMessages] = useState<EvilMessage[]>([]);
+  const [nominations, setNominations] = useState<Nomination[]>([]);
+  const [votes, setVotes] = useState<DayVote[]>([]);
+  const [dayResolutions, setDayResolutions] = useState<DayResolution[]>([]);
   const [playerName, setPlayerName] = useState("");
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState("");
@@ -81,6 +92,9 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       nextNightMessages,
       nextPlayerMessages,
       nextEvilMessages,
+      nextNominations,
+      nextVotes,
+      nextDayResolutions,
     ] = await Promise.all([
       findRoomByCode(targetRoom.code),
       getRoomPlayers(targetRoom.id),
@@ -88,6 +102,9 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       getMyNightMessages(targetRoom.id),
       getMyPlayerMessages(targetRoom.id),
       getMyEvilMessages(targetRoom.id),
+      getRoomNominations(targetRoom.id),
+      getRoomVotes(targetRoom.id),
+      getRoomDayResolutions(targetRoom.id),
     ]);
 
     if (!latestRoom) throw new Error("房间已不存在");
@@ -98,6 +115,9 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       setNightMessages([]);
       setPlayerMessages([]);
       setEvilMessages([]);
+      setNominations([]);
+      setVotes([]);
+      setDayResolutions([]);
       return;
     }
 
@@ -107,6 +127,9 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
     setNightMessages(nextNightMessages);
     setPlayerMessages(nextPlayerMessages);
     setEvilMessages(nextEvilMessages);
+    setNominations(nextNominations);
+    setVotes(nextVotes);
+    setDayResolutions(nextDayResolutions);
   }, []);
 
   useEffect(() => {
@@ -172,6 +195,21 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "xueran_evil_messages", filter: `room_id=eq.${room.id}` },
+        () => void refresh(room),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "xueran_nominations", filter: `room_id=eq.${room.id}` },
+        () => void refresh(room),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "xueran_day_resolutions", filter: `room_id=eq.${room.id}` },
+        () => void refresh(room),
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "xueran_votes" },
         () => void refresh(room),
       )
       .subscribe();
@@ -271,6 +309,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       <ClaimedIdentity
         key={`${payload.seat}-${payload.roleId}`}
         identity={payload}
+        roomId={room.id}
         roomCode={room.code}
         scriptId={room.script_id}
         playerId={identity.player_id}
@@ -280,8 +319,12 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
         nightMessages={nightMessages}
         playerMessages={playerMessages}
         evilMessages={evilMessages}
+        nominations={nominations}
+        votes={votes}
+        dayResolutions={dayResolutions}
         onSendPlayerMessage={sendMessageToHost}
         onSendEvilMessage={sendMessageToEvilTeam}
+        onRefresh={() => refresh(room)}
       />
     );
   }
@@ -358,6 +401,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
 
 function ClaimedIdentity({
   identity,
+  roomId,
   roomCode,
   scriptId,
   playerId,
@@ -367,10 +411,15 @@ function ClaimedIdentity({
   nightMessages,
   playerMessages,
   evilMessages,
+  nominations,
+  votes,
+  dayResolutions,
   onSendPlayerMessage,
   onSendEvilMessage,
+  onRefresh,
 }: {
   identity: IdentityPayload;
+  roomId: string;
   roomCode: string;
   scriptId: string;
   playerId: string;
@@ -380,8 +429,12 @@ function ClaimedIdentity({
   nightMessages: NightMessage[];
   playerMessages: PlayerMessage[];
   evilMessages: EvilMessage[];
+  nominations: Nomination[];
+  votes: DayVote[];
+  dayResolutions: DayResolution[];
   onSendPlayerMessage: (body: string) => Promise<void>;
   onSendEvilMessage: (body: string) => Promise<void>;
+  onRefresh: () => Promise<void>;
 }) {
   const [revealed, setRevealed] = useState(false);
   const identitySeenKey = `xueran-identity-seen-${roomCode}-${identity.seat}-${identity.roleId}`;
@@ -457,8 +510,8 @@ function ClaimedIdentity({
         <nav
           className={
             evilChatAvailable
-              ? "player-hub-nav with-evil-chat"
-              : "player-hub-nav"
+              ? "player-hub-nav with-voting with-evil-chat"
+              : "player-hub-nav with-voting"
           }
           aria-label="玩家页面导航"
         >
@@ -483,6 +536,13 @@ function ClaimedIdentity({
             <MessageSquareText size={18} />
             <span>上帝消息</span>
             {unreadCount ? <strong>{Math.min(unreadCount, 99)}</strong> : null}
+          </button>
+          <button
+            className={activeView === "voting" ? "active" : ""}
+            onClick={() => setActiveView("voting")}
+          >
+            <Gavel size={18} />
+            <span>提名投票</span>
           </button>
           {evilChatAvailable ? (
             <button
@@ -562,6 +622,20 @@ function ClaimedIdentity({
           hostMessages={nightMessages}
           playerMessages={playerMessages}
           onSend={onSendPlayerMessage}
+        />
+      ) : null}
+
+      {activeView === "voting" ? (
+        <PlayerVotingPanel
+          roomId={roomId}
+          phase={phase}
+          round={round}
+          currentPlayerId={playerId}
+          players={players}
+          nominations={nominations}
+          votes={votes}
+          resolutions={dayResolutions}
+          onRefresh={onRefresh}
         />
       ) : null}
 

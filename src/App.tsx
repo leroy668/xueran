@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Dices,
+  Gavel,
   MoonStar,
   MessageSquareText,
   Plus,
@@ -61,12 +62,17 @@ import {
   activeRoomStorageKey,
   buildRoomUrl,
   closeRoom,
+  closeNomination,
   createRoom,
   findRoomByCode,
+  finalizeExecution,
+  getRoomDayResolutions,
   getRoomEvilMessages,
   getRoomNightMessages,
+  getRoomNominations,
   getRoomPlayerMessages,
   getRoomPlayers,
+  getRoomVotes,
   loadHostRoom,
   resetRoom,
   revokeClaim,
@@ -76,7 +82,10 @@ import {
   simulatePlayerMessage,
   syncRoom,
   type EvilMessage,
+  type DayResolution,
+  type DayVote,
   type NightMessage,
+  type Nomination,
   type PlayerMessage,
   type PublicRoomPlayer,
   type SharedRoom,
@@ -94,6 +103,7 @@ import {
   triggeredAbilityNotices,
 } from "./troubleBrewingSkills";
 import { ensureAnonymousSession, supabase } from "./supabase";
+import { HostVotingPanel } from "./VotingPanels";
 import type {
   GameState,
   Phase,
@@ -107,6 +117,7 @@ const tabs: { id: TabId; label: string; icon: typeof BookOpen }[] = [
   { id: "grimoire", label: "魔典", icon: BookOpen },
   { id: "night", label: "夜晚顺序", icon: MoonStar },
   { id: "messages", label: "玩家消息", icon: MessageSquareText },
+  { id: "voting", label: "提名投票", icon: Gavel },
   { id: "script", label: "剧本角色", icon: ScrollText },
 ];
 
@@ -469,6 +480,9 @@ function GrimoireApp() {
   const [nightMessages, setNightMessages] = useState<NightMessage[]>([]);
   const [playerMessages, setPlayerMessages] = useState<PlayerMessage[]>([]);
   const [evilMessages, setEvilMessages] = useState<EvilMessage[]>([]);
+  const [nominations, setNominations] = useState<Nomination[]>([]);
+  const [votes, setVotes] = useState<DayVote[]>([]);
+  const [dayResolutions, setDayResolutions] = useState<DayResolution[]>([]);
   const [readPlayerMessageIds, setReadPlayerMessageIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -528,12 +542,24 @@ function GrimoireApp() {
   }, [room]);
 
   const refreshRoomAdmin = useCallback(async (targetRoom: SharedRoom) => {
-    const [latestRoom, players, messages, incomingMessages, teamMessages] = await Promise.all([
+    const [
+      latestRoom,
+      players,
+      messages,
+      incomingMessages,
+      teamMessages,
+      nextNominations,
+      nextVotes,
+      nextDayResolutions,
+    ] = await Promise.all([
       findRoomByCode(targetRoom.code),
       getRoomPlayers(targetRoom.id),
       getRoomNightMessages(targetRoom.id),
       getRoomPlayerMessages(targetRoom.id),
       getRoomEvilMessages(targetRoom.id),
+      getRoomNominations(targetRoom.id),
+      getRoomVotes(targetRoom.id),
+      getRoomDayResolutions(targetRoom.id),
     ]);
     if (!latestRoom || latestRoom.status === "closed") {
       localStorage.removeItem(activeRoomStorageKey);
@@ -543,6 +569,9 @@ function GrimoireApp() {
       setNightMessages([]);
       setPlayerMessages([]);
       setEvilMessages([]);
+      setNominations([]);
+      setVotes([]);
+      setDayResolutions([]);
       setSyncStatus("idle");
       setToast("共享房间已由管理员关闭");
       return;
@@ -551,6 +580,9 @@ function GrimoireApp() {
     setNightMessages(messages);
     setPlayerMessages(incomingMessages);
     setEvilMessages(teamMessages);
+    setNominations(nextNominations);
+    setVotes(nextVotes);
+    setDayResolutions(nextDayResolutions);
   }, []);
 
   const unreadPlayerMessages = useMemo(
@@ -713,6 +745,31 @@ function GrimoireApp() {
           table: "xueran_evil_messages",
           filter: `room_id=eq.${room.id}`,
         },
+        () => void refreshRoomAdmin(room),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "xueran_nominations",
+          filter: `room_id=eq.${room.id}`,
+        },
+        () => void refreshRoomAdmin(room),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "xueran_day_resolutions",
+          filter: `room_id=eq.${room.id}`,
+        },
+        () => void refreshRoomAdmin(room),
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "xueran_votes" },
         () => void refreshRoomAdmin(room),
       )
       .subscribe();
@@ -1007,6 +1064,9 @@ function GrimoireApp() {
       setNightMessages([]);
       setPlayerMessages([]);
       setEvilMessages([]);
+      setNominations([]);
+      setVotes([]);
+      setDayResolutions([]);
       setSyncStatus("idle");
       setToast("共享房间已结束，本地魔典仍然保留");
     } catch {
@@ -1064,7 +1124,13 @@ function GrimoireApp() {
     );
     const notice = getDeathTriggeredAbilityNotice(visibleRoleId);
     const roomPlayer = roomPlayers.find((item) => item.id === playerId);
-    if (!notice || !roomPlayer?.is_claimed) return;
+    if (
+      !notice ||
+      !roomPlayer?.is_claimed ||
+      (visibleRoleId === "ravenkeeper" && state.phase !== "夜晚")
+    ) {
+      return;
+    }
 
     try {
       await handleSendNightMessage({
@@ -1074,6 +1140,50 @@ function GrimoireApp() {
       });
     } catch {
       setToast(`已将${formatSeat(player.seat)}标记为死亡，但触发通知发送失败`);
+    }
+  };
+
+  const handleCloseNomination = async (nominationId: string) => {
+    if (!room || roomBusy) return;
+    if (!window.confirm("确认结束当前提名的计票？结束后玩家不能继续投票。")) {
+      return;
+    }
+    setRoomBusy(true);
+    try {
+      await closeNomination(nominationId);
+      await refreshRoomAdmin(room);
+      setToast("本轮计票已结束");
+    } catch {
+      setToast("结束计票失败，请刷新后重试");
+    } finally {
+      setRoomBusy(false);
+    }
+  };
+
+  const handleFinalizeExecution = async () => {
+    if (!room || roomBusy || state.phase !== "白天") return;
+    if (!window.confirm("确认结束今天的提名，并按照当前最高票结果结算处决？")) {
+      return;
+    }
+    setRoomBusy(true);
+    try {
+      const result = await finalizeExecution(room.id, state.round);
+      const executedPlayer = result.executed_player_id
+        ? state.players.find((player) => player.id === result.executed_player_id)
+        : null;
+      if (executedPlayer?.alive) {
+        await handleSetPlayerAlive(executedPlayer.id, false);
+      }
+      await refreshRoomAdmin(room);
+      setToast(
+        executedPlayer
+          ? `${formatSeat(executedPlayer.seat)}已被处决`
+          : "今日投票结束，无人被处决",
+      );
+    } catch {
+      setToast("处决结算失败，请先结束当前计票");
+    } finally {
+      setRoomBusy(false);
     }
   };
 
@@ -1249,6 +1359,22 @@ function GrimoireApp() {
             onReadEvilMessages={markEvilMessagesRead}
             onSendMessage={handleSendNightMessage}
             onSendEvilMessage={handleSendEvilMessage}
+          />
+        ) : null}
+
+        {activeTab === "voting" ? (
+          <HostVotingPanel
+            roomAvailable={Boolean(room)}
+            phase={state.phase}
+            round={state.round}
+            players={roomPlayers}
+            gamePlayers={state.players}
+            nominations={nominations}
+            votes={votes}
+            resolutions={dayResolutions}
+            busy={roomBusy}
+            onCloseNomination={handleCloseNomination}
+            onFinalizeExecution={handleFinalizeExecution}
           />
         ) : null}
 

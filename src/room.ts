@@ -74,6 +74,43 @@ export type EvilMessage = {
   created_at: string;
 };
 
+export type Nomination = {
+  id: string;
+  room_id: string;
+  round: number;
+  nominator_player_id: string;
+  nominee_player_id: string;
+  status: "open" | "closed" | "executed";
+  vote_count: number;
+  required_votes: number | null;
+  created_at: string;
+  closed_at: string | null;
+};
+
+export type DayVote = {
+  id: string;
+  nomination_id: string;
+  voter_player_id: string;
+  voter_was_alive: boolean;
+  created_at: string;
+};
+
+export type DayResolution = {
+  room_id: string;
+  round: number;
+  executed_player_id: string | null;
+  resolved_at: string;
+};
+
+export type ExecutionResult = {
+  room_id: string;
+  round: number;
+  executed_player_id: string | null;
+  vote_count?: number | null;
+  required_votes?: number | null;
+  already_resolved: boolean;
+};
+
 export type AdminRoom = {
   room_id: string;
   code: string;
@@ -373,6 +410,84 @@ const getAllEvilMessages = async (roomId: string) => {
 export const getRoomEvilMessages = getAllEvilMessages;
 
 export const getMyEvilMessages = getAllEvilMessages;
+
+const isMissingVotingTable = (error: { code?: string; message?: string }) =>
+  error.code === "42P01" ||
+  error.code === "PGRST205" ||
+  /xueran_(nominations|votes|day_resolutions)/i.test(error.message ?? "");
+
+export const getRoomNominations = async (roomId: string) => {
+  const { data, error } = await supabase
+    .from("xueran_nominations")
+    .select("*")
+    .eq("room_id", roomId)
+    .order("created_at", { ascending: true });
+  if (error && isMissingVotingTable(error)) return [];
+  if (error) throw error;
+  return data as Nomination[];
+};
+
+export const getRoomVotes = async (roomId: string) => {
+  const { data, error } = await supabase
+    .from("xueran_votes")
+    .select("*, xueran_nominations!inner(room_id)")
+    .eq("xueran_nominations.room_id", roomId)
+    .order("created_at", { ascending: true });
+  if (error && isMissingVotingTable(error)) return [];
+  if (error) throw error;
+  return (data ?? []).map((vote) => ({
+    id: vote.id,
+    nomination_id: vote.nomination_id,
+    voter_player_id: vote.voter_player_id,
+    voter_was_alive: vote.voter_was_alive,
+    created_at: vote.created_at,
+  })) as DayVote[];
+};
+
+export const getRoomDayResolutions = async (roomId: string) => {
+  const { data, error } = await supabase
+    .from("xueran_day_resolutions")
+    .select("*")
+    .eq("room_id", roomId)
+    .order("round", { ascending: true });
+  if (error && isMissingVotingTable(error)) return [];
+  if (error) throw error;
+  return data as DayResolution[];
+};
+
+export const nominatePlayer = async (roomId: string, nomineePlayerId: string) => {
+  const { data, error } = await supabase.rpc("xueran_nominate", {
+    p_room_id: roomId,
+    p_nominee_player_id: nomineePlayerId,
+  });
+  if (error) throw error;
+  return data as Nomination;
+};
+
+export const castNominationVote = async (nominationId: string) => {
+  const { data, error } = await supabase.rpc("xueran_cast_vote", {
+    p_nomination_id: nominationId,
+  });
+  if (error) throw error;
+  return data as DayVote;
+};
+
+export const closeNomination = async (nominationId: string) => {
+  const { data, error } = await supabase.rpc("xueran_close_nomination", {
+    p_nomination_id: nominationId,
+  });
+  if (error) throw error;
+  return data as Nomination;
+};
+
+export const finalizeExecution = async (roomId: string, round: number) => {
+  const { data, error } = await supabase.rpc("xueran_finalize_execution", {
+    p_room_id: roomId,
+    p_round: round,
+  });
+  if (error) throw error;
+  return data as ExecutionResult;
+};
 
 export const sendNightMessage = async ({
   roomId,
