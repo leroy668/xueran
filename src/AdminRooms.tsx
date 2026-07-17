@@ -14,7 +14,6 @@ import { scripts } from "./data";
 import {
   adminCloseAllRooms,
   adminCloseRoom,
-  adminDeleteAllRooms,
   adminDeleteRoom,
   getAdminRooms,
   type AdminRoom,
@@ -60,6 +59,7 @@ export function AdminRooms() {
   const [deletingRoomId, setDeletingRoomId] = useState("");
   const [roomView, setRoomView] = useState<"open" | "closed">("open");
   const [bulkAction, setBulkAction] = useState<"close" | "delete" | null>(null);
+  const [deleteProgress, setDeleteProgress] = useState({ completed: 0, total: 0 });
   const [resultMessage, setResultMessage] = useState("");
   const [error, setError] = useState("");
   const [authorized, setAuthorized] = useState(false);
@@ -204,21 +204,39 @@ export function AdminRooms() {
     if (confirmation?.trim() !== "清除全部数据") return;
 
     setBulkAction("delete");
+    setDeleteProgress({ completed: 0, total: rooms.length });
     setError("");
     setResultMessage("");
+    const roomsToDelete = [...rooms];
+    let deletedCount = 0;
+    const failedRooms: string[] = [];
     try {
-      const count = await adminDeleteAllRooms(activeToken);
-      setResultMessage(`已彻底删除 ${count} 个房间及其关联数据`);
+      for (const room of roomsToDelete) {
+        try {
+          const deleted = await adminDeleteRoom(activeToken, room.room_id);
+          if (!deleted) throw new Error("room was not deleted");
+          deletedCount += 1;
+        } catch (reason) {
+          console.error(`Failed to delete room ${room.code}`, reason);
+          failedRooms.push(room.code);
+        } finally {
+          setDeleteProgress((progress) => ({
+            ...progress,
+            completed: progress.completed + 1,
+          }));
+        }
+      }
+
       await loadRooms(activeToken, true);
-    } catch (reason) {
-      const message = reason instanceof Error ? reason.message : "";
-      setError(
-        /invalid admin token/i.test(message)
-          ? "管理密钥已失效"
-          : "批量清除失败，请稍后重试",
-      );
+      if (failedRooms.length) {
+        setResultMessage(`已清除 ${deletedCount} 个房间，${failedRooms.length} 个未能清除`);
+        setError(`未清除的房间：${failedRooms.join("、")}。请再次清除或逐个删除。`);
+      } else {
+        setResultMessage(`已彻底删除 ${deletedCount} 个房间及其关联数据`);
+      }
     } finally {
       setBulkAction(null);
+      setDeleteProgress({ completed: 0, total: 0 });
     }
   };
 
@@ -312,7 +330,9 @@ export function AdminRooms() {
             onClick={() => void deleteAllRooms()}
           >
             {bulkAction === "delete" ? <RefreshCw className="spin" size={15} /> : <Trash2 size={15} />}
-            {bulkAction === "delete" ? "清除中" : `清除全部数据 (${rooms.length})`}
+            {bulkAction === "delete"
+              ? `清除中 ${deleteProgress.completed}/${deleteProgress.total}`
+              : `清除全部数据 (${rooms.length})`}
           </button>
         </div>
         {resultMessage ? <div className="admin-result-message"><ShieldCheck size={14} />{resultMessage}</div> : null}
