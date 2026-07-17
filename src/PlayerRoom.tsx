@@ -994,7 +994,13 @@ function PlayerSkillChoicePanel({
         <div className={("player-skill-targets " + (spec.kind === "single" ? "single" : "")).trim()}>
           <select value={firstPlayerId} disabled={sending} aria-label={spec.title + "目标"} onChange={(event) => setFirstPlayerId(event.target.value)}>
             {candidates.map((player) => (
-              <option value={player.id} key={player.id} disabled={player.id === secondPlayerId}>
+              <option
+                value={player.id}
+                key={player.id}
+                disabled={
+                  spec.kind === "pair" && player.id === secondPlayerId
+                }
+              >
                 {formatSeat(player.seat)} · {player.name || "玩家"}
               </option>
             ))}

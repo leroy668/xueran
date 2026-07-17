@@ -160,7 +160,7 @@ export function HostRoomPanel({
             playerMessages={playerMessages}
             phase={phase}
             round={round}
-            busy={busy}
+            busy={busy || syncStatus === "syncing"}
             onSend={onSimulatePlayerSkillReply}
           />
         ) : null}
@@ -268,11 +268,20 @@ function SimulatedPlayerSkillReplyForm({
   const targetPlayers = useMemo(
     () =>
       players.filter((player) => {
+        const gamePlayer = gamePlayers.find((item) => item.id === player.id);
         if (choiceSpec?.excludeSelf && player.id === playerId) return false;
-        if (choiceSpec?.aliveOnly && !player.alive) return false;
+        if (choiceSpec?.aliveOnly && !(gamePlayer?.alive ?? player.alive)) {
+          return false;
+        }
         return true;
       }),
-    [choiceSpec?.aliveOnly, choiceSpec?.excludeSelf, playerId, players],
+    [
+      choiceSpec?.aliveOnly,
+      choiceSpec?.excludeSelf,
+      gamePlayers,
+      playerId,
+      players,
+    ],
   );
 
   useEffect(() => {
@@ -301,10 +310,28 @@ function SimulatedPlayerSkillReplyForm({
     choiceSpec && phase === "夜晚" && round <= 1 && !choiceSpec.allowFirstNight,
   );
   const deathLocked = Boolean(
-    choiceSpec?.onlyWhenDead && selectedPlayer?.alive !== false,
+    choiceSpec?.onlyWhenDead && selectedGamePlayer?.alive !== false,
+  );
+  const oneUseLocked = Boolean(
+    (selectedRole?.id === "slayer" || selectedRole?.id === "ravenkeeper") &&
+      playerMessages
+        .filter((message) => message.player_id === playerId)
+        .map((message) => ({
+          message,
+          choice: parsePlayerSkillChoiceMessage(message.body),
+        }))
+        .some(
+          (entry) =>
+            entry.choice?.roleId === selectedRole.id &&
+            entry.message.round !== round,
+        ),
   );
   const canSubmitSkillChoice = Boolean(
-    choiceSpec && phaseAllowed && !firstNightLocked && !deathLocked,
+    choiceSpec &&
+      phaseAllowed &&
+      !firstNightLocked &&
+      !deathLocked &&
+      !oneUseLocked,
   );
   const unavailableText = !choiceSpec
     ? "当前角色没有需要玩家主动提交的技能"
@@ -316,7 +343,9 @@ function SimulatedPlayerSkillReplyForm({
         ? "首夜不能发动，进入第一晚后即可测试"
         : deathLocked
           ? "守鸦人需要先在魔典中标记为死亡"
-          : "";
+          : oneUseLocked
+            ? "本局能力已经使用"
+            : "";
   const receivedSkillMessages = nightMessages
     .filter(
       (message) =>
@@ -449,7 +478,10 @@ function SimulatedPlayerSkillReplyForm({
                     <option
                       value={player.id}
                       key={player.id}
-                      disabled={player.id === secondTargetId}
+                      disabled={
+                        choiceSpec?.kind === "pair" &&
+                        player.id === secondTargetId
+                      }
                     >
                       {formatSeat(player.seat)} · {player.name || "玩家"} ·{" "}
                       {role.name}
