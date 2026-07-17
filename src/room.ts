@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js";
+import { normalizeRoleId } from "./data";
 import { ensureAnonymousSession, supabase } from "./supabase";
 import type { GameState, Player } from "./types";
 
@@ -174,7 +175,7 @@ export const loadHostRoom = async (room: SharedRoom, user: User) => {
         seat: player.seat,
         name: "",
         alive: player.alive,
-        roleId: identity?.role_id ?? "washerwoman",
+        roleId: normalizeRoleId(identity?.role_id ?? "washerwoman"),
         drunkRoleId: identity?.drunk_role_id ?? "",
         identityMessage: identity?.identity_message ?? "",
         notes: identity?.host_notes ?? "",

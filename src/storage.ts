@@ -1,3 +1,4 @@
+import { normalizeRoleId } from "./data";
 import type { GameState, SharedState } from "./types";
 
 const storageKey = "xueran-grimoire-v1";
@@ -22,6 +23,7 @@ export const loadState = (): GameState => {
       ...saved,
       players: (saved.players ?? []).map((player) => ({
         ...player,
+        roleId: normalizeRoleId(player.roleId),
         drunkRoleId: player.drunkRoleId ?? "",
         identityMessage: player.identityMessage ?? "",
       })),
@@ -56,6 +58,7 @@ export const getSharedState = (): SharedState | null => {
       ...shared,
       players: shared.players.map((player) => ({
         ...player,
+        roleId: normalizeRoleId(player.roleId),
         drunkRoleId: player.drunkRoleId ?? "",
         identityMessage: "",
         notes: "",

@@ -42,7 +42,7 @@ const missingGodRoleIds = [
   "recluse",
   "drunk",
   "moonchild",
-  "goon",
+  "klutz",
   "poisoner",
   "scarlet-woman",
   "godfather",
@@ -106,7 +106,7 @@ export const roles: RoleDefinition[] = [
   { id: "butler", name: "管家", team: "外来者", icon: "管", short: "每晚选择一名主人，只能在主人投票时投票", firstNightOrder: 59, otherNightOrder: 89, reminder: "管家选择一名存活玩家作为主人。" },
   { id: "saint", name: "圣徒", team: "外来者", icon: "圣", short: "若被处决，善良阵营立即落败", firstNightOrder: 0, otherNightOrder: 0, reminder: "处决圣徒会触发邪恶阵营胜利。" },
   { id: "moonchild", name: "月之子", team: "外来者", icon: "月", short: "得知死亡时公开选择一名存活玩家；若其善良，他在当晚死亡", firstNightOrder: 0, otherNightOrder: 71, reminder: "若月之子选择了善良玩家，该玩家在当晚死亡。" },
-  { id: "goon", name: "呆瓜", team: "外来者", icon: "呆", short: "每晚首个用能力选择你的玩家醉酒至黄昏，你变为他的阵营", firstNightOrder: 0, otherNightOrder: 0, reminder: "记录每晚第一个选择呆瓜的玩家，并改变呆瓜阵营。" },
+  { id: "klutz", name: "呆瓜", team: "外来者", icon: "呆", short: "当你得知你死亡时，公开选择一名存活玩家；如果他是邪恶的，你的阵营落败", firstNightOrder: 0, otherNightOrder: 0, reminder: "呆瓜得知自己死亡时，须公开选择一名存活玩家；若目标是邪恶玩家，呆瓜的阵营落败。" },
   { id: "poisoner", name: "投毒者", team: "爪牙", icon: "毒", short: "每晚选择一名玩家，使其中毒至下个夜晚", firstNightOrder: 33, otherNightOrder: 18, reminder: "投毒者选择一名玩家，直到下次夜晚开始前中毒。" },
   { id: "scarlet-woman", name: "红唇女郎", team: "爪牙", icon: "唇", short: "五名或更多玩家存活时恶魔死亡，你变成该恶魔", firstNightOrder: 0, otherNightOrder: 34, reminder: "当恶魔死亡且存活玩家不少于五人时，红唇女郎接替恶魔。" },
   { id: "baron", name: "男爵", team: "爪牙", icon: "爵", short: "剧本中增加两名外来者", firstNightOrder: 0, otherNightOrder: 0, reminder: "确认本局外来者数量因为男爵增加。" },
@@ -121,8 +121,11 @@ export const roles: RoleDefinition[] = [
 
 export const roleMap = new Map(roles.map((role) => [role.id, role]));
 
+export const normalizeRoleId = (roleId: string) =>
+  roleId === "goon" ? "klutz" : roleId;
+
 export const getRole = (roleId: string) =>
-  roleMap.get(roleId) ?? roles[0];
+  roleMap.get(normalizeRoleId(roleId)) ?? roles[0];
 
 export const getScriptRoles = (scriptId: string) => {
   const script = scripts.find((item) => item.id === scriptId);
@@ -143,14 +146,14 @@ export const getNightActions = (
   );
   return players
     .filter((player) => {
-      if (!scriptRoleIds.has(player.roleId)) return false;
       const role = getRole(player.roleId);
+      if (!scriptRoleIds.has(role.id)) return false;
       const order = firstNight
         ? role.firstNightOrder
         : role.otherNightOrder;
       return (
         order > 0 &&
-        (player.alive || actsAfterDeathRoleIds.has(player.roleId))
+        (player.alive || actsAfterDeathRoleIds.has(role.id))
       );
     })
     .map((player) => {

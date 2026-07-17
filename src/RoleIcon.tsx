@@ -22,7 +22,7 @@ const pngRoleIds = new Set([
   "recluse",
   "drunk",
   "moonchild",
-  "goon",
+  "klutz",
   "poisoner",
   "scarlet-woman",
   "godfather",
