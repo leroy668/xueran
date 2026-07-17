@@ -215,11 +215,18 @@ const compactMessage = (body: string) =>
   body.replace(/\s+/g, " ").trim();
 
 const getFortuneTellerResult = (body: string) => {
-  if (body.includes("是，其中一人被视为恶魔")) {
-    return { kind: "positive", label: "有恶魔" } as const;
-  }
-  if (body.includes("否，两人都未被视为恶魔")) {
+  if (
+    body.includes("没有恶魔") ||
+    body.includes("无恶魔") ||
+    body.includes("否，两人都未被视为恶魔")
+  ) {
     return { kind: "negative", label: "无恶魔" } as const;
+  }
+  if (
+    body.includes("有恶魔") ||
+    body.includes("是，其中一人被视为恶魔")
+  ) {
+    return { kind: "positive", label: "有恶魔" } as const;
   }
   return { kind: "unknown", label: "已回复" } as const;
 };
@@ -2385,6 +2392,10 @@ function NightPanel({
     const playerName = roomPlayer?.name || "未入座";
     return `${formatSeat(player.seat)} · ${playerName} · ${getRole(player.roleId).name}`;
   };
+  const getNightSeatLabel = (playerId: string) => {
+    const player = state.players.find((item) => item.id === playerId);
+    return player ? formatSeat(player.seat) : "未知座位";
+  };
   const conversation = useMemo(
     () =>
       [
@@ -2542,11 +2553,11 @@ function NightPanel({
 
   const sendFortuneTellerResult = (hasDemon: boolean) => {
     if (!pairTargetsReady) return;
-    const first = getNightPlayerLabel(skillTargets.first);
-    const second = getNightPlayerLabel(skillTargets.second);
+    const first = getNightSeatLabel(skillTargets.first);
+    const second = getNightSeatLabel(skillTargets.second);
     void submitSkill(
       `本晚查验${first}和${second}：${
-        hasDemon ? "是，其中一人被视为恶魔" : "否，两人都未被视为恶魔"
+        hasDemon ? "有恶魔" : "没有恶魔"
       }`,
     );
   };

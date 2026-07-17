@@ -40,7 +40,7 @@ import {
   parsePlayerSkillChoiceMessage,
 } from "./playerSkillChoices";
 import {
-  getNightMessageDisplayBody,
+  getPlayerNightMessageDisplayBody,
   getRoleSkillMessage,
 } from "./roleSkillMessages";
 import { formatSeat } from "./seat";
@@ -663,7 +663,10 @@ function PlayerMessages({
       const skillBody = getRoleSkillMessage(message.body);
       return {
         ...message,
-        body: getNightMessageDisplayBody(message.body),
+        body: getPlayerNightMessageDisplayBody(
+          message.body,
+          message.role_id,
+        ),
         direction: "incoming" as const,
         label: `上帝 · 第 ${message.round} 回合${skillBody ? " · 技能" : ""}`,
       };
