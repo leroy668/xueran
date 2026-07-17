@@ -22,6 +22,7 @@ import {
   Skull,
   Sparkles,
   Sun,
+  Target,
   Trash2,
   UserMinus,
   Users,
@@ -143,6 +144,49 @@ const serializePlayerNotes = (notes: PlayerNoteEntry[]) =>
   notes.length
     ? `${playerNotesPrefix}${JSON.stringify(notes)}`
     : "";
+
+const fortuneTellerRedHerringNoteId =
+  "system:fortune-teller-red-herring";
+const fortuneTellerRedHerringNoteBody =
+  "占卜师红鲱鱼：在占卜师能力中始终被视为恶魔";
+
+const isFortuneTellerRedHerring = (player: Player) =>
+  parsePlayerNotes(player.notes).some(
+    (note) => note.id === fortuneTellerRedHerringNoteId,
+  );
+
+const setFortuneTellerRedHerring = (
+  players: Player[],
+  playerId: string,
+  stageLabel: string,
+) =>
+  players.map((player) => {
+    const notes = parsePlayerNotes(player.notes);
+    const existingMarker = notes.find(
+      (note) => note.id === fortuneTellerRedHerringNoteId,
+    );
+    const remainingNotes = notes.filter(
+      (note) => note.id !== fortuneTellerRedHerringNoteId,
+    );
+    if (player.id !== playerId) {
+      return {
+        ...player,
+        notes: serializePlayerNotes(remainingNotes),
+      };
+    }
+    return {
+      ...player,
+      notes: serializePlayerNotes([
+        {
+          id: fortuneTellerRedHerringNoteId,
+          body: fortuneTellerRedHerringNoteBody,
+          createdAt: existingMarker?.createdAt ?? new Date().toISOString(),
+          stage: existingMarker?.stage ?? stageLabel,
+        },
+        ...remainingNotes,
+      ]),
+    };
+  });
 
 const chineseNumber = (value: number) => {
   const digits = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
@@ -1057,25 +1101,39 @@ function GrimoirePanel({
     () => new Map(roomPlayers.map((player) => [player.seat, player])),
     [roomPlayers],
   );
-  const latestSkillByPlayer = useMemo(() => {
-    const messages = new Map<
-      string,
-      { message: NightMessage; body: string }
-    >();
+  const skillHistoryByPlayer = useMemo(() => {
+    const byStage = new Map<string, { message: NightMessage; body: string }>();
     for (const message of nightMessages) {
       const skillBody = getRoleSkillMessage(message.body);
       if (!skillBody) continue;
-      const key = `${message.player_id}:${message.role_id}`;
-      const current = messages.get(key);
+      const key = `${message.player_id}:${message.role_id}:${message.round}`;
+      const current = byStage.get(key);
       if (
         !current ||
         new Date(message.created_at).getTime() >
           new Date(current.message.created_at).getTime()
       ) {
-        messages.set(key, { message, body: skillBody });
+        byStage.set(key, { message, body: skillBody });
       }
     }
-    return messages;
+    const history = new Map<
+      string,
+      { message: NightMessage; body: string }[]
+    >();
+    for (const entry of byStage.values()) {
+      const key = `${entry.message.player_id}:${entry.message.role_id}`;
+      const current = history.get(key) ?? [];
+      current.push(entry);
+      history.set(key, current);
+    }
+    history.forEach((entries) =>
+      entries.sort(
+        (left, right) =>
+          new Date(right.message.created_at).getTime() -
+          new Date(left.message.created_at).getTime(),
+      ),
+    );
+    return history;
   }, [nightMessages]);
   const selectedPlayer =
     state.players.find((player) => player.id === selectedPlayerId) ??
@@ -1183,12 +1241,20 @@ function GrimoirePanel({
                   const left = 50 + Math.cos(angle) * radius;
                   const top = 50 + Math.sin(angle) * radius;
                   const isSelected = selectedPlayer?.id === player.id;
-                  const latestSkill = latestSkillByPlayer.get(
+                  const skillHistory = skillHistoryByPlayer.get(
                     `${player.id}:${role.id}`,
-                  );
+                  ) ?? [];
+                  const latestSkill = skillHistory[0];
                   const infoPreview = latestSkill
-                    ? compactMessage(latestSkill.body)
+                    ? `${getGameStageLabel("夜晚", latestSkill.message.round)} · ${compactMessage(latestSkill.body)}`
                     : "";
+                  const skillHistoryTitle = skillHistory
+                    .map(
+                      (entry) =>
+                        `${getGameStageLabel("夜晚", entry.message.round)}：${entry.body}`,
+                    )
+                    .join("\n");
+                  const redHerring = isFortuneTellerRedHerring(player);
 
                   return (
                     <button
@@ -1198,6 +1264,7 @@ function GrimoirePanel({
                         player.alive ? "" : "dead",
                         isSelected ? "selected" : "",
                         latestSkill ? "has-role-info" : "",
+                        redHerring ? "has-red-herring" : "",
                         state.players.length > 10 ? "dense" : "",
                         state.players.length > 15 ? "very-dense" : "",
                       ]
@@ -1230,10 +1297,22 @@ function GrimoirePanel({
                       {latestSkill ? (
                         <span
                           className="table-role-info"
-                          title={`技能信息：${latestSkill.body}`}
+                          title={`已记录 ${skillHistory.length} 个夜晚的技能信息：\n${skillHistoryTitle}`}
                         >
                           <MessageSquareText size={10} />
                           <span>{infoPreview}</span>
+                          {skillHistory.length > 1 ? (
+                            <b>{skillHistory.length}</b>
+                          ) : null}
+                        </span>
+                      ) : null}
+                      {redHerring ? (
+                        <span
+                          className="table-red-herring"
+                          title={fortuneTellerRedHerringNoteBody}
+                        >
+                          <Target size={9} />
+                          红
                         </span>
                       ) : null}
                       {roomPlayer?.is_claimed ? (
@@ -1300,7 +1379,18 @@ function PlayerEditor({
       .filter(Boolean),
   );
   const [noteDraft, setNoteDraft] = useState("");
-  const noteEntries = parsePlayerNotes(player.notes);
+  const parsedNoteEntries = parsePlayerNotes(player.notes);
+  const systemNoteEntries = parsedNoteEntries.filter((note) =>
+    note.id.startsWith("system:"),
+  );
+  const noteEntries = parsedNoteEntries.filter(
+    (note) => !note.id.startsWith("system:"),
+  );
+  const hasRedHerring = systemNoteEntries.some(
+    (note) => note.id === fortuneTellerRedHerringNoteId,
+  );
+  const serializeEditorNotes = (entries: PlayerNoteEntry[]) =>
+    serializePlayerNotes([...systemNoteEntries, ...entries]);
   const messageHistory = [...messages].sort(
     (left, right) =>
       new Date(right.created_at).getTime() -
@@ -1310,7 +1400,7 @@ function PlayerEditor({
     const body = noteDraft.trim();
     if (!body) return;
     onUpdate(player.id, {
-      notes: serializePlayerNotes([
+      notes: serializeEditorNotes([
         {
           id: makeId(),
           body,
@@ -1324,7 +1414,7 @@ function PlayerEditor({
   };
   const updateNote = (noteId: string, body: string) => {
     onUpdate(player.id, {
-      notes: serializePlayerNotes(
+      notes: serializeEditorNotes(
         noteEntries.map((note) =>
           note.id === noteId ? { ...note, body } : note,
         ),
@@ -1333,14 +1423,14 @@ function PlayerEditor({
   };
   const removeNote = (noteId: string) => {
     onUpdate(player.id, {
-      notes: serializePlayerNotes(
+      notes: serializeEditorNotes(
         noteEntries.filter((note) => note.id !== noteId),
       ),
     });
   };
   const toggleNoteResolved = (noteId: string) => {
     onUpdate(player.id, {
-      notes: serializePlayerNotes(
+      notes: serializeEditorNotes(
         noteEntries.map((note) =>
           note.id === noteId ? { ...note, resolved: !note.resolved } : note,
         ),
@@ -1452,6 +1542,15 @@ function PlayerEditor({
           ) : null}
         </div>
       </div>
+      {hasRedHerring ? (
+        <div className="fortune-red-herring-banner">
+          <Target size={15} />
+          <div>
+            <strong>占卜师红鲱鱼</strong>
+            <span>该玩家在占卜师能力中始终被视为恶魔</span>
+          </div>
+        </div>
+      ) : null}
 
       <section className="player-notes-section">
         <div className="player-notes-heading">
@@ -1550,10 +1649,14 @@ function PlayerEditor({
           <div className="player-history-list">
             {messageHistory.map((message) => {
               const messageRole = getRole(message.role_id);
+              const skillBody = getRoleSkillMessage(message.body);
               return (
                 <article className="player-history-item" key={message.id}>
                   <div>
-                    <strong>{getGameStageLabel("夜晚", message.round)}</strong>
+                    <strong>
+                      {getGameStageLabel("夜晚", message.round)}
+                      {skillBody ? " · 技能" : ""}
+                    </strong>
                     <span>{messageRole.name}</span>
                     <time>
                       {new Date(message.created_at).toLocaleString("zh-CN", {
@@ -1564,7 +1667,7 @@ function PlayerEditor({
                       })}
                     </time>
                   </div>
-                  <p>{message.body}</p>
+                  <p>{getNightMessageDisplayBody(message.body)}</p>
                 </article>
               );
             })}
@@ -1634,6 +1737,10 @@ function NightPanel({
   const [sendingMode, setSendingMode] = useState<
     "message" | "skill" | null
   >(null);
+  const [fortuneTellerTargets, setFortuneTellerTargets] = useState({
+    first: "",
+    second: "",
+  });
   const [sendError, setSendError] = useState("");
   const timelineRef = useRef<HTMLDivElement>(null);
   const sending = sendingMode !== null;
@@ -1663,6 +1770,79 @@ function NightPanel({
     }
     setSendError("");
   }, [rolePlayers, targetPlayerId]);
+
+  const redHerringCandidates = useMemo(
+    () =>
+      state.players.filter((player) => {
+        const team = getRole(player.roleId).team;
+        return team === "镇民" || team === "外来者";
+      }),
+    [state.players],
+  );
+  const fortuneTellerCandidates = useMemo(
+    () => state.players,
+    [state.players],
+  );
+
+  useEffect(() => {
+    if (currentRole?.id !== "fortune-teller") return;
+    const candidateIds = new Set(
+      fortuneTellerCandidates.map((player) => player.id),
+    );
+    const nextFirst = candidateIds.has(fortuneTellerTargets.first)
+      ? fortuneTellerTargets.first
+      : fortuneTellerCandidates[0]?.id ?? "";
+    const nextSecond =
+      candidateIds.has(fortuneTellerTargets.second) &&
+      fortuneTellerTargets.second !== nextFirst
+        ? fortuneTellerTargets.second
+        : fortuneTellerCandidates.find(
+            (player) => player.id !== nextFirst,
+          )?.id ?? "";
+    if (
+      nextFirst !== fortuneTellerTargets.first ||
+      nextSecond !== fortuneTellerTargets.second
+    ) {
+      setFortuneTellerTargets({ first: nextFirst, second: nextSecond });
+    }
+  }, [
+    currentRole?.id,
+    fortuneTellerCandidates,
+    fortuneTellerTargets.first,
+    fortuneTellerTargets.second,
+  ]);
+
+  const redHerringPlayerId =
+    state.players.find(isFortuneTellerRedHerring)?.id ?? "";
+  const updateRedHerring = (playerId: string) => {
+    onUpdate({
+      players: setFortuneTellerRedHerring(
+        state.players,
+        playerId,
+        currentStageLabel,
+      ),
+    });
+  };
+  const getNightPlayerLabel = (playerId: string) => {
+    const player = state.players.find((item) => item.id === playerId);
+    if (!player) return "座位 ?";
+    const roomPlayer = roomPlayersById.get(player.id);
+    return `座位 ${String(player.seat).padStart(2, "0")}${
+      roomPlayer?.name ? ` · ${roomPlayer.name}` : ""
+    }`;
+  };
+  const setEmpathResult = (count: number) => {
+    setMessageBody(`本晚两名存活邻座中有 ${count} 名邪恶玩家`);
+  };
+  const setFortuneTellerResult = (hasDemon: boolean) => {
+    const first = getNightPlayerLabel(fortuneTellerTargets.first);
+    const second = getNightPlayerLabel(fortuneTellerTargets.second);
+    setMessageBody(
+      `本晚查验${first}和${second}：${
+        hasDemon ? "是，其中一人被视为恶魔" : "否，两人都未被视为恶魔"
+      }`,
+    );
+  };
 
   const selectedPlayer = rolePlayers.find(
     (player) => player.id === targetPlayerId,
@@ -1891,6 +2071,48 @@ function NightPanel({
                 </select>
               </label>
             </div>
+            {currentRole.id === "fortune-teller" ? (
+              <div className="fortune-teller-setting">
+                <div>
+                  <Target size={15} />
+                  <span>
+                    <strong>占卜师红鲱鱼</strong>
+                    <small>该善良玩家始终被占卜师视为恶魔</small>
+                  </span>
+                </div>
+                <div className="fortune-teller-setting-control">
+                  <select
+                    value={redHerringPlayerId}
+                    onChange={(event) => updateRedHerring(event.target.value)}
+                    aria-label="选择占卜师红鲱鱼"
+                  >
+                    <option value="">尚未设置</option>
+                    {redHerringCandidates.map((player) => (
+                      <option value={player.id} key={player.id}>
+                        {getNightPlayerLabel(player.id)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="icon-button"
+                    title="随机选择一名善良玩家"
+                    aria-label="随机选择占卜师红鲱鱼"
+                    disabled={!redHerringCandidates.length}
+                    onClick={() => {
+                      const player =
+                        redHerringCandidates[
+                          Math.floor(
+                            Math.random() * redHerringCandidates.length,
+                          )
+                        ];
+                      if (player) updateRedHerring(player.id);
+                    }}
+                  >
+                    <Dices size={15} />
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             {conversation.length ? (
               <div className="night-chat-timeline" ref={timelineRef}>
@@ -1930,6 +2152,91 @@ function NightPanel({
             )}
 
             <div className="night-chat-composer">
+              {currentRole.id === "empath" ? (
+                <div className="night-skill-preset">
+                  <span>共情者本晚结果</span>
+                  <div className="night-skill-segments">
+                    {[0, 1, 2].map((count) => (
+                      <button
+                        className="secondary-button"
+                        key={count}
+                        onClick={() => setEmpathResult(count)}
+                      >
+                        {count} 名邪恶
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {currentRole.id === "fortune-teller" ? (
+                <div className="night-skill-preset fortune-teller-preset">
+                  <span>占卜师本晚查验</span>
+                  <div className="fortune-teller-targets">
+                    <select
+                      value={fortuneTellerTargets.first}
+                      onChange={(event) =>
+                        setFortuneTellerTargets((current) => ({
+                          ...current,
+                          first: event.target.value,
+                        }))
+                      }
+                      aria-label="占卜师第一名查验玩家"
+                    >
+                      {fortuneTellerCandidates.map((player) => (
+                        <option
+                          value={player.id}
+                          key={player.id}
+                          disabled={player.id === fortuneTellerTargets.second}
+                        >
+                          {getNightPlayerLabel(player.id)}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={fortuneTellerTargets.second}
+                      onChange={(event) =>
+                        setFortuneTellerTargets((current) => ({
+                          ...current,
+                          second: event.target.value,
+                        }))
+                      }
+                      aria-label="占卜师第二名查验玩家"
+                    >
+                      {fortuneTellerCandidates.map((player) => (
+                        <option
+                          value={player.id}
+                          key={player.id}
+                          disabled={player.id === fortuneTellerTargets.first}
+                        >
+                          {getNightPlayerLabel(player.id)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="night-skill-segments fortune-result-segments">
+                    <button
+                      className="secondary-button"
+                      disabled={
+                        !fortuneTellerTargets.first ||
+                        !fortuneTellerTargets.second
+                      }
+                      onClick={() => setFortuneTellerResult(true)}
+                    >
+                      是 · 有恶魔
+                    </button>
+                    <button
+                      className="secondary-button"
+                      disabled={
+                        !fortuneTellerTargets.first ||
+                        !fortuneTellerTargets.second
+                      }
+                      onClick={() => setFortuneTellerResult(false)}
+                    >
+                      否 · 无恶魔
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <textarea
                 value={messageBody}
                 onChange={(event) => setMessageBody(event.target.value)}
