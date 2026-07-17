@@ -148,6 +148,7 @@ export const getNightActions = (
   players: { roleId: string; drunkRoleId?: string; alive: boolean }[],
   firstNight: boolean,
   scriptId: string,
+  round = firstNight ? 1 : 2,
 ) => {
   const scriptRoleIds = new Set(
     getScriptRoles(scriptId).map((role) => role.id),
@@ -155,26 +156,36 @@ export const getNightActions = (
   const getActionRole = (player: { roleId: string; drunkRoleId?: string }) =>
     getRole(getPlayerVisibleRoleId(player.roleId, player.drunkRoleId));
   return players
-    .filter((player) => {
-      const role = getActionRole(player);
-      if (!scriptRoleIds.has(role.id)) return false;
-      const order = firstNight
-        ? role.firstNightOrder
-        : role.otherNightOrder;
-      return (
-        order > 0 &&
-        (player.alive || actsAfterDeathRoleIds.has(role.id))
-      );
-    })
-    .map((player) => {
-      const role = getActionRole(player);
-      return {
-        kind: "role",
-        id: role.id,
-        name: role.name,
-        order: firstNight ? role.firstNightOrder : role.otherNightOrder,
-        role,
-      };
+    .flatMap((player) => {
+      const visibleRole = getActionRole(player);
+      const actionRoles = [visibleRole];
+      if (
+        firstNight &&
+        player.roleId === "marionette" &&
+        visibleRole.id !== "marionette"
+      ) {
+        actionRoles.push(getRole("marionette"));
+      }
+      return actionRoles.flatMap((role) => {
+        if (!scriptRoleIds.has(role.id)) return [];
+        if (role.id === "juggler" && !firstNight && round !== 2) return [];
+        const order = firstNight
+          ? role.firstNightOrder
+          : role.otherNightOrder;
+        if (
+          order <= 0 ||
+          (!player.alive && !actsAfterDeathRoleIds.has(role.id))
+        ) {
+          return [];
+        }
+        return [{
+          kind: "role" as const,
+          id: role.id,
+          name: role.name,
+          order,
+          role,
+        }];
+      });
     })
     .sort(
       (left, right) => left.order - right.order,

@@ -558,6 +558,7 @@ function ClaimedIdentity({
       {activeView === "messages" ? (
         <PlayerMessages
           roleId={identity.roleId}
+          roleOptions={scriptRoles}
           currentPlayerId={playerId}
           round={round}
           phase={phase}
@@ -655,6 +656,7 @@ function IdentityView({
 
 function PlayerMessages({
   roleId,
+  roleOptions,
   currentPlayerId,
   round,
   phase,
@@ -664,6 +666,7 @@ function PlayerMessages({
   onSend,
 }: {
   roleId: string;
+  roleOptions: ReturnType<typeof getScriptRoles>;
   currentPlayerId: string;
   round: number;
   phase: "白天" | "夜晚";
@@ -748,6 +751,7 @@ function PlayerMessages({
 
       <PlayerRoleSkillPanel
         roleId={roleId}
+        roleOptions={roleOptions}
         currentPlayerId={currentPlayerId}
         round={round}
         phase={phase}
@@ -827,6 +831,7 @@ function PlayerMessages({
 
 function PlayerRoleSkillPanel({
   roleId,
+  roleOptions,
   currentPlayerId,
   round,
   phase,
@@ -835,6 +840,7 @@ function PlayerRoleSkillPanel({
   onSend,
 }: {
   roleId: string;
+  roleOptions: ReturnType<typeof getScriptRoles>;
   currentPlayerId: string;
   round: number;
   phase: "白天" | "夜晚";
@@ -847,6 +853,7 @@ function PlayerRoleSkillPanel({
   return (
     <PlayerSkillChoicePanel
       roleId={roleId}
+      roleOptions={roleOptions}
       currentPlayerId={currentPlayerId}
       round={round}
       phase={phase}
@@ -860,6 +867,7 @@ function PlayerRoleSkillPanel({
 
 function PlayerSkillChoicePanel({
   roleId,
+  roleOptions,
   currentPlayerId,
   round,
   phase,
@@ -869,6 +877,7 @@ function PlayerSkillChoicePanel({
   onSend,
 }: {
   roleId: string;
+  roleOptions: ReturnType<typeof getScriptRoles>;
   currentPlayerId: string;
   round: number;
   phase: "白天" | "夜晚";
@@ -897,7 +906,7 @@ function PlayerSkillChoicePanel({
     (entry) => entry.message.round === round,
   )?.choice;
   const oneUseLocked =
-    (roleId === "slayer" || roleId === "ravenkeeper") &&
+    Boolean(spec.oneUse) &&
     roleChoices.some((entry) => entry.message.round !== round);
   const selfPlayer = players.find((player) => player.id === currentPlayerId);
   const candidates = players.filter((player) => {
@@ -912,6 +921,12 @@ function PlayerSkillChoicePanel({
     latestChoice?.playerIds[1] ??
       candidates.find((player) => player.id !== candidates[0]?.id)?.id ??
       "",
+  );
+  const selectableRoles = roleOptions.filter(
+    (role) => !spec.roleTeams?.length || spec.roleTeams.includes(role.team),
+  );
+  const [roleChoiceId, setRoleChoiceId] = useState(
+    latestChoice?.roleIdChoice ?? selectableRoles[0]?.id ?? "",
   );
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
@@ -943,25 +958,53 @@ function PlayerSkillChoicePanel({
     if (nextSecond !== secondPlayerId) setSecondPlayerId(nextSecond);
   }, [candidates, firstPlayerId, latestChoice?.playerIds, secondPlayerId, spec.kind]);
 
+  useEffect(() => {
+    const preferredRoleId = latestChoice?.roleIdChoice;
+    if (preferredRoleId && selectableRoles.some((role) => role.id === preferredRoleId)) {
+      if (preferredRoleId !== roleChoiceId) setRoleChoiceId(preferredRoleId);
+      return;
+    }
+    if (!selectableRoles.some((role) => role.id === roleChoiceId)) {
+      setRoleChoiceId(selectableRoles[0]?.id ?? "");
+    }
+  }, [latestChoice?.roleIdChoice, roleChoiceId, selectableRoles]);
+
   const getPlayerLabel = (playerId: string) => {
     const player = players.find((item) => item.id === playerId);
     return player ? formatSeat(player.seat) : "未知座位";
   };
 
   const submitChoice = async () => {
-    const playerIds = spec.kind === "pair" ? [firstPlayerId, secondPlayerId] : [firstPlayerId];
+    const needsTarget = spec.kind !== "role";
+    const needsRole = spec.kind === "role" || spec.kind === "single-role";
+    const playerIds = spec.kind === "pair"
+      ? [firstPlayerId, secondPlayerId]
+      : needsTarget
+        ? [firstPlayerId]
+        : [];
     if (
       !available ||
-      !firstPlayerId ||
+      (needsTarget && !firstPlayerId) ||
+      (needsRole && !roleChoiceId) ||
       (spec.kind === "pair" && (!secondPlayerId || firstPlayerId === secondPlayerId)) ||
       sending
     ) return;
-    const summary = spec.summaryPrefix + "：" + playerIds.map(getPlayerLabel).join("、");
+    const roleLabel = selectableRoles.find((role) => role.id === roleChoiceId)?.name ?? "未知角色";
+    const summaryParts = [
+      ...playerIds.map(getPlayerLabel),
+      ...(needsRole ? [roleLabel] : []),
+    ];
+    const summary = spec.summaryPrefix + "：" + summaryParts.join(" · ");
     if (!window.confirm("确认" + summary + "？")) return;
     setSending(true);
     setSendError("");
     try {
-      await onSend(buildPlayerSkillChoiceMessage({ roleId, playerIds, summary }));
+      await onSend(buildPlayerSkillChoiceMessage({
+        roleId,
+        playerIds,
+        roleIdChoice: needsRole ? roleChoiceId : undefined,
+        summary,
+      }));
     } catch {
       setSendError("技能选择发送失败，请稍后重试");
     } finally {
@@ -974,7 +1017,7 @@ function PlayerSkillChoicePanel({
     : firstNightLocked
       ? "首夜不能使用这项能力"
       : deathLocked
-        ? "仅在你于夜晚死亡后使用"
+        ? "仅在你得知自己死亡后使用"
         : oneUseLocked
           ? "本局能力已经使用"
           : "";
@@ -987,8 +1030,8 @@ function PlayerSkillChoicePanel({
         {latestChoice ? <span className="player-skill-submitted">已提交</span> : null}
       </div>
       {available ? (
-        <div className={("player-skill-targets " + (spec.kind === "single" ? "single" : "")).trim()}>
-          <select value={firstPlayerId} disabled={sending} aria-label={spec.title + "目标"} onChange={(event) => setFirstPlayerId(event.target.value)}>
+        <div className={("player-skill-targets " + (spec.kind === "single" || spec.kind === "role" ? "single" : "")).trim()}>
+          {spec.kind !== "role" ? <select value={firstPlayerId} disabled={sending} aria-label={spec.title + "目标"} onChange={(event) => setFirstPlayerId(event.target.value)}>
             {candidates.map((player) => (
               <option
                 value={player.id}
@@ -1000,7 +1043,7 @@ function PlayerSkillChoicePanel({
                 {formatSeat(player.seat)} · {player.name || "玩家"}
               </option>
             ))}
-          </select>
+          </select> : null}
           {spec.kind === "pair" ? (
             <select value={secondPlayerId} disabled={sending} aria-label={spec.title + "第二目标"} onChange={(event) => setSecondPlayerId(event.target.value)}>
               {candidates.map((player) => (
@@ -1010,7 +1053,12 @@ function PlayerSkillChoicePanel({
               ))}
             </select>
           ) : null}
-          <button className="primary-button" disabled={sending || !firstPlayerId || (spec.kind === "pair" && (!secondPlayerId || firstPlayerId === secondPlayerId))} onClick={() => void submitChoice()}>
+          {spec.kind === "role" || spec.kind === "single-role" ? (
+            <select value={roleChoiceId} disabled={sending} aria-label={spec.roleLabel ?? "选择角色"} onChange={(event) => setRoleChoiceId(event.target.value)}>
+              {selectableRoles.map((role) => <option value={role.id} key={role.id}>{role.name} · {role.team}</option>)}
+            </select>
+          ) : null}
+          <button className="primary-button" disabled={sending || (spec.kind !== "role" && !firstPlayerId) || ((spec.kind === "role" || spec.kind === "single-role") && !roleChoiceId) || (spec.kind === "pair" && (!secondPlayerId || firstPlayerId === secondPlayerId))} onClick={() => void submitChoice()}>
             <Send size={15} />{sending ? "提交中" : latestChoice ? "更新选择" : spec.submitLabel}
           </button>
         </div>

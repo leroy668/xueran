@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { getPlayerVisibleRoleId, getRole } from "./data";
+import { getPlayerVisibleRoleId, getRole, getScriptRoles } from "./data";
 import {
   buildPlayerSkillChoiceMessage,
   parsePlayerSkillChoiceMessage,
@@ -154,6 +154,7 @@ export function HostRoomPanel({
         </label>
         {simulationEnabled ? (
           <SimulatedPlayerSkillReplyForm
+            scriptId={room.script_id}
             players={players}
             gamePlayers={gamePlayers}
             nightMessages={nightMessages}
@@ -208,6 +209,7 @@ export function HostRoomPanel({
 }
 
 function SimulatedPlayerSkillReplyForm({
+  scriptId,
   players,
   gamePlayers,
   nightMessages,
@@ -217,6 +219,7 @@ function SimulatedPlayerSkillReplyForm({
   busy,
   onSend,
 }: {
+  scriptId: string;
   players: PublicRoomPlayer[];
   gamePlayers: Player[];
   nightMessages: NightMessage[];
@@ -232,6 +235,7 @@ function SimulatedPlayerSkillReplyForm({
   const [secondTargetId, setSecondTargetId] = useState(
     players.find((player) => player.id !== players[0]?.id)?.id ?? "",
   );
+  const [roleChoiceId, setRoleChoiceId] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
 
@@ -268,6 +272,15 @@ function SimulatedPlayerSkillReplyForm({
   const choiceSpec = selectedRole
     ? getTroubleBrewingSkill(selectedRole.id)?.playerChoice
     : null;
+  const roleChoices = useMemo(
+    () =>
+      getScriptRoles(scriptId).filter(
+        (role) =>
+          !choiceSpec?.roleTeams?.length ||
+          choiceSpec.roleTeams.includes(role.team),
+      ),
+    [choiceSpec?.roleTeams, scriptId],
+  );
   const targetPlayers = useMemo(
     () =>
       players.filter((player) => {
@@ -300,6 +313,12 @@ function SimulatedPlayerSkillReplyForm({
     if (nextSecond !== secondTargetId) setSecondTargetId(nextSecond);
   }, [firstTargetId, secondTargetId, targetPlayers]);
 
+  useEffect(() => {
+    if (!roleChoices.some((role) => role.id === roleChoiceId)) {
+      setRoleChoiceId(roleChoices[0]?.id ?? "");
+    }
+  }, [roleChoiceId, roleChoices]);
+
   const getSeatLabel = (targetPlayerId: string) => {
     const player = players.find((item) => item.id === targetPlayerId);
     return player ? formatSeat(player.seat) : "未知座位";
@@ -316,7 +335,7 @@ function SimulatedPlayerSkillReplyForm({
     choiceSpec?.onlyWhenDead && selectedGamePlayer?.alive !== false,
   );
   const oneUseLocked = Boolean(
-    (selectedRole?.id === "slayer" || selectedRole?.id === "ravenkeeper") &&
+    Boolean(choiceSpec?.oneUse) &&
       playerMessages
         .filter((message) => message.player_id === playerId)
         .map((message) => ({
@@ -325,7 +344,7 @@ function SimulatedPlayerSkillReplyForm({
         }))
         .some(
           (entry) =>
-            entry.choice?.roleId === selectedRole.id &&
+            entry.choice?.roleId === selectedRole?.id &&
             entry.message.round !== round,
         ),
   );
@@ -344,8 +363,8 @@ function SimulatedPlayerSkillReplyForm({
         : "请切换到白天阶段测试"
       : firstNightLocked
         ? "首夜不能发动，进入第一晚后即可测试"
-        : deathLocked
-          ? "守鸦人需要先在魔典中标记为死亡"
+      : deathLocked
+          ? "需要先在魔典中将该玩家标记为死亡"
           : oneUseLocked
             ? "本局能力已经使用"
             : "";
@@ -379,16 +398,21 @@ function SimulatedPlayerSkillReplyForm({
     )[0]?.choice;
 
   const submit = async () => {
-    const playerIds =
-      choiceSpec?.kind === "pair"
-        ? [firstTargetId, secondTargetId]
-        : [firstTargetId];
+    const needsTarget = choiceSpec?.kind !== "role";
+    const needsRole =
+      choiceSpec?.kind === "role" || choiceSpec?.kind === "single-role";
+    const playerIds = choiceSpec?.kind === "pair"
+      ? [firstTargetId, secondTargetId]
+      : needsTarget
+        ? [firstTargetId]
+        : [];
     if (
       !canSubmitSkillChoice ||
       !choiceSpec ||
       !selectedRole ||
       !playerId ||
-      !firstTargetId ||
+      (needsTarget && !firstTargetId) ||
+      (needsRole && !roleChoiceId) ||
       (choiceSpec.kind === "pair" &&
         (!secondTargetId || firstTargetId === secondTargetId)) ||
       sending
@@ -403,9 +427,13 @@ function SimulatedPlayerSkillReplyForm({
         buildPlayerSkillChoiceMessage({
           roleId: selectedRole.id,
           playerIds,
-          summary: `${choiceSpec.summaryPrefix}：${playerIds
-            .map(getSeatLabel)
-            .join("、")}`,
+          roleIdChoice: needsRole ? roleChoiceId : undefined,
+          summary: `${choiceSpec.summaryPrefix}：${[
+            ...playerIds.map(getSeatLabel),
+            ...(needsRole
+              ? [getRole(roleChoiceId).name]
+              : []),
+          ].join(" · ")}`,
         }),
       );
     } catch (reason) {
@@ -479,7 +507,7 @@ function SimulatedPlayerSkillReplyForm({
           </div>
           {canSubmitSkillChoice ? (
             <div className="simulation-skill-targets">
-              <select
+              {choiceSpec?.kind !== "role" ? <select
                 value={firstTargetId}
                 disabled={busy || sending}
                 aria-label={`模拟${selectedRole?.name ?? "玩家"}技能目标`}
@@ -504,7 +532,7 @@ function SimulatedPlayerSkillReplyForm({
                     </option>
                   );
                 })}
-              </select>
+              </select> : null}
               {choiceSpec?.kind === "pair" ? (
                 <select
                   value={secondTargetId}
@@ -530,13 +558,31 @@ function SimulatedPlayerSkillReplyForm({
                   })}
                 </select>
               ) : null}
+              {choiceSpec?.kind === "role" ||
+              choiceSpec?.kind === "single-role" ? (
+                <select
+                  value={roleChoiceId}
+                  disabled={busy || sending}
+                  aria-label={`模拟${selectedRole?.name ?? "玩家"}选择角色`}
+                  onChange={(event) => setRoleChoiceId(event.target.value)}
+                >
+                  {roleChoices.map((role) => (
+                    <option value={role.id} key={role.id}>
+                      {role.name} · {role.team}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
               <button
                 className="primary-button"
                 type="button"
                 disabled={
                   busy ||
                   sending ||
-                  !firstTargetId ||
+                  (choiceSpec?.kind !== "role" && !firstTargetId) ||
+                  ((choiceSpec?.kind === "role" ||
+                    choiceSpec?.kind === "single-role") &&
+                    !roleChoiceId) ||
                   (choiceSpec?.kind === "pair" &&
                     (!secondTargetId || firstTargetId === secondTargetId))
                 }
