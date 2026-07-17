@@ -3,6 +3,7 @@ import {
   Clock3,
   KeyRound,
   LogOut,
+  Power,
   RefreshCw,
   ShieldCheck,
   Trash2,
@@ -11,7 +12,9 @@ import {
 } from "lucide-react";
 import { scripts } from "./data";
 import {
+  adminCloseAllRooms,
   adminCloseRoom,
+  adminDeleteAllRooms,
   adminDeleteRoom,
   getAdminRooms,
   type AdminRoom,
@@ -56,12 +59,17 @@ export function AdminRooms() {
   const [closingRoomId, setClosingRoomId] = useState("");
   const [deletingRoomId, setDeletingRoomId] = useState("");
   const [roomView, setRoomView] = useState<"open" | "closed">("open");
+  const [bulkAction, setBulkAction] = useState<"close" | "delete" | null>(null);
+  const [resultMessage, setResultMessage] = useState("");
   const [error, setError] = useState("");
   const [authorized, setAuthorized] = useState(false);
 
   const loadRooms = useCallback(async (token: string, quiet = false) => {
     if (!token) return;
-    if (!quiet) setLoading(true);
+    if (!quiet) {
+      setLoading(true);
+      setResultMessage("");
+    }
     setError("");
     try {
       const nextRooms = await getAdminRooms(token);
@@ -118,6 +126,7 @@ export function AdminRooms() {
     }
     setClosingRoomId(room.room_id);
     setError("");
+    setResultMessage("");
     try {
       await adminCloseRoom(activeToken, room.room_id);
       await loadRooms(activeToken, true);
@@ -142,6 +151,7 @@ export function AdminRooms() {
 
     setDeletingRoomId(room.room_id);
     setError("");
+    setResultMessage("");
     try {
       await adminDeleteRoom(activeToken, room.room_id);
       await loadRooms(activeToken, true);
@@ -157,6 +167,61 @@ export function AdminRooms() {
     }
   };
 
+  const closeAllRooms = async () => {
+    if (
+      !activeToken ||
+      !openRooms.length ||
+      !window.confirm(
+        `关闭全部 ${openRooms.length} 个进行中对局？\n\n所有主持人与玩家将在几秒内看到房间已结束。`,
+      )
+    ) {
+      return;
+    }
+    setBulkAction("close");
+    setError("");
+    setResultMessage("");
+    try {
+      const count = await adminCloseAllRooms(activeToken);
+      setResultMessage(`已关闭 ${count} 个对局`);
+      await loadRooms(activeToken, true);
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "";
+      setError(
+        /invalid admin token/i.test(message)
+          ? "管理密钥已失效"
+          : "批量关闭失败，请稍后重试",
+      );
+    } finally {
+      setBulkAction(null);
+    }
+  };
+
+  const deleteAllRooms = async () => {
+    if (!activeToken || !rooms.length) return;
+    const confirmation = window.prompt(
+      `彻底删除全部 ${rooms.length} 个房间及其所有数据？\n\n此操作不可恢复。请输入“清除全部数据”确认。`,
+    );
+    if (confirmation?.trim() !== "清除全部数据") return;
+
+    setBulkAction("delete");
+    setError("");
+    setResultMessage("");
+    try {
+      const count = await adminDeleteAllRooms(activeToken);
+      setResultMessage(`已彻底删除 ${count} 个房间及其关联数据`);
+      await loadRooms(activeToken, true);
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "";
+      setError(
+        /invalid admin token/i.test(message)
+          ? "管理密钥已失效"
+          : "批量清除失败，请稍后重试",
+      );
+    } finally {
+      setBulkAction(null);
+    }
+  };
+
   const lockAdmin = () => {
     sessionStorage.removeItem(adminTokenStorageKey);
     setActiveToken("");
@@ -164,6 +229,7 @@ export function AdminRooms() {
     setRooms([]);
     setAuthorized(false);
     setError("");
+    setResultMessage("");
   };
 
   const openRooms = rooms.filter((room) => room.status === "open");
@@ -231,6 +297,25 @@ export function AdminRooms() {
           </div>
           <span><ShieldCheck size={16} />管理权限已验证</span>
         </div>
+        <div className="admin-bulk-actions">
+          <button
+            className="admin-close-all"
+            disabled={!openRooms.length || bulkAction !== null}
+            onClick={() => void closeAllRooms()}
+          >
+            {bulkAction === "close" ? <RefreshCw className="spin" size={15} /> : <Power size={15} />}
+            {bulkAction === "close" ? "关闭中" : `关闭全部 (${openRooms.length})`}
+          </button>
+          <button
+            className="admin-delete-all"
+            disabled={!rooms.length || bulkAction !== null}
+            onClick={() => void deleteAllRooms()}
+          >
+            {bulkAction === "delete" ? <RefreshCw className="spin" size={15} /> : <Trash2 size={15} />}
+            {bulkAction === "delete" ? "清除中" : `清除全部数据 (${rooms.length})`}
+          </button>
+        </div>
+        {resultMessage ? <div className="admin-result-message"><ShieldCheck size={14} />{resultMessage}</div> : null}
         {error ? <div className="inline-error admin-error">{error}</div> : null}
         {visibleRooms.length ? (
           <div className="admin-room-list">
@@ -255,7 +340,7 @@ export function AdminRooms() {
                   {room.status === "open" ? (
                     <button
                       className="admin-close-room"
-                      disabled={closingRoomId === room.room_id || deletingRoomId === room.room_id}
+                      disabled={bulkAction !== null || closingRoomId === room.room_id || deletingRoomId === room.room_id}
                       onClick={() => void closeManagedRoom(room)}
                     >
                       {closingRoomId === room.room_id ? <RefreshCw className="spin" size={15} /> : <XCircle size={15} />}
@@ -264,7 +349,7 @@ export function AdminRooms() {
                   ) : null}
                   <button
                     className="admin-delete-room"
-                    disabled={deletingRoomId === room.room_id || closingRoomId === room.room_id}
+                    disabled={bulkAction !== null || deletingRoomId === room.room_id || closingRoomId === room.room_id}
                     onClick={() => void deleteManagedRoom(room)}
                   >
                     {deletingRoomId === room.room_id ? <RefreshCw className="spin" size={15} /> : <Trash2 size={15} />}

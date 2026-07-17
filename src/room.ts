@@ -113,6 +113,26 @@ export const adminDeleteRoom = async (token: string, roomId: string) => {
   return Boolean(data);
 };
 
+export const adminCloseAllRooms = async (token: string) => {
+  await ensureAnonymousSession();
+  const { data, error } = await supabase.rpc(
+    "xueran_admin_close_all_rooms",
+    { p_token: token },
+  );
+  if (error) throw error;
+  return Number(data ?? 0);
+};
+
+export const adminDeleteAllRooms = async (token: string) => {
+  await ensureAnonymousSession();
+  const { data, error } = await supabase.rpc(
+    "xueran_admin_delete_all_rooms",
+    { p_token: token },
+  );
+  if (error) throw error;
+  return Number(data ?? 0);
+};
+
 export const buildRoomUrl = (code: string) => {
   const url = new URL(window.location.href);
   url.search = `room=${encodeURIComponent(code)}`;
