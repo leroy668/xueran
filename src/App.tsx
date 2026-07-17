@@ -1009,6 +1009,9 @@ function GrimoireApp() {
                 players={roomPlayers}
                 gamePlayers={state.players}
                 nightMessages={nightMessages}
+                playerMessages={playerMessages}
+                phase={state.phase}
+                round={state.round}
                 busy={roomBusy}
                 syncStatus={syncStatus}
                 onCreate={() => void startSharedRoom()}

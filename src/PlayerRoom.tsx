@@ -920,7 +920,7 @@ function PlayerSkillChoicePanel({
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const phaseAllowed = spec.phase === "night" ? phase === "夜晚" : phase === "白天";
-  const firstNightLocked = phase === "夜晚" && round === 0 && !spec.allowFirstNight;
+  const firstNightLocked = phase === "夜晚" && round <= 1 && !spec.allowFirstNight;
   const deathLocked = Boolean(spec.onlyWhenDead && selfPlayer?.alive !== false);
   const available =
     phaseAllowed && !firstNightLocked && !deathLocked && !oneUseLocked;

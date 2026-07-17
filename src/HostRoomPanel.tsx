@@ -10,22 +10,27 @@ import {
   Unlink,
   UserCheck,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { getRole } from "./data";
-import { buildPlayerSkillChoiceMessage } from "./playerSkillChoices";
+import {
+  buildPlayerSkillChoiceMessage,
+  parsePlayerSkillChoiceMessage,
+} from "./playerSkillChoices";
 import {
   getPlayerNightMessageDisplayBody,
   getRoleSkillMessage,
 } from "./roleSkillMessages";
 import { RoleIcon } from "./RoleIcon";
+import { getTroubleBrewingSkill } from "./troubleBrewingSkills";
 import type {
   NightMessage,
+  PlayerMessage,
   PublicRoomPlayer,
   SharedRoom,
 } from "./room";
 import { formatSeat } from "./seat";
-import type { Player } from "./types";
+import type { Phase, Player } from "./types";
 
 type Props = {
   room: SharedRoom | null;
@@ -33,6 +38,9 @@ type Props = {
   players: PublicRoomPlayer[];
   gamePlayers: Player[];
   nightMessages: NightMessage[];
+  playerMessages: PlayerMessage[];
+  phase: Phase;
+  round: number;
   busy: boolean;
   syncStatus: "idle" | "syncing" | "synced" | "error";
   onCreate: () => void;
@@ -52,6 +60,9 @@ export function HostRoomPanel({
   players,
   gamePlayers,
   nightMessages,
+  playerMessages,
+  phase,
+  round,
   busy,
   syncStatus,
   onCreate,
@@ -146,6 +157,9 @@ export function HostRoomPanel({
             players={players}
             gamePlayers={gamePlayers}
             nightMessages={nightMessages}
+            playerMessages={playerMessages}
+            phase={phase}
+            round={round}
             busy={busy}
             onSend={onSimulatePlayerSkillReply}
           />
@@ -197,12 +211,18 @@ function SimulatedPlayerSkillReplyForm({
   players,
   gamePlayers,
   nightMessages,
+  playerMessages,
+  phase,
+  round,
   busy,
   onSend,
 }: {
   players: PublicRoomPlayer[];
   gamePlayers: Player[];
   nightMessages: NightMessage[];
+  playerMessages: PlayerMessage[];
+  phase: Phase;
+  round: number;
   busy: boolean;
   onSend: (playerId: string, body: string) => Promise<void>;
 }) {
@@ -220,33 +240,83 @@ function SimulatedPlayerSkillReplyForm({
     }
   }, [playerId, simulatedPlayers]);
 
-  useEffect(() => {
-    const playerIds = new Set(players.map((player) => player.id));
-    const nextFirst = playerIds.has(firstTargetId)
-      ? firstTargetId
-      : players[0]?.id ?? "";
-    const nextSecond =
-      playerIds.has(secondTargetId) && secondTargetId !== nextFirst
-        ? secondTargetId
-        : players.find((player) => player.id !== nextFirst)?.id ?? "";
-    if (nextFirst !== firstTargetId) setFirstTargetId(nextFirst);
-    if (nextSecond !== secondTargetId) setSecondTargetId(nextSecond);
-  }, [firstTargetId, players, secondTargetId]);
-
-  const getSeatLabel = (targetPlayerId: string) => {
-    const player = players.find((item) => item.id === targetPlayerId);
-    return player ? formatSeat(player.seat) : "未知座位";
-  };
   const selectedPlayer = simulatedPlayers.find(
     (player) => player.id === playerId,
   );
   const selectedGamePlayer = gamePlayers.find(
     (player) => player.id === playerId,
   );
-  const selectedRole = selectedGamePlayer
-    ? getRole(selectedGamePlayer.roleId)
+  const getVisibleRole = (gamePlayer?: Player) =>
+    getRole(
+      gamePlayer?.drunkRoleId &&
+        (gamePlayer.roleId === "drunk" || gamePlayer.roleId === "marionette")
+        ? gamePlayer.drunkRoleId
+        : gamePlayer?.roleId ?? "washerwoman",
+    );
+  const selectedRoleId =
+    selectedGamePlayer?.drunkRoleId &&
+    (selectedGamePlayer.roleId === "drunk" ||
+      selectedGamePlayer.roleId === "marionette")
+      ? selectedGamePlayer.drunkRoleId
+      : selectedGamePlayer?.roleId;
+  const selectedRole = selectedRoleId
+    ? getVisibleRole(selectedGamePlayer)
     : null;
-  const canSubmitSkillChoice = selectedRole?.id === "fortune-teller";
+  const choiceSpec = selectedRole
+    ? getTroubleBrewingSkill(selectedRole.id)?.playerChoice
+    : null;
+  const targetPlayers = useMemo(
+    () =>
+      players.filter((player) => {
+        if (choiceSpec?.excludeSelf && player.id === playerId) return false;
+        if (choiceSpec?.aliveOnly && !player.alive) return false;
+        return true;
+      }),
+    [choiceSpec?.aliveOnly, choiceSpec?.excludeSelf, playerId, players],
+  );
+
+  useEffect(() => {
+    const playerIds = new Set(targetPlayers.map((player) => player.id));
+    const nextFirst = playerIds.has(firstTargetId)
+      ? firstTargetId
+      : targetPlayers[0]?.id ?? "";
+    const nextSecond =
+      playerIds.has(secondTargetId) && secondTargetId !== nextFirst
+        ? secondTargetId
+        : targetPlayers.find((player) => player.id !== nextFirst)?.id ?? "";
+    if (nextFirst !== firstTargetId) setFirstTargetId(nextFirst);
+    if (nextSecond !== secondTargetId) setSecondTargetId(nextSecond);
+  }, [firstTargetId, secondTargetId, targetPlayers]);
+
+  const getSeatLabel = (targetPlayerId: string) => {
+    const player = players.find((item) => item.id === targetPlayerId);
+    return player ? formatSeat(player.seat) : "未知座位";
+  };
+  const phaseAllowed = choiceSpec
+    ? choiceSpec.phase === "night"
+      ? phase === "夜晚"
+      : phase === "白天"
+    : false;
+  const firstNightLocked = Boolean(
+    choiceSpec && phase === "夜晚" && round <= 1 && !choiceSpec.allowFirstNight,
+  );
+  const deathLocked = Boolean(
+    choiceSpec?.onlyWhenDead && selectedPlayer?.alive !== false,
+  );
+  const canSubmitSkillChoice = Boolean(
+    choiceSpec && phaseAllowed && !firstNightLocked && !deathLocked,
+  );
+  const unavailableText = !choiceSpec
+    ? "当前角色没有需要玩家主动提交的技能"
+    : !phaseAllowed
+      ? choiceSpec.phase === "night"
+        ? "请切换到夜晚阶段测试"
+        : "请切换到白天阶段测试"
+      : firstNightLocked
+        ? "首夜不能发动，进入第一晚后即可测试"
+        : deathLocked
+          ? "守鸦人需要先在魔典中标记为死亡"
+          : "";
   const receivedSkillMessages = nightMessages
     .filter(
       (message) =>
@@ -258,14 +328,37 @@ function SimulatedPlayerSkillReplyForm({
         new Date(right.created_at).getTime() -
         new Date(left.created_at).getTime(),
     );
+  const latestSubmittedChoice = playerMessages
+    .filter(
+      (message) =>
+        message.player_id === playerId && message.round === round,
+    )
+    .map((message) => ({
+      message,
+      choice: parsePlayerSkillChoiceMessage(message.body),
+    }))
+    .filter(
+      (entry) => entry.choice?.roleId === selectedRole?.id,
+    )
+    .sort(
+      (left, right) =>
+        new Date(right.message.created_at).getTime() -
+        new Date(left.message.created_at).getTime(),
+    )[0]?.choice;
 
   const submit = async () => {
+    const playerIds =
+      choiceSpec?.kind === "pair"
+        ? [firstTargetId, secondTargetId]
+        : [firstTargetId];
     if (
       !canSubmitSkillChoice ||
+      !choiceSpec ||
+      !selectedRole ||
       !playerId ||
       !firstTargetId ||
-      !secondTargetId ||
-      firstTargetId === secondTargetId ||
+      (choiceSpec.kind === "pair" &&
+        (!secondTargetId || firstTargetId === secondTargetId)) ||
       sending
     ) {
       return;
@@ -275,9 +368,11 @@ function SimulatedPlayerSkillReplyForm({
       await onSend(
         playerId,
         buildPlayerSkillChoiceMessage({
-          roleId: "fortune-teller",
-          playerIds: [firstTargetId, secondTargetId],
-          summary: `占卜师选择：${getSeatLabel(firstTargetId)}、${getSeatLabel(secondTargetId)}`,
+          roleId: selectedRole.id,
+          playerIds,
+          summary: `${choiceSpec.summaryPrefix}：${playerIds
+            .map(getSeatLabel)
+            .join("、")}`,
         }),
       );
     } catch {
@@ -307,7 +402,7 @@ function SimulatedPlayerSkillReplyForm({
                 const gamePlayer = gamePlayers.find(
                   (item) => item.id === player.id,
                 );
-                const role = getRole(gamePlayer?.roleId ?? "washerwoman");
+                const role = getVisibleRole(gamePlayer);
                 return (
                   <option value={player.id} key={player.id}>
                     {formatSeat(player.seat)} · {player.name} ·{" "}
@@ -332,8 +427,8 @@ function SimulatedPlayerSkillReplyForm({
               </strong>
               <small>
                 {canSubmitSkillChoice
-                  ? "模拟玩家选择两名查验目标并提交给上帝"
-                  : "当前角色暂无需要主动提交的技能选择"}
+                  ? choiceSpec?.help
+                  : unavailableText}
               </small>
             </div>
           </div>
@@ -342,37 +437,51 @@ function SimulatedPlayerSkillReplyForm({
               <select
                 value={firstTargetId}
                 disabled={busy || sending}
-                aria-label="模拟占卜师第一名查验目标"
+                aria-label={`模拟${selectedRole?.name ?? "玩家"}技能目标`}
                 onChange={(event) => setFirstTargetId(event.target.value)}
               >
-                {players.map((player) => (
-                  <option
-                    value={player.id}
-                    key={player.id}
-                    disabled={player.id === secondTargetId}
-                  >
-                    {formatSeat(player.seat)} ·{" "}
-                    {player.name || "玩家"}
-                  </option>
-                ))}
+                {targetPlayers.map((player) => {
+                  const role = getRole(
+                    gamePlayers.find((item) => item.id === player.id)?.roleId ??
+                      "washerwoman",
+                  );
+                  return (
+                    <option
+                      value={player.id}
+                      key={player.id}
+                      disabled={player.id === secondTargetId}
+                    >
+                      {formatSeat(player.seat)} · {player.name || "玩家"} ·{" "}
+                      {role.name}
+                    </option>
+                  );
+                })}
               </select>
-              <select
-                value={secondTargetId}
-                disabled={busy || sending}
-                aria-label="模拟占卜师第二名查验目标"
-                onChange={(event) => setSecondTargetId(event.target.value)}
-              >
-                {players.map((player) => (
-                  <option
-                    value={player.id}
-                    key={player.id}
-                    disabled={player.id === firstTargetId}
-                  >
-                    {formatSeat(player.seat)} ·{" "}
-                    {player.name || "玩家"}
-                  </option>
-                ))}
-              </select>
+              {choiceSpec?.kind === "pair" ? (
+                <select
+                  value={secondTargetId}
+                  disabled={busy || sending}
+                  aria-label={`模拟${selectedRole?.name ?? "玩家"}第二技能目标`}
+                  onChange={(event) => setSecondTargetId(event.target.value)}
+                >
+                  {targetPlayers.map((player) => {
+                    const role = getRole(
+                      gamePlayers.find((item) => item.id === player.id)
+                        ?.roleId ?? "washerwoman",
+                    );
+                    return (
+                      <option
+                        value={player.id}
+                        key={player.id}
+                        disabled={player.id === firstTargetId}
+                      >
+                        {formatSeat(player.seat)} · {player.name || "玩家"} ·{" "}
+                        {role.name}
+                      </option>
+                    );
+                  })}
+                </select>
+              ) : null}
               <button
                 className="primary-button"
                 type="button"
@@ -380,19 +489,28 @@ function SimulatedPlayerSkillReplyForm({
                   busy ||
                   sending ||
                   !firstTargetId ||
-                  !secondTargetId ||
-                  firstTargetId === secondTargetId
+                  (choiceSpec?.kind === "pair" &&
+                    (!secondTargetId || firstTargetId === secondTargetId))
                 }
                 onClick={() => void submit()}
-                aria-label="提交模拟玩家技能回复"
+                aria-label={choiceSpec?.submitLabel ?? "提交模拟玩家技能回复"}
               >
                 {sending ? (
                   <LoaderCircle className="spin" size={15} />
                 ) : (
                   <Send size={15} />
                 )}
-                {sending ? "提交中" : "提交技能回复"}
+                {sending
+                  ? "提交中"
+                  : latestSubmittedChoice
+                    ? "更新目标"
+                    : choiceSpec?.submitLabel}
               </button>
+              {latestSubmittedChoice ? (
+                <p className="simulation-skill-submitted">
+                  已提交：{latestSubmittedChoice.summary}
+                </p>
+              ) : null}
             </div>
           ) : null}
           <section className="simulation-received">
