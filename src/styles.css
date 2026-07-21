@@ -472,9 +472,6 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .host-player-tabs button:hover { background: #222226; }
 .host-player-tabs button.active { background: #28272a; box-shadow: inset 3px 0 var(--red); }
 .host-player-seat { color: var(--gold); font-family: Consolas, monospace; font-size: 11px; }
-.host-group-icon { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid rgba(215,97,86,.4); background: rgba(215,97,86,.1); color: var(--red); }
-.host-evil-chat-tab { border-bottom-color: rgba(215,97,86,.25) !important; }
-.host-evil-chat-tab .host-player-summary strong { color: #e58a82; }
 .host-player-summary { min-width: 0; }
 .host-player-summary strong, .host-player-summary small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .host-player-summary strong { font-size: 12px; }
@@ -482,7 +479,6 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .host-player-count { min-width: 21px; height: 21px; padding: 0 5px; border-radius: 11px; background: var(--red); color: white; display: grid; place-items: center; font-size: 8px; }
 .host-player-status { width: 7px; height: 7px; justify-self: center; border-radius: 50%; background: var(--dim); }
 .host-player-status.online { background: var(--green); box-shadow: 0 0 0 3px rgba(121,181,138,.12); }
-.host-player-status.evil-online { background: var(--red); box-shadow: 0 0 0 3px rgba(215,97,86,.12); }
 .host-chat-panel { min-width: 0; display: flex; flex-direction: column; }
 .host-chat-header { min-height: 81px; padding: 13px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }
 .host-chat-role { width: 44px; height: 44px; flex: 0 0 auto; display: grid; place-items: center; border-left: 3px solid var(--gold); background: #17171a; overflow: hidden; }
@@ -490,7 +486,6 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .host-chat-role.outsider { border-left-color: var(--green); }
 .host-chat-role.minion { border-left-color: var(--purple); }
 .host-chat-role.demon { border-left-color: var(--red); }
-.host-chat-role.evil-group { border-left-color: var(--red); color: var(--red); }
 .host-chat-header h3 { margin: 0; font-size: 16px; }
 .host-chat-header p { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
 .demon-bluff-draft { padding: 12px 20px; border-bottom: 1px solid rgba(215,97,86,.3); background: #1b191b; }
@@ -578,9 +573,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .player-hub-header h1 { margin: 0; font-size: 19px; }
 .player-hub-header > span { color: var(--gold); border: 1px solid rgba(213,166,110,.38); padding: 6px 9px; font-family: Consolas, monospace; font-size: 10px; white-space: nowrap; }
 .player-hub-nav { position: sticky; z-index: 4; top: 0; display: grid; grid-template-columns: repeat(3, 1fr); margin: 14px 0 18px; border: 1px solid var(--line); background: #1b1b1e; }
-.player-hub-nav.with-evil-chat { grid-template-columns: repeat(4, 1fr); }
 .player-hub-nav.with-voting { grid-template-columns: repeat(4, 1fr); }
-.player-hub-nav.with-voting.with-evil-chat { grid-template-columns: repeat(5, 1fr); }
 .player-hub-nav button { position: relative; min-height: 48px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--dim); display: inline-flex; align-items: center; justify-content: center; gap: 7px; font-size: 11px; }
 .player-hub-nav button:last-child { border-right: 0; }
 .player-hub-nav button.active { color: var(--ink); background: var(--panel-raised); box-shadow: inset 0 -2px var(--red); }
@@ -672,8 +665,6 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .player-script-role p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .player-message-view { min-height: min(640px, calc(100dvh - 220px)); display: flex; flex-direction: column; padding: 0; overflow: hidden; }
 .player-message-view .player-view-heading { flex: 0 0 auto; padding: 17px 20px; }
-.evil-team-view .player-view-heading { border-bottom-color: rgba(215,97,86,.38); }
-.evil-team-view .player-view-heading > svg { color: var(--red); }
 .player-skill-action { flex: 0 0 auto; padding: 12px 14px; border-top: 1px solid var(--line); border-bottom: 1px solid rgba(141,170,195,.3); background: #171d21; }
 .player-skill-action.is-locked { background: #18181a; border-bottom-color: var(--line); }
 .player-skill-action.is-locked .player-skill-action-icon { opacity: .58; filter: grayscale(.7); }

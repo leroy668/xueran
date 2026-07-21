@@ -41,7 +41,6 @@ import {
 import { DemonBluffMessage } from "./DemonBluffMessage";
 import {
   buildDemonBluffMessage,
-  getDemonBluffPreview,
   getDemonBluffSignature,
   parseDemonBluffMessage,
 } from "./demonBluffs";
@@ -67,7 +66,6 @@ import {
   findRoomByCode,
   finalizeExecution,
   getRoomDayResolutions,
-  getRoomEvilMessages,
   getRoomNightMessages,
   getRoomNominations,
   getRoomPlayerMessages,
@@ -76,12 +74,10 @@ import {
   loadHostRoom,
   resetRoom,
   revokeClaim,
-  sendEvilMessage,
   sendNightMessage,
   setRoomSimulation,
   simulatePlayerMessage,
   syncRoom,
-  type EvilMessage,
   type DayResolution,
   type DayVote,
   type NightMessage,
@@ -479,14 +475,10 @@ function GrimoireApp() {
   const [roomPlayers, setRoomPlayers] = useState<PublicRoomPlayer[]>([]);
   const [nightMessages, setNightMessages] = useState<NightMessage[]>([]);
   const [playerMessages, setPlayerMessages] = useState<PlayerMessage[]>([]);
-  const [evilMessages, setEvilMessages] = useState<EvilMessage[]>([]);
   const [nominations, setNominations] = useState<Nomination[]>([]);
   const [votes, setVotes] = useState<DayVote[]>([]);
   const [dayResolutions, setDayResolutions] = useState<DayResolution[]>([]);
   const [readPlayerMessageIds, setReadPlayerMessageIds] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [readEvilMessageIds, setReadEvilMessageIds] = useState<Set<string>>(
     () => new Set(),
   );
   const [roomBusy, setRoomBusy] = useState(false);
@@ -508,7 +500,6 @@ function GrimoireApp() {
   useEffect(() => {
     if (!room) {
       setReadPlayerMessageIds(new Set());
-      setReadEvilMessageIds(new Set());
       return;
     }
     try {
@@ -525,20 +516,6 @@ function GrimoireApp() {
     } catch {
       setReadPlayerMessageIds(new Set());
     }
-    try {
-      const saved = JSON.parse(
-        localStorage.getItem(`xueran-host-read-evil-${room.id}`) ?? "[]",
-      );
-      setReadEvilMessageIds(
-        new Set(
-          Array.isArray(saved)
-            ? saved.filter((messageId): messageId is string => typeof messageId === "string")
-            : [],
-        ),
-      );
-    } catch {
-      setReadEvilMessageIds(new Set());
-    }
   }, [room]);
 
   const refreshRoomAdmin = useCallback(async (targetRoom: SharedRoom) => {
@@ -547,7 +524,6 @@ function GrimoireApp() {
       players,
       messages,
       incomingMessages,
-      teamMessages,
       nextNominations,
       nextVotes,
       nextDayResolutions,
@@ -556,7 +532,6 @@ function GrimoireApp() {
       getRoomPlayers(targetRoom.id),
       getRoomNightMessages(targetRoom.id),
       getRoomPlayerMessages(targetRoom.id),
-      getRoomEvilMessages(targetRoom.id),
       getRoomNominations(targetRoom.id),
       getRoomVotes(targetRoom.id),
       getRoomDayResolutions(targetRoom.id),
@@ -568,7 +543,6 @@ function GrimoireApp() {
       setRoomPlayers([]);
       setNightMessages([]);
       setPlayerMessages([]);
-      setEvilMessages([]);
       setNominations([]);
       setVotes([]);
       setDayResolutions([]);
@@ -579,7 +553,6 @@ function GrimoireApp() {
     setRoomPlayers(players);
     setNightMessages(messages);
     setPlayerMessages(incomingMessages);
-    setEvilMessages(teamMessages);
     setNominations(nextNominations);
     setVotes(nextVotes);
     setDayResolutions(nextDayResolutions);
@@ -592,16 +565,6 @@ function GrimoireApp() {
       ),
     [playerMessages, readPlayerMessageIds],
   );
-  const unreadEvilMessages = useMemo(
-    () =>
-      evilMessages.filter(
-        (message) =>
-          message.sender_kind === "player" &&
-          !readEvilMessageIds.has(message.id),
-      ),
-    [evilMessages, readEvilMessageIds],
-  );
-
   const markPlayerMessagesRead = useCallback(
     (playerId: string) => {
       if (!room) return;
@@ -625,27 +588,6 @@ function GrimoireApp() {
     },
     [playerMessages, room],
   );
-
-  const markEvilMessagesRead = useCallback(() => {
-    if (!room) return;
-    const messageIds = evilMessages
-      .filter((message) => message.sender_kind === "player")
-      .map((message) => message.id);
-    if (!messageIds.length) return;
-
-    setReadEvilMessageIds((current) => {
-      if (messageIds.every((messageId) => current.has(messageId))) {
-        return current;
-      }
-      const next = new Set(current);
-      messageIds.forEach((messageId) => next.add(messageId));
-      localStorage.setItem(
-        `xueran-host-read-evil-${room.id}`,
-        JSON.stringify([...next]),
-      );
-      return next;
-    });
-  }, [evilMessages, room]);
 
   useEffect(() => {
     let cancelled = false;
@@ -733,16 +675,6 @@ function GrimoireApp() {
           event: "INSERT",
           schema: "public",
           table: "xueran_player_messages",
-          filter: `room_id=eq.${room.id}`,
-        },
-        () => void refreshRoomAdmin(room),
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "xueran_evil_messages",
           filter: `room_id=eq.${room.id}`,
         },
         () => void refreshRoomAdmin(room),
@@ -924,7 +856,6 @@ function GrimoireApp() {
       setState(nextState);
       setNightMessages([]);
       setPlayerMessages([]);
-      setEvilMessages([]);
       setActiveTab("grimoire");
       setToast("已重开一局，当前玩家和角色已保留");
       return;
@@ -939,7 +870,6 @@ function GrimoireApp() {
       setState(nextState);
       setNightMessages([]);
       setPlayerMessages([]);
-      setEvilMessages([]);
       localStorage.removeItem(`xueran-demon-bluffs-${room.id}`);
       setRoom((current) =>
         current
@@ -1063,7 +993,6 @@ function GrimoireApp() {
       setRoomPlayers([]);
       setNightMessages([]);
       setPlayerMessages([]);
-      setEvilMessages([]);
       setNominations([]);
       setVotes([]);
       setDayResolutions([]);
@@ -1187,18 +1116,6 @@ function GrimoireApp() {
     }
   };
 
-  const handleSendEvilMessage = async (body: string) => {
-    if (!room) throw new Error("请先创建共享房间");
-    const message = await sendEvilMessage({
-      roomId: room.id,
-      body,
-    });
-    setEvilMessages((current) => [
-      message,
-      ...current.filter((item) => item.id !== message.id),
-    ]);
-  };
-
   const handleSimulatePlayerSkillReply = async (
     playerId: string,
     body: string,
@@ -1276,9 +1193,9 @@ function GrimoireApp() {
                 {tab.id === "night" && nightActions.length > 0 ? (
                   <span className="tab-count">{nightActions.length}</span>
                 ) : tab.id === "messages" &&
-                  unreadPlayerMessages.length + unreadEvilMessages.length > 0 ? (
+                  unreadPlayerMessages.length > 0 ? (
                   <span className="tab-count">
-                    {unreadPlayerMessages.length + unreadEvilMessages.length}
+                    {unreadPlayerMessages.length}
                   </span>
                 ) : null}
               </button>
@@ -1352,13 +1269,9 @@ function GrimoireApp() {
             roomPlayers={roomPlayers}
             nightMessages={nightMessages}
             playerMessages={playerMessages}
-            evilMessages={evilMessages}
             unreadPlayerMessages={unreadPlayerMessages}
-            unreadEvilMessages={unreadEvilMessages}
             onReadPlayerMessages={markPlayerMessagesRead}
-            onReadEvilMessages={markEvilMessagesRead}
             onSendMessage={handleSendNightMessage}
-            onSendEvilMessage={handleSendEvilMessage}
           />
         ) : null}
 
@@ -1400,10 +1313,10 @@ function GrimoireApp() {
               <Icon size={19} />
               <span>{tab.label}</span>
               {tab.id === "messages" &&
-              unreadPlayerMessages.length + unreadEvilMessages.length > 0 ? (
+              unreadPlayerMessages.length > 0 ? (
                 <strong className="mobile-nav-badge">
                   {Math.min(
-                    unreadPlayerMessages.length + unreadEvilMessages.length,
+                    unreadPlayerMessages.length,
                     99,
                   )}
                 </strong>
@@ -4094,32 +4007,23 @@ function HostMessagesPanel({
   roomPlayers,
   nightMessages,
   playerMessages,
-  evilMessages,
   unreadPlayerMessages,
-  unreadEvilMessages,
   onReadPlayerMessages,
-  onReadEvilMessages,
   onSendMessage,
-  onSendEvilMessage,
 }: {
   state: GameState;
   room: SharedRoom | null;
   roomPlayers: PublicRoomPlayer[];
   nightMessages: NightMessage[];
   playerMessages: PlayerMessage[];
-  evilMessages: EvilMessage[];
   unreadPlayerMessages: PlayerMessage[];
-  unreadEvilMessages: EvilMessage[];
   onReadPlayerMessages: (playerId: string) => void;
-  onReadEvilMessages: () => void;
   onSendMessage: (message: {
     playerId: string;
     roleId: string;
     body: string;
   }) => Promise<void>;
-  onSendEvilMessage: (body: string) => Promise<void>;
 }) {
-  const evilConversationId = "evil-team";
   const [selectedConversationId, setSelectedConversationId] = useState("");
   const [messageBody, setMessageBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -4141,15 +4045,12 @@ function HostMessagesPanel({
         })),
     [roomPlayersById, state.players],
   );
-  const evilPlayers = useMemo(
-    () =>
-      availablePlayers.filter(({ player }) => {
-        const team = getRole(player.roleId).team;
-        return team === "爪牙" || team === "恶魔";
-      }),
-    [availablePlayers],
+  const impEntry = availablePlayers.find(
+    ({ player }) => player.roleId === "imp",
   );
-  const evilChatAvailable = evilPlayers.length > 0;
+  const impPlayer = impEntry?.player;
+  const impRoomPlayer = impEntry?.roomPlayer;
+  const demonBluffsAvailable = Boolean(impPlayer);
   const availableDemonBluffRoles = useMemo(() => {
     const assignedRoleIds = new Set(
       state.players.map((player) => player.roleId),
@@ -4171,9 +4072,7 @@ function HostMessagesPanel({
   const demonBluffStorageKey = room
     ? `xueran-demon-bluffs-${room.id}`
     : "";
-  const isEvilConversation =
-    evilChatAvailable && selectedConversationId === evilConversationId;
-  const selectedPlayerId = isEvilConversation ? "" : selectedConversationId;
+  const selectedPlayerId = selectedConversationId;
 
   const chooseRandomBluffs = useCallback(
     (excludedSignature = "") => {
@@ -4212,7 +4111,7 @@ function HostMessagesPanel({
 
   useEffect(() => {
     if (
-      !evilChatAvailable ||
+      !demonBluffsAvailable ||
       !demonBluffStorageKey ||
       availableDemonBluffRoles.length < 3
     ) {
@@ -4254,13 +4153,12 @@ function HostMessagesPanel({
     availableDemonBluffRoles,
     chooseRandomBluffs,
     demonBluffStorageKey,
-    evilChatAvailable,
+    demonBluffsAvailable,
     persistDemonBluffs,
   ]);
 
   useEffect(() => {
     if (
-      (selectedConversationId === evilConversationId && evilChatAvailable) ||
       availablePlayers.some(
         ({ player }) => player.id === selectedConversationId,
       )
@@ -4285,20 +4183,16 @@ function HostMessagesPanel({
         )
       : undefined;
     setSelectedConversationId(
-      evilChatAvailable && unreadEvilMessages.length
-        ? evilConversationId
-        : latestAvailablePlayer?.player.id ??
-            firstClaimed?.player.id ??
-            availablePlayers[0]?.player.id ??
-            (evilChatAvailable ? evilConversationId : ""),
+      latestAvailablePlayer?.player.id ??
+        firstClaimed?.player.id ??
+        availablePlayers[0]?.player.id ??
+        "",
     );
   }, [
     availablePlayers,
-    evilChatAvailable,
     nightMessages,
     playerMessages,
     selectedConversationId,
-    unreadEvilMessages.length,
     unreadPlayerMessages,
   ]);
 
@@ -4319,7 +4213,9 @@ function HostMessagesPanel({
           latest.set(message.player_id, {
             body:
               message.direction === "outgoing"
-                ? getNightMessageDisplayBody(message.body)
+                ? parseDemonBluffMessage(message.body)
+                  ? "3 个不在场身份"
+                  : getNightMessageDisplayBody(message.body)
                 : getPlayerMessageDisplayBody(message.body),
             createdAt: message.created_at,
             direction: message.direction,
@@ -4377,13 +4273,14 @@ function HostMessagesPanel({
       .filter((message) => message.player_id === selectedPlayerId)
       .map((message) => {
         const skillBody = getRoleSkillMessage(message.body);
+        const demonBluffRoleIds = parseDemonBluffMessage(message.body);
         return {
           ...message,
           body: getNightMessageDisplayBody(message.body),
           direction: "outgoing" as const,
-          label: `上帝 · ${getGameStageLabel("夜晚", message.round)} · ${getRole(message.role_id).name}${skillBody ? " · 技能" : ""}`,
+          label: `上帝 · ${getGameStageLabel("夜晚", message.round)} · ${getRole(message.role_id).name}${demonBluffRoleIds ? " · 不在场身份" : skillBody ? " · 技能" : ""}`,
           avatar: "上",
-          demonBluffRoleIds: null,
+          demonBluffRoleIds,
         };
       }),
     ...playerMessages
@@ -4402,31 +4299,7 @@ function HostMessagesPanel({
         };
       }),
   ];
-  const evilTimeline = evilMessages.map((message) => {
-    const sender = message.sender_player_id
-      ? roomPlayersById.get(message.sender_player_id)
-      : null;
-    return {
-      ...message,
-      direction:
-        message.sender_kind === "host"
-          ? ("outgoing" as const)
-          : ("incoming" as const),
-      label:
-        message.sender_kind === "host"
-          ? `上帝 · 第 ${message.round} 回合`
-          : `${sender?.name || formatSeat(sender?.seat)} · 第 ${message.round} 回合`,
-      avatar:
-        message.sender_kind === "host"
-          ? "上"
-          : formatSeat(sender?.seat),
-      demonBluffRoleIds:
-        message.sender_kind === "host"
-          ? parseDemonBluffMessage(message.body)
-          : null,
-    };
-  });
-  const timeline = (isEvilConversation ? evilTimeline : playerTimeline).sort(
+  const timeline = playerTimeline.sort(
     (left, right) =>
       new Date(left.created_at).getTime() -
       new Date(right.created_at).getTime(),
@@ -4446,7 +4319,6 @@ function HostMessagesPanel({
 
   useEffect(() => {
     if (
-      !isEvilConversation &&
       selectedPlayerId &&
       unreadPlayerMessages.some(
         (message) => message.player_id === selectedPlayerId,
@@ -4455,23 +4327,15 @@ function HostMessagesPanel({
       onReadPlayerMessages(selectedPlayerId);
     }
   }, [
-    isEvilConversation,
     onReadPlayerMessages,
     selectedPlayerId,
     unreadPlayerMessages,
   ]);
 
-  useEffect(() => {
-    if (isEvilConversation && unreadEvilMessages.length) {
-      onReadEvilMessages();
-    }
-  }, [isEvilConversation, onReadEvilMessages, unreadEvilMessages.length]);
-
   const canSend =
     Boolean(room) &&
-    (isEvilConversation
-      ? evilChatAvailable
-      : Boolean(selectedPlayer) && Boolean(selectedRoomPlayer?.is_claimed)) &&
+    Boolean(selectedPlayer) &&
+    Boolean(selectedRoomPlayer?.is_claimed) &&
     Boolean(messageBody.trim()) &&
     !sending;
 
@@ -4480,9 +4344,7 @@ function HostMessagesPanel({
     setSending(true);
     setSendError("");
     try {
-      if (isEvilConversation) {
-        await onSendEvilMessage(messageBody.trim());
-      } else if (selectedPlayer) {
+      if (selectedPlayer) {
         await onSendMessage({
           playerId: selectedPlayer.id,
           roleId: getPlayerVisibleRoleId(
@@ -4496,13 +4358,9 @@ function HostMessagesPanel({
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "";
       setSendError(
-        /game has not started/i.test(message)
-          ? "游戏正式开始后才能使用邪恶阵营群聊"
-          : /evil player access/i.test(message)
-            ? "当前身份无权进入邪恶阵营群聊"
-            : /claimed player/i.test(message)
+        /claimed player/i.test(message)
           ? "该玩家尚未入座，暂时无法接收信息"
-          : /function|night_messages|evil_messages|schema cache/i.test(message)
+          : /function|night_messages|schema cache/i.test(message)
             ? "消息数据库尚未配置"
             : "发送失败，请稍后重试",
       );
@@ -4514,13 +4372,16 @@ function HostMessagesPanel({
   const sentDemonBluffSignatures = useMemo(
     () =>
       new Set(
-        evilMessages
-          .filter((message) => message.sender_kind === "host")
+        nightMessages
+          .filter(
+            (message) =>
+              Boolean(impPlayer) && message.player_id === impPlayer?.id,
+          )
           .map((message) => parseDemonBluffMessage(message.body))
           .filter((roleIds): roleIds is string[] => Boolean(roleIds))
           .map(getDemonBluffSignature),
       ),
-    [evilMessages],
+    [impPlayer, nightMessages],
   );
   const currentDemonBluffSignature =
     demonBluffRoleIds.length === 3
@@ -4554,16 +4415,26 @@ function HostMessagesPanel({
     if (
       demonBluffRoleIds.length !== 3 ||
       demonBluffsAlreadySent ||
-      sendingBluffs
+      sendingBluffs ||
+      !impPlayer ||
+      !impRoomPlayer?.is_claimed
     ) {
       return;
     }
     setSendingBluffs(true);
     setSendError("");
     try {
-      await onSendEvilMessage(buildDemonBluffMessage(demonBluffRoleIds));
+      await onSendMessage({
+        playerId: impPlayer.id,
+        roleId: "imp",
+        body: buildDemonBluffMessage(demonBluffRoleIds),
+      });
     } catch {
-      setSendError("伪装身份发送失败，请稍后重试");
+      setSendError(
+        impRoomPlayer?.is_claimed
+          ? "不在场身份发送失败，请稍后重试"
+          : "小恶魔尚未入座，暂时无法接收身份",
+      );
     } finally {
       setSendingBluffs(false);
     }
@@ -4589,46 +4460,9 @@ function HostMessagesPanel({
             <p className="eyebrow">PLAYER CHAT</p>
             <h2>玩家消息</h2>
           </div>
-          <strong>
-            {unreadPlayerMessages.length + unreadEvilMessages.length}
-          </strong>
+          <strong>{unreadPlayerMessages.length}</strong>
         </div>
         <div className="host-player-tabs">
-          {evilChatAvailable ? (
-            <button
-              className={
-                isEvilConversation ? "active host-evil-chat-tab" : "host-evil-chat-tab"
-              }
-              onClick={() => {
-                setSelectedConversationId(evilConversationId);
-                setMessageBody("");
-                setSendError("");
-              }}
-            >
-              <span className="host-group-icon">
-                <Skull size={16} />
-              </span>
-              <span className="host-player-summary">
-                <strong>邪恶阵营群聊</strong>
-                <small>
-                  {evilMessages[0]
-                    ? `${evilMessages[0].sender_kind === "host" ? "我" : roomPlayersById.get(evilMessages[0].sender_player_id ?? "")?.name || "邪恶玩家"}：${
-                        evilMessages[0].sender_kind === "host"
-                          ? getDemonBluffPreview(evilMessages[0].body)
-                          : evilMessages[0].body
-                      }`
-                    : `上帝与 ${evilPlayers.length} 名邪恶玩家`}
-                </small>
-              </span>
-              {unreadEvilMessages.length ? (
-                <span className="host-player-count">
-                  {unreadEvilMessages.length}
-                </span>
-              ) : (
-                <span className="host-player-status evil-online" />
-              )}
-            </button>
-          ) : null}
           {conversationPlayers.map(({ player, roomPlayer }) => {
             const latest = latestByPlayer.get(player.id);
             const incomingCount = incomingCountByPlayer.get(player.id) ?? 0;
@@ -4677,42 +4511,29 @@ function HostMessagesPanel({
       </aside>
 
       <div className="host-chat-panel">
-        {isEvilConversation || (selectedPlayer && selectedRole) ? (
+        {selectedPlayer && selectedRole ? (
           <>
             <header className="host-chat-header">
-              {isEvilConversation ? (
-                <>
-                  <div className="host-chat-role evil-group">
-                    <Skull size={23} />
-                  </div>
-                  <div>
-                    <h3>邪恶阵营群聊</h3>
-                    <p>上帝 · {evilPlayers.length} 名爪牙/恶魔 · 第 {state.round} 回合</p>
-                  </div>
-                </>
-              ) : selectedPlayer && selectedRole ? (
-                <>
-                  <div className={`host-chat-role ${teamLabels[selectedRole.team]}`}>
-                    <RoleIcon roleId={selectedRole.id} size={24} />
-                  </div>
-                  <div>
-                    <h3>{selectedRoomPlayer?.name || formatSeat(selectedPlayer.seat)}</h3>
-                    <p>
-                      {formatSeat(selectedPlayer.seat)} ·{" "}
-                      {selectedRole.name} ·{" "}
-                      {selectedRoomPlayer?.is_claimed ? "已入座" : "未入座"}
-                    </p>
-                  </div>
-                </>
-              ) : null}
+              <div className={`host-chat-role ${teamLabels[selectedRole.team]}`}>
+                <RoleIcon roleId={selectedRole.id} size={24} />
+              </div>
+              <div>
+                <h3>{selectedRoomPlayer?.name || formatSeat(selectedPlayer.seat)}</h3>
+                <p>
+                  {formatSeat(selectedPlayer.seat)} ·{" "}
+                  {selectedRole.name} ·{" "}
+                  {selectedRoomPlayer?.is_claimed ? "已入座" : "未入座"}
+                </p>
+              </div>
             </header>
 
-            {isEvilConversation && demonBluffRoleIds.length === 3 ? (
+            {selectedPlayer.roleId === "imp" &&
+            demonBluffRoleIds.length === 3 ? (
               <section className="demon-bluff-draft">
                 <div className="demon-bluff-draft-heading">
                   <div>
-                    <strong>恶魔伪装身份</strong>
-                    <small>发送前仅上帝可见</small>
+                    <strong>小恶魔不在场身份</strong>
+                    <small>仅发送给当前小恶魔玩家</small>
                   </div>
                   <button
                     className="icon-button"
@@ -4772,7 +4593,11 @@ function HostMessagesPanel({
                 </div>
                 <button
                   className="primary-button demon-bluff-send"
-                  disabled={demonBluffsAlreadySent || sendingBluffs}
+                  disabled={
+                    demonBluffsAlreadySent ||
+                    sendingBluffs ||
+                    !selectedRoomPlayer?.is_claimed
+                  }
                   onClick={() => void sendDemonBluffs()}
                 >
                   {demonBluffsAlreadySent ? (
@@ -4784,7 +4609,9 @@ function HostMessagesPanel({
                     ? "本组已发送"
                     : sendingBluffs
                       ? "发送中"
-                      : "发送这三个身份"}
+                      : selectedRoomPlayer?.is_claimed
+                        ? "发送这三个身份"
+                        : "小恶魔入座后可发送"}
                 </button>
               </section>
             ) : null}
@@ -4829,9 +4656,7 @@ function HostMessagesPanel({
                 <MessageSquareText size={24} />
                 <h3>暂无聊天记录</h3>
                 <p>
-                  {isEvilConversation
-                    ? "爪牙、恶魔和上帝发送的信息会显示在这里。"
-                    : "玩家来信和你发送的信息会按时间显示在这里。"}
+                  玩家来信和你发送的信息会按时间显示在这里。
                 </p>
               </div>
             )}
@@ -4847,18 +4672,13 @@ function HostMessagesPanel({
                   }
                 }}
                 placeholder={
-                  isEvilConversation
-                    ? "发送到邪恶阵营群聊"
-                    : selectedRoomPlayer?.is_claimed
+                  selectedRoomPlayer?.is_claimed
                     ? "回复该玩家"
                     : "该玩家入座后即可发送"
                 }
                 maxLength={500}
                 rows={2}
-                disabled={
-                  (!isEvilConversation && !selectedRoomPlayer?.is_claimed) ||
-                  sending
-                }
+                disabled={!selectedRoomPlayer?.is_claimed || sending}
               />
               <div className="host-chat-composer-footer">
                 <span>{messageBody.length}/500</span>

@@ -16,14 +16,6 @@ export const parseDemonBluffMessage = (body: string) => {
   return isValidDemonBluffRoleIds(roleIds) ? roleIds : null;
 };
 
-export const getDemonBluffPreview = (body: string) => {
-  const roleIds = parseDemonBluffMessage(body);
-  if (!roleIds) return body;
-  return `恶魔伪装身份：${roleIds
-    .map((roleId) => roleMap.get(roleId)?.name)
-    .join("、")}`;
-};
-
 export const getDemonBluffSignature = (roleIds: string[]) =>
   [...roleIds].sort().join(",");
 

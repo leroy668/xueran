@@ -64,16 +64,6 @@ export type PlayerMessage = {
   created_at: string;
 };
 
-export type EvilMessage = {
-  id: string;
-  room_id: string;
-  sender_kind: "host" | "player";
-  sender_player_id: string | null;
-  round: number;
-  body: string;
-  created_at: string;
-};
-
 export type Nomination = {
   id: string;
   room_id: string;
@@ -381,36 +371,6 @@ export const getRoomPlayerMessages = getAllPlayerMessages;
 
 export const getMyPlayerMessages = getAllPlayerMessages;
 
-const isMissingEvilMessagesTable = (error: { code?: string; message?: string }) =>
-  error.code === "42P01" ||
-  error.code === "PGRST205" ||
-  /xueran_evil_messages/i.test(error.message ?? "");
-
-const getAllEvilMessages = async (roomId: string) => {
-  const pageSize = 500;
-  const messages: EvilMessage[] = [];
-
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await supabase
-      .from("xueran_evil_messages")
-      .select("*")
-      .eq("room_id", roomId)
-      .order("created_at", { ascending: false })
-      .range(from, from + pageSize - 1);
-
-    if (error && isMissingEvilMessagesTable(error)) return [];
-    if (error) throw error;
-
-    const page = data as EvilMessage[];
-    messages.push(...page);
-    if (page.length < pageSize) return messages;
-  }
-};
-
-export const getRoomEvilMessages = getAllEvilMessages;
-
-export const getMyEvilMessages = getAllEvilMessages;
-
 const isMissingVotingTable = (error: { code?: string; message?: string }) =>
   error.code === "42P01" ||
   error.code === "PGRST205" ||
@@ -555,21 +515,6 @@ export const simulatePlayerMessage = async ({
   }
   if (error) throw error;
   return data as PlayerMessage;
-};
-
-export const sendEvilMessage = async ({
-  roomId,
-  body,
-}: {
-  roomId: string;
-  body: string;
-}) => {
-  const { data, error } = await supabase.rpc("xueran_send_evil_message", {
-    p_room_id: roomId,
-    p_body: body,
-  });
-  if (error) throw error;
-  return data as EvilMessage;
 };
 
 export const claimSeat = async (
