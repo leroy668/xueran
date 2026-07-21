@@ -145,7 +145,13 @@ export const getScriptRoles = (scriptId: string) => {
 const actsAfterDeathRoleIds = new Set(["ravenkeeper", "moonchild"]);
 
 export const getNightActions = (
-  players: { roleId: string; drunkRoleId?: string; alive: boolean }[],
+  players: {
+    id?: string;
+    seat?: number;
+    roleId: string;
+    drunkRoleId?: string;
+    alive: boolean;
+  }[],
   firstNight: boolean,
   scriptId: string,
   round = firstNight ? 1 : 2,
@@ -173,12 +179,10 @@ export const getNightActions = (
         const order = firstNight
           ? role.firstNightOrder
           : role.otherNightOrder;
-        if (
-          order <= 0 ||
-          (!player.alive && !actsAfterDeathRoleIds.has(role.id))
-        ) {
+        if (order <= 0) {
           return [];
         }
+        const canAct = player.alive || actsAfterDeathRoleIds.has(role.id);
         return [{
           kind: "role" as const,
           id: role.id,
@@ -187,6 +191,10 @@ export const getNightActions = (
           role,
           actualRole,
           isDisguised: role.id !== actualRole.id,
+          playerId: player.id,
+          seat: player.seat,
+          alive: player.alive,
+          canAct,
         }];
       });
     })

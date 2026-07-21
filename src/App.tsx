@@ -238,6 +238,145 @@ const getPlayerRoleState = (player: Player, roleId = player.roleId) =>
     (note) => note.id === roleStateNotePrefix + roleId,
   ) ?? null;
 
+type NightStatusMark = {
+  key: string;
+  label: string;
+  kind: "dead" | "poisoned" | "drunk" | "protected";
+};
+
+const nightStatusSeatPattern = /(\d+)\s*号/g;
+
+const extractSeatNumbers = (text: string) =>
+  Array.from(text.matchAll(nightStatusSeatPattern), (match) =>
+    Number(match[1]),
+  ).filter((seat) => Number.isFinite(seat) && seat > 0);
+
+const collectNightStatusFromText = (
+  text: string,
+  marks: Set<NightStatusMark["kind"]>,
+) => {
+  if (/中毒|被毒|下毒/.test(text)) marks.add("poisoned");
+  if (/醉酒|喝醉|醉了/.test(text)) marks.add("drunk");
+  if (/保护|被护|免受恶魔/.test(text)) marks.add("protected");
+};
+
+const getNightStatusMarksForPlayers = (
+  players: Player[],
+  nightMessages: NightMessage[],
+  round: number,
+) => {
+  const byPlayerId = new Map<string, NightStatusMark[]>();
+  const bySeat = new Map<number, Player>();
+  for (const player of players) {
+    bySeat.set(player.seat, player);
+  }
+
+  const markSets = new Map<string, Set<NightStatusMark["kind"]>>();
+  const ensureMarks = (playerId: string) => {
+    let marks = markSets.get(playerId);
+    if (!marks) {
+      marks = new Set();
+      markSets.set(playerId, marks);
+    }
+    return marks;
+  };
+
+  const markSeats = (seats: number[], kind: NightStatusMark["kind"]) => {
+    for (const seat of seats) {
+      const player = bySeat.get(seat);
+      if (player) ensureMarks(player.id).add(kind);
+    }
+  };
+
+  for (const player of players) {
+    const marks = ensureMarks(player.id);
+    if (!player.alive) marks.add("dead");
+
+    for (const note of parsePlayerNotes(player.notes)) {
+      // 系统角色状态追踪（如士兵“中毒或醉酒 · 能力失效”）会直接写在本人 notes 上，应识别；
+      // 已勾销备注不参与展示。
+      if (note.resolved) continue;
+      collectNightStatusFromText(note.body, marks);
+    }
+  }
+
+  const skillMessages = [...nightMessages]
+    .filter((message) => getRoleSkillMessage(message.body))
+    .sort(
+      (left, right) =>
+        new Date(right.created_at).getTime() -
+        new Date(left.created_at).getTime(),
+    );
+
+  let latestPoisonSeats: number[] | null = null;
+  let latestProtectSeats: number[] | null = null;
+
+  for (const message of skillMessages) {
+    // 毒/保护默认只认本回合技能记录：首夜/当晚下毒后的白天仍生效，
+    // 进入下一晚后旧毒自动失效，直到本晚重新下毒。
+    if (message.round !== round) continue;
+    const body = getRoleSkillMessage(message.body) ?? message.body;
+    if (
+      latestPoisonSeats === null &&
+      (message.role_id === "poisoner" ||
+        message.role_id === "pukka" ||
+        /本晚(?:新)?中毒目标|中毒目标/.test(body))
+    ) {
+      const seats = extractSeatNumbers(body);
+      if (seats.length) latestPoisonSeats = [seats[0]];
+    }
+    if (
+      message.role_id === "nodashii" ||
+      message.role_id === "vigormortis"
+    ) {
+      const poisonClause = body.match(/；([^；]*中毒[^；]*)/);
+      if (poisonClause) {
+        markSeats(extractSeatNumbers(poisonClause[1]), "poisoned");
+      }
+    }
+    if (
+      latestProtectSeats === null &&
+      (message.role_id === "monk" || /本晚保护目标/.test(body))
+    ) {
+      const seats = extractSeatNumbers(body);
+      if (seats.length) latestProtectSeats = [seats[0]];
+    }
+  }
+
+  if (latestPoisonSeats) markSeats(latestPoisonSeats, "poisoned");
+  if (latestProtectSeats) markSeats(latestProtectSeats, "protected");
+
+  const markMeta: Record<
+    NightStatusMark["kind"],
+    { label: string; order: number }
+  > = {
+    dead: { label: "死亡", order: 0 },
+    poisoned: { label: "中毒", order: 1 },
+    drunk: { label: "醉酒", order: 2 },
+    protected: { label: "保护", order: 3 },
+  };
+
+  for (const player of players) {
+    const marks = markSets.get(player.id);
+    if (!marks?.size) {
+      byPlayerId.set(player.id, []);
+      continue;
+    }
+    byPlayerId.set(
+      player.id,
+      [...marks]
+        .sort((left, right) => markMeta[left].order - markMeta[right].order)
+        .map((kind) => ({
+          key: kind,
+          label: markMeta[kind].label,
+          kind,
+        })),
+    );
+  }
+
+  return byPlayerId;
+};
+
 const chineseNumber = (value: number) => {
   const digits = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
   if (value < 10) return digits[Math.max(0, value)];
@@ -788,6 +927,22 @@ function GrimoireApp() {
     }));
   };
 
+  useEffect(() => {
+    const selectedAction = nightActions[state.nightIndex];
+    if (!selectedAction || selectedAction.canAct) return;
+    const nextActionIndex = nightActions.findIndex((action) => action.canAct);
+    if (nextActionIndex < 0) return;
+    setState((current) =>
+      current.nightIndex === nextActionIndex
+        ? current
+        : {
+            ...current,
+            nightIndex: nextActionIndex,
+            updatedAt: new Date().toISOString(),
+          },
+    );
+  }, [nightActions, state.nightIndex]);
+
   const updatePlayer = (id: string, patch: Partial<Player>) => {
     setState((current) => ({
       ...current,
@@ -1058,11 +1213,15 @@ function GrimoireApp() {
 
   const changeNight = (offset: number) => {
     if (!nightActions.length) return;
-    update({
-      nightIndex:
-        (state.nightIndex + offset + nightActions.length) %
-        nightActions.length,
-    });
+    for (let step = 1; step <= nightActions.length; step += 1) {
+      const nextIndex =
+        (state.nightIndex + offset * step + nightActions.length) %
+        nightActions.length;
+      if (nightActions[nextIndex]?.canAct) {
+        update({ nightIndex: nextIndex });
+        return;
+      }
+    }
   };
 
   const handleSendNightMessage = async ({
@@ -2558,6 +2717,15 @@ function NightPanel({
   const nextStage = getNextGameStage(state.phase, state.round);
   const nextStageLabel = getGameStageLabel(nextStage.phase, nextStage.round);
   const StageIcon = state.phase === "白天" ? Sun : MoonStar;
+  const nightStatusByPlayerId = useMemo(
+    () =>
+      getNightStatusMarksForPlayers(
+        state.players,
+        nightMessages,
+        state.round,
+      ),
+    [nightMessages, state.players, state.round],
+  );
   const rolePlayers = useMemo(
     () =>
       currentRole
@@ -2597,11 +2765,16 @@ function NightPanel({
     : "玩家";
 
   useEffect(() => {
-    if (!rolePlayers.some((player) => player.id === targetPlayerId)) {
-      setTargetPlayerId(rolePlayers[0]?.id ?? "");
+    const preferredPlayerId =
+      currentAction?.playerId &&
+      rolePlayers.some((player) => player.id === currentAction.playerId)
+        ? currentAction.playerId
+        : rolePlayers[0]?.id ?? "";
+    if (targetPlayerId !== preferredPlayerId) {
+      setTargetPlayerId(preferredPlayerId);
     }
     setSendError("");
-  }, [rolePlayers, targetPlayerId]);
+  }, [currentAction?.playerId, rolePlayers, targetPlayerId]);
 
   const redHerringCandidates = useMemo(
     () =>
@@ -3085,6 +3258,7 @@ function NightPanel({
   const canUseSkill =
     Boolean(room) &&
     Boolean(currentRole) &&
+    Boolean(currentAction?.canAct) &&
     Boolean(selectedRoomPlayer?.is_claimed) &&
     !sending;
   const canResolveRoleReveal =
@@ -3426,28 +3600,70 @@ function NightPanel({
           </div>
           {currentAction ? (
             <div className="night-list">
-              {nightActions.map((action, index) => (
-                <button
-                  className={state.nightIndex === index ? "night-row active" : "night-row"}
-                  key={`${action.id}-${index}`}
-                  onClick={() => onSelectNight(index)}
-                >
-                  <span className="night-index">{String(index + 1).padStart(2, "0")}</span>
-                  <span className={`mini-role-icon ${teamLabels[action.role.team]}`}>
-                    <RoleIcon roleId={action.role.id} size={16} />
-                  </span>
-                  <span className="night-role-name">
-                    <span>{action.name}</span>
-                    {action.isDisguised ? (
-                      <b className="night-role-truth">
-                        真实：{action.actualRole.name}
-                      </b>
+              {nightActions.map((action, index) => {
+                const statusMarks = action.playerId
+                  ? nightStatusByPlayerId.get(action.playerId) ?? []
+                  : [];
+                const isDead = statusMarks.some((mark) => mark.kind === "dead");
+                return (
+                  <button
+                    className={[
+                      "night-row",
+                      state.nightIndex === index ? "active" : "",
+                      isDead ? "is-dead" : "",
+                      statusMarks.some((mark) => mark.kind === "poisoned")
+                        ? "is-poisoned"
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    key={`${action.id}-${action.playerId ?? "na"}-${index}`}
+                    disabled={!action.canAct}
+                    onClick={() => onSelectNight(index)}
+                  >
+                    <span className="night-index">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span
+                      className={`mini-role-icon ${teamLabels[action.role.team]}`}
+                    >
+                      <RoleIcon roleId={action.role.id} size={16} />
+                    </span>
+                    <span className="night-role-name">
+                      <span className="night-role-title">
+                        <span>{action.name}</span>
+                        {action.seat ? (
+                          <small className="night-role-seat">
+                            {formatSeat(action.seat)}
+                          </small>
+                        ) : null}
+                      </span>
+                      {action.isDisguised ? (
+                        <b className="night-role-truth">
+                          真实：{action.actualRole.name}
+                        </b>
+                      ) : null}
+                      {statusMarks.length ? (
+                        <span className="night-status-marks" aria-label="状态标记">
+                          {statusMarks.map((mark) => (
+                            <b
+                              className={`night-status-mark kind-${mark.kind}`}
+                              key={mark.key}
+                              title={mark.label}
+                            >
+                              {mark.label}
+                            </b>
+                          ))}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="night-role-team">{action.role.team}</span>
+                    {state.nightIndex === index ? (
+                      <span className="on-air">进行中</span>
                     ) : null}
-                  </span>
-                  <span className="night-role-team">{action.role.team}</span>
-                  {state.nightIndex === index ? <span className="on-air">进行中</span> : null}
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <div className="empty-state compact">

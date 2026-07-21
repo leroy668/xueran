@@ -495,12 +495,24 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-list { border-top: 1px solid var(--line); }
 .night-row { width: 100%; display: grid; grid-template-columns: 32px 31px minmax(90px, 1fr) 55px 50px; align-items: center; gap: 8px; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--muted); padding: 12px 5px; }
 .night-row:hover, .night-row.active { background: #25252a; color: var(--ink); }
+.night-row.is-dead { opacity: .78; }
+.night-row:disabled { cursor: default; }
+.night-row:disabled:hover { background: transparent; color: var(--muted); }
+.night-row.is-poisoned .mini-role-icon { box-shadow: inset 0 0 0 1px rgba(154, 120, 214, .55); }
 .night-index { color: var(--dim); font-size: 11px; }
 .mini-role-icon { width: 27px; height: 27px; display: grid; place-items: center; border-left: 2px solid var(--gold); background: #2a2a2e; font-family: Georgia, serif; font-size: 11px; }
-.night-role-name { min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
+.night-role-name { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 5px 6px; font-size: 13px; font-weight: 700; }
+.night-role-title { min-width: 0; display: inline-flex; align-items: baseline; gap: 5px; max-width: 100%; }
+.night-role-title > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.night-role-seat { color: var(--dim); font-size: 10px; font-weight: 600; white-space: nowrap; }
 .night-role-team { color: var(--dim); font-size: 11px; }
-.night-role-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .night-role-truth { flex: 0 0 auto; padding: 2px 5px; border: 1px solid rgba(215,97,86,.45); background: rgba(215,97,86,.1); color: #e8aaa4; font-size: 9px; font-weight: 700; line-height: 1.2; }
+.night-status-marks { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.night-status-mark { flex: 0 0 auto; padding: 1px 5px; border-radius: 999px; border: 1px solid transparent; font-size: 9px; font-weight: 700; line-height: 1.35; letter-spacing: .02em; }
+.night-status-mark.kind-dead { border-color: rgba(201,82,74,.5); background: rgba(201,82,74,.14); color: #ec8b85; }
+.night-status-mark.kind-poisoned { border-color: rgba(154,120,214,.55); background: rgba(154,120,214,.16); color: #c8b0ef; }
+.night-status-mark.kind-drunk { border-color: rgba(141,170,195,.5); background: rgba(141,170,195,.14); color: #b7cfe0; }
+.night-status-mark.kind-protected { border-color: rgba(121,181,138,.5); background: rgba(121,181,138,.14); color: #9fd0aa; }
 .on-air { color: var(--red); font-size: 10px; white-space: nowrap; }
 .script-aside h3 { margin: 0 0 10px; font-size: 18px; }
 
@@ -1121,6 +1133,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .night-skill-button, .night-send-button { min-width: 0; min-height: 34px; padding: 0 9px; font-size: 11px; }
   .night-row { grid-template-columns: 28px 29px minmax(0, 1fr) 42px; }
   .night-role-team { display: none; }
+  .night-status-mark { font-size: 8px; padding: 1px 4px; }
   .on-air { text-align: right; }
   .script-cards { grid-template-columns: 1fr; }
   .role-library-heading { align-items: stretch; flex-direction: column; }
