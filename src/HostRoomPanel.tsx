@@ -21,7 +21,6 @@ type Props = {
   onCreate: () => void;
   onCopy: () => void;
   onRevoke: (playerId: string) => void;
-  onOpenSimulation: () => void;
   onClose: () => void;
 };
 
@@ -34,7 +33,6 @@ export function HostRoomPanel({
   onCreate,
   onCopy,
   onRevoke,
-  onOpenSimulation,
   onClose,
 }: Props) {
   if (!room) {
@@ -64,10 +62,6 @@ export function HostRoomPanel({
   }
 
   const claimedPlayers = players.filter((player) => player.is_claimed);
-  const simulationEnabled =
-    room.simulation_enabled ||
-    players.some((player) => player.is_simulated);
-
   return (
     <section className="host-room-panel">
       <div className="room-heading">
@@ -110,21 +104,6 @@ export function HostRoomPanel({
       </button>
 
       <div className="claim-section">
-        <button
-          className="simulation-console-entry"
-          type="button"
-          onClick={onOpenSimulation}
-        >
-          <span>
-            <Radio size={15} />
-            <strong>玩家模拟后台</strong>
-          </span>
-          <small>
-            {simulationEnabled
-              ? "模拟模式已开启"
-              : "技能、消息、私聊与投票测试"}
-          </small>
-        </button>
         <div className="claim-section-heading">
           <span>已入座玩家</span>
           <strong>

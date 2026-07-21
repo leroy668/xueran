@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import {
-  ArrowLeft,
   Check,
   Gamepad2,
   Gavel,
@@ -55,7 +54,7 @@ type Props = {
   votes: DayVote[];
   resolutions: DayResolution[];
   busy: boolean;
-  onBack: () => void;
+  onCreateRoom: () => Promise<void>;
   onToggleSimulation: (enabled: boolean) => Promise<void>;
   onSendPlayerMessage: (playerId: string, body: string) => Promise<void>;
   onSendPrivateMessage: (
@@ -575,7 +574,7 @@ export function PlayerSimulationConsole({
   votes,
   resolutions,
   busy,
-  onBack,
+  onCreateRoom,
   onToggleSimulation,
   onSendPlayerMessage,
   onSendPrivateMessage,
@@ -616,8 +615,18 @@ export function PlayerSimulationConsole({
         <Gamepad2 size={34} />
         <strong>请先创建共享房间</strong>
         <p>模拟后台依赖房间中的玩家座位、消息与投票数据。</p>
-        <button className="secondary-button" type="button" onClick={onBack}>
-          <ArrowLeft size={15} />返回魔典
+        <button
+          className="primary-button"
+          type="button"
+          disabled={busy}
+          onClick={() => void onCreateRoom()}
+        >
+          {busy ? (
+            <LoaderCircle className="spin" size={15} />
+          ) : (
+            <Gamepad2 size={15} />
+          )}
+          创建共享房间
         </button>
       </section>
     );
@@ -626,12 +635,9 @@ export function PlayerSimulationConsole({
   return (
     <section className="player-simulation-console">
       <header className="player-simulation-header">
-        <button className="icon-button" type="button" onClick={onBack} title="返回魔典">
-          <ArrowLeft size={18} />
-        </button>
         <div>
           <span>房间 {room.code}</span>
-          <h2>玩家模拟后台</h2>
+          <h2>玩家模拟</h2>
           <p>切换任意已入座玩家，模拟其在真实玩家端可执行的动作。</p>
         </div>
         <div className="player-simulation-status">

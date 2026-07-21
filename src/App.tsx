@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Dices,
+  Gamepad2,
   Gavel,
   MessageCircleMore,
   MoonStar,
@@ -126,6 +127,7 @@ import type {
 
 const tabs: { id: TabId; label: string; icon: typeof BookOpen }[] = [
   { id: "grimoire", label: "魔典", icon: BookOpen },
+  { id: "simulation", label: "玩家模拟", icon: Gamepad2 },
   { id: "day", label: "白天顺序", icon: Sun },
   { id: "night", label: "夜晚顺序", icon: MoonStar },
   { id: "messages", label: "玩家消息", icon: MessageSquareText },
@@ -1330,7 +1332,6 @@ function GrimoireApp() {
                 onCreate={() => void startSharedRoom()}
                 onCopy={() => void shareRoom()}
                 onRevoke={(playerId) => void handleRevokeClaim(playerId)}
-                onOpenSimulation={() => setActiveTab("simulation")}
                 onClose={() => void endSharedRoom()}
               />
             }
@@ -1464,7 +1465,7 @@ function GrimoireApp() {
               votes={votes}
               resolutions={dayResolutions}
               busy={roomBusy || syncStatus === "syncing"}
-              onBack={() => setActiveTab("grimoire")}
+              onCreateRoom={startSharedRoom}
               onToggleSimulation={handleToggleSimulation}
               onSendPlayerMessage={handleSimulatePlayerMessage}
               onSendPrivateMessage={handleSimulateDayPrivateMessage}
