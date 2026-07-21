@@ -17,6 +17,7 @@ import {
   type Nomination,
   type PublicRoomPlayer,
 } from "./room";
+import { CompactSelect } from "./CompactSelect";
 import { formatSeat } from "./seat";
 import type { Phase, Player } from "./types";
 
@@ -361,11 +362,11 @@ export function PlayerVotingPanel({
                   </div>
                 ) : nomineeOptions.length ? (
                   <div className="nomination-compose-row">
-                    <select
+                    <CompactSelect
                       value={nomineePlayerId}
                       disabled={busy}
-                      onChange={(event) => setNomineePlayerId(event.target.value)}
-                      aria-label="选择被提名玩家"
+                      onValueChange={setNomineePlayerId}
+                      ariaLabel="选择被提名玩家"
                     >
                       {nomineeOptions.map((player) => (
                         <option value={player.id} key={player.id}>
@@ -373,7 +374,7 @@ export function PlayerVotingPanel({
                           {!player.alive ? " · 已死亡" : ""}
                         </option>
                       ))}
-                    </select>
+                    </CompactSelect>
                     <button
                       className="primary-button"
                       disabled={!canNominate || busy}

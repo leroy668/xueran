@@ -31,6 +31,7 @@ import {
   Users,
 } from "lucide-react";
 import { AdminRooms } from "./AdminRooms";
+import { CompactSelect } from "./CompactSelect";
 import {
   getNightActions,
   getPlayerVisibleRoleId,
@@ -1974,10 +1975,9 @@ function PlayerEditor({
 
       <label className="role-select-field">
         <span>角色身份</span>
-        <select
+        <CompactSelect
           value={player.roleId}
-          onChange={(event) => {
-            const roleId = event.target.value;
+          onValueChange={(roleId) => {
             onUpdate(player.id, {
               roleId,
               drunkRoleId:
@@ -1991,14 +1991,14 @@ function PlayerEditor({
                   : "",
             });
           }}
-          aria-label={`${formatSeat(player.seat)}角色`}
+          ariaLabel={`${formatSeat(player.seat)}角色`}
         >
           {roleOptions.map((option) => (
             <option value={option.id} key={option.id}>
               {option.name} · {option.team}
             </option>
           ))}
-        </select>
+        </CompactSelect>
       </label>
 
       {player.roleId === "drunk" || player.roleId === "marionette" ? (
@@ -2014,12 +2014,10 @@ function PlayerEditor({
             </strong>
             <small>玩家只会看到这个镇民身份</small>
           </span>
-          <select
+          <CompactSelect
             value={player.drunkRoleId}
-            onChange={(event) =>
-              onUpdate(player.id, { drunkRoleId: event.target.value })
-            }
-            aria-label={`${formatSeat(player.seat)} ${
+            onValueChange={(drunkRoleId) => onUpdate(player.id, { drunkRoleId })}
+            ariaLabel={`${formatSeat(player.seat)} ${
               player.roleId === "drunk" ? "酒鬼" : "提线木偶"
             }展示身份`}
           >
@@ -2037,7 +2035,7 @@ function PlayerEditor({
                   {option.name}
                 </option>
               ))}
-          </select>
+          </CompactSelect>
           {disguiseConflictsWithActualRole ? (
             <span className="drunk-disguise-warning">
               该展示身份已经在场，请更换一个不在本局的镇民身份
@@ -2084,7 +2082,7 @@ function PlayerEditor({
                 </button>
                 <label>
                   <span>已使用</span>
-                  <select
+                  <CompactSelect
                     value={
                       players.find(
                         (item) =>
@@ -2092,15 +2090,15 @@ function PlayerEditor({
                           `已使用 · ${formatSeat(item.seat)}`,
                       )?.id ?? ""
                     }
-                    onChange={(event) => {
+                    onValueChange={(targetId) => {
                       const target = players.find(
-                        (item) => item.id === event.target.value,
+                        (item) => item.id === targetId,
                       );
                       if (target) {
                         updateRoleState(`已使用 · ${formatSeat(target.seat)}`);
                       }
                     }}
-                    aria-label="选择杀手技能目标"
+                    ariaLabel="选择杀手技能目标"
                   >
                     <option value="">选择目标座位</option>
                     {[...players]
@@ -2110,7 +2108,7 @@ function PlayerEditor({
                           {formatSeat(target.seat)} · {target.name || "待入座"}
                         </option>
                       ))}
-                  </select>
+                  </CompactSelect>
                 </label>
               </div>
             ) : (
@@ -3308,7 +3306,7 @@ function NightPanel({
                 </div>
                 <label className="night-chat-recipient">
                   <span>技能接收玩家</span>
-                  <select
+                  <CompactSelect
                     value={targetPlayerId}
                     onChange={(event) => setTargetPlayerId(event.target.value)}
                     disabled={!rolePlayers.length || sending}
@@ -3337,7 +3335,7 @@ function NightPanel({
                         </option>
                       );
                     })}
-                  </select>
+                  </CompactSelect>
                 </label>
               </div>
               {selectedPlayerHasNoShownAbility ? (
@@ -3359,7 +3357,7 @@ function NightPanel({
                   </span>
                 </div>
                 <div className="fortune-teller-setting-control">
-                  <select
+                  <CompactSelect
                     value={redHerringPlayerId}
                     onChange={(event) => updateRedHerring(event.target.value)}
                     aria-label="选择占卜师宿敌"
@@ -3370,7 +3368,7 @@ function NightPanel({
                         {getNightPlayerLabel(player.id)}
                       </option>
                     ))}
-                  </select>
+                  </CompactSelect>
                   <button
                     className="icon-button"
                     title="随机选择一名善良玩家"
@@ -3436,7 +3434,7 @@ function NightPanel({
                   currentRole.id !== "librarian" ? (
                     <div className="night-skill-fields">
                       <div className="night-skill-target-grid">
-                        <select
+                        <CompactSelect
                           value={skillTargets.first}
                           disabled={sending}
                           aria-label={`${currentRole.name}第一名信息玩家`}
@@ -3456,8 +3454,8 @@ function NightPanel({
                               {getNightPlayerLabel(player.id)}
                             </option>
                           ))}
-                        </select>
-                        <select
+                        </CompactSelect>
+                        <CompactSelect
                           value={skillTargets.second}
                           disabled={sending}
                           aria-label={`${currentRole.name}第二名信息玩家`}
@@ -3477,11 +3475,11 @@ function NightPanel({
                               {getNightPlayerLabel(player.id)}
                             </option>
                           ))}
-                        </select>
+                        </CompactSelect>
                       </div>
                       <label className="night-skill-role-field">
                         <span>展示角色</span>
-                        <select
+                        <CompactSelect
                           value={skillRoleId}
                           disabled={sending}
                           onChange={(event) =>
@@ -3493,7 +3491,7 @@ function NightPanel({
                               {role.name}
                             </option>
                           ))}
-                        </select>
+                        </CompactSelect>
                       </label>
                     </div>
                   ) : null}
@@ -3617,9 +3615,9 @@ function NightPanel({
                     <div className="night-player-choice waiting"><Target size={14} /><span>玩家尚未提交，可由上帝代选</span></div>
                   )}
                   <div className="night-skill-single-row">
-                    <select value={singleSkillTargetId} disabled={sending} onChange={(event) => setSingleSkillTargetId(event.target.value)} aria-label={currentRole.name + "目标"}>
+                    <CompactSelect value={singleSkillTargetId} disabled={sending} onChange={(event) => setSingleSkillTargetId(event.target.value)} aria-label={currentRole.name + "目标"}>
                       {singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}
-                    </select>
+                    </CompactSelect>
                     <button className="primary-button" disabled={!canUseSkill || !singleSkillTargetId} onClick={sendSingleTargetSkill}>
                       <Send size={15} />{sendingMode === "skill" ? "发送中" : "确认并发送"}
                     </button>
@@ -3663,8 +3661,8 @@ function NightPanel({
                     </>
                   ) : null}
                   <div className="night-skill-reveal-grid">
-                    <label><span>{currentRole.id === "undertaker" ? "被处决玩家" : "查验玩家"}</span><select value={singleSkillTargetId} disabled={sending || !canResolveRoleReveal} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</select></label>
-                    <label><span>展示角色</span><select value={revealedSkillRoleId} disabled={sending || !canResolveRoleReveal} onChange={(event) => setRevealedSkillRoleId(event.target.value)}>{getScriptRoles(state.scriptId).map((role) => <option value={role.id} key={role.id}>{role.name} · {role.team}</option>)}</select></label>
+                    <label><span>{currentRole.id === "undertaker" ? "被处决玩家" : "查验玩家"}</span><CompactSelect value={singleSkillTargetId} disabled={sending || !canResolveRoleReveal} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect></label>
+                    <label><span>展示角色</span><CompactSelect value={revealedSkillRoleId} disabled={sending || !canResolveRoleReveal} onChange={(event) => setRevealedSkillRoleId(event.target.value)}>{getScriptRoles(state.scriptId).map((role) => <option value={role.id} key={role.id}>{role.name} · {role.team}</option>)}</CompactSelect></label>
                   </div>
                   <button className="primary-button night-skill-submit" disabled={!canUseSkill || !canResolveRoleReveal || !singleSkillTargetId || !revealedSkillRoleId} onClick={sendRoleRevealSkill}><Send size={15} />{sendingMode === "skill" ? "发送中" : "发送角色信息"}</button>
                 </div>
@@ -3690,8 +3688,8 @@ function NightPanel({
                   {state.round <= 1 ? (
                     <>
                       <div className="night-skill-reveal-grid">
-                        <label><span>孙辈玩家</span><select value={singleSkillTargetId} disabled={sending} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{state.players.filter((player) => ["镇民", "外来者"].includes(getRole(player.roleId).team) && player.id !== selectedPlayer?.id).map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</select></label>
-                        <label><span>展示角色</span><select value={revealedSkillRoleId} disabled={sending} onChange={(event) => setRevealedSkillRoleId(event.target.value)}>{getScriptRoles(state.scriptId).filter((role) => ["镇民", "外来者"].includes(role.team)).map((role) => <option value={role.id} key={role.id}>{role.name}</option>)}</select></label>
+                        <label><span>孙辈玩家</span><CompactSelect value={singleSkillTargetId} disabled={sending} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{state.players.filter((player) => ["镇民", "外来者"].includes(getRole(player.roleId).team) && player.id !== selectedPlayer?.id).map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect></label>
+                        <label><span>展示角色</span><CompactSelect value={revealedSkillRoleId} disabled={sending} onChange={(event) => setRevealedSkillRoleId(event.target.value)}>{getScriptRoles(state.scriptId).filter((role) => ["镇民", "外来者"].includes(role.team)).map((role) => <option value={role.id} key={role.id}>{role.name}</option>)}</CompactSelect></label>
                       </div>
                       <button className="primary-button night-skill-submit" disabled={!canUseSkill || !singleSkillTargetId || !revealedSkillRoleId} onClick={() => void submitSkill(`你的孙辈是${getNightSeatLabel(singleSkillTargetId)}，角色是${getRole(revealedSkillRoleId).name}`)}><Send size={15} />发送孙辈信息</button>
                     </>
@@ -3718,8 +3716,8 @@ function NightPanel({
                   <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><Target size={14} />侍女查验</span><small>{currentRole.short}</small></div></div>
                   <div className={latestPlayerSkillChoice ? "night-player-choice" : "night-player-choice waiting"}><Target size={14} /><span>{latestPlayerSkillChoice ? `玩家已提交：${latestPlayerSkillChoice.summary}` : "玩家尚未提交，可由上帝代选"}</span></div>
                   <div className="night-skill-target-grid">
-                    <select value={skillTargets.first} onChange={(event) => setSkillTargets((current) => ({...current, first: event.target.value}))}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id} disabled={player.id === skillTargets.second}>{getNightPlayerLabel(player.id)}</option>)}</select>
-                    <select value={skillTargets.second} onChange={(event) => setSkillTargets((current) => ({...current, second: event.target.value}))}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id} disabled={player.id === skillTargets.first}>{getNightPlayerLabel(player.id)}</option>)}</select>
+                    <CompactSelect value={skillTargets.first} onChange={(event) => setSkillTargets((current) => ({...current, first: event.target.value}))}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id} disabled={player.id === skillTargets.second}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect>
+                    <CompactSelect value={skillTargets.second} onChange={(event) => setSkillTargets((current) => ({...current, second: event.target.value}))}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id} disabled={player.id === skillTargets.first}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect>
                   </div>
                   <div className="night-skill-result-grid">{[0,1,2].map((count) => <button className="secondary-button" key={count} disabled={!canUseSkill || !pairTargetsReady} onClick={() => void submitSkill(`你选择的${getNightSeatLabel(skillTargets.first)}和${getNightSeatLabel(skillTargets.second)}中，有 ${count} 人因自身能力醒来`)}>{count}<small>人醒来</small></button>)}</div>
                 </div>
@@ -3747,7 +3745,7 @@ function NightPanel({
                 <div className="night-skill-panel">
                   <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><Target size={14} />守夜人通知</span><small>{currentRole.short}</small></div></div>
                   <div className={latestPlayerSkillChoice ? "night-player-choice" : "night-player-choice waiting"}><Target size={14} /><span>{latestPlayerSkillChoice ? `玩家已提交：${latestPlayerSkillChoice.summary}` : "玩家尚未提交，可由上帝代选"}</span></div>
-                  <div className="night-skill-single-row"><select value={singleSkillTargetId} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</select><button className="primary-button" disabled={!canUseSkill || !singleSkillTargetId} onClick={() => void sendNightwatchmanNotice()}><Send size={15} />{selectedPlayerHasNoShownAbility ? "仅回复该玩家" : "通知双方"}</button></div>
+                  <div className="night-skill-single-row"><CompactSelect value={singleSkillTargetId} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect><button className="primary-button" disabled={!canUseSkill || !singleSkillTargetId} onClick={() => void sendNightwatchmanNotice()}><Send size={15} />{selectedPlayerHasNoShownAbility ? "仅回复该玩家" : "通知双方"}</button></div>
                 </div>
               ) : null}
               {currentRole.id === "moonchild" || currentRole.id === "klutz" ? (
@@ -3776,14 +3774,14 @@ function NightPanel({
                   ) : null}
                   <div className={latestPlayerSkillChoice ? "night-player-choice" : "night-player-choice waiting"}><Target size={14} /><span>{latestPlayerSkillChoice ? `玩家已提交：${latestPlayerSkillChoice.summary}` : currentRole.id === "godfather" ? godfatherRevengeNotified ? "已通知教父，等待玩家选择目标" : "仅在白天有外来者死亡时通知教父" : "玩家尚未提交，可由上帝代选"}</span></div>
                   {currentRole.id === "nodashii" ? <div className="night-player-choice"><Check size={14} /><span>当前中毒镇民：{nodashiiPoisonedPlayers.map((player) => `${formatSeat(player.seat)} ${getRole(player.roleId).name}`).join("、") || "未找到"}</span></div> : null}
-                  {currentRole.id === "vigormortis" && getRole(state.players.find((player) => player.id === singleSkillTargetId)?.roleId ?? "").team === "爪牙" ? <label className="night-skill-role-field"><span>中毒镇民</span><select value={skillTargets.second} onChange={(event) => setSkillTargets((current) => ({...current, second: event.target.value}))}>{state.players.filter((player) => getRole(player.roleId).team === "镇民").map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</select></label> : null}
-                  <div className="night-skill-single-row"><select value={singleSkillTargetId} disabled={currentRole.id === "godfather" && !latestPlayerSkillChoice} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</select><button className="primary-button" disabled={!canUseSkill || !singleSkillTargetId || (currentRole.id === "godfather" && (!godfatherRevengeNotified || !latestPlayerSkillChoice))} onClick={sendSingleTargetSkill}><Send size={15} />确认并发送</button></div>
+                  {currentRole.id === "vigormortis" && getRole(state.players.find((player) => player.id === singleSkillTargetId)?.roleId ?? "").team === "爪牙" ? <label className="night-skill-role-field"><span>中毒镇民</span><CompactSelect value={skillTargets.second} onChange={(event) => setSkillTargets((current) => ({...current, second: event.target.value}))}>{state.players.filter((player) => getRole(player.roleId).team === "镇民").map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect></label> : null}
+                  <div className="night-skill-single-row"><CompactSelect value={singleSkillTargetId} disabled={currentRole.id === "godfather" && !latestPlayerSkillChoice} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect><button className="primary-button" disabled={!canUseSkill || !singleSkillTargetId || (currentRole.id === "godfather" && (!godfatherRevengeNotified || !latestPlayerSkillChoice))} onClick={sendSingleTargetSkill}><Send size={15} />确认并发送</button></div>
                 </div>
               ) : null}
               {currentRole.id === "marionette" ? (
                 <div className="night-skill-panel compact">
                   <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><Skull size={14} />告知恶魔</span><small>此消息不会发送给提线木偶本人</small></div></div>
-                  <div className="night-skill-single-row"><select value={singleSkillTargetId} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{state.players.filter((player) => getRole(player.roleId).team === "恶魔").map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</select><button className="primary-button" disabled={sending || !singleSkillTargetId} onClick={sendMarionetteNotice}><Send size={15} />发送给恶魔</button></div>
+                  <div className="night-skill-single-row"><CompactSelect value={singleSkillTargetId} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{state.players.filter((player) => getRole(player.roleId).team === "恶魔").map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect><button className="primary-button" disabled={sending || !singleSkillTargetId} onClick={sendMarionetteNotice}><Send size={15} />发送给恶魔</button></div>
                 </div>
               ) : null}
               {currentRole.id === "fortune-teller" ? (
@@ -3813,7 +3811,7 @@ function NightPanel({
                     </div>
                   )}
                   <div className="night-skill-target-grid">
-                    <select
+                    <CompactSelect
                       value={skillTargets.first}
                       disabled={sending}
                       onChange={(event) =>
@@ -3833,8 +3831,8 @@ function NightPanel({
                           {getNightPlayerLabel(player.id)}
                         </option>
                       ))}
-                    </select>
-                    <select
+                    </CompactSelect>
+                    <CompactSelect
                       value={skillTargets.second}
                       disabled={sending}
                       onChange={(event) =>
@@ -3854,7 +3852,7 @@ function NightPanel({
                           {getNightPlayerLabel(player.id)}
                         </option>
                       ))}
-                    </select>
+                    </CompactSelect>
                   </div>
                   <div className="night-skill-result-grid fortune-results">
                     <button
@@ -3893,7 +3891,7 @@ function NightPanel({
                     <span>对话玩家</span>
                     <b>{currentRole.name}</b>
                   </span>
-                  <select
+                  <CompactSelect
                     value={targetPlayerId}
                     onChange={(event) => setTargetPlayerId(event.target.value)}
                     disabled={!rolePlayers.length || sending}
@@ -3912,7 +3910,7 @@ function NightPanel({
                         </option>
                       );
                     })}
-                  </select>
+                  </CompactSelect>
                 </label>
               </div>
 
@@ -4559,7 +4557,7 @@ function HostMessagesPanel({
                         <span className="demon-bluff-draft-icon">
                           <RoleIcon roleId={roleId} size={20} />
                         </span>
-                        <select
+                        <CompactSelect
                           value={roleId}
                           aria-label={`第 ${index + 1} 个伪装身份`}
                           onChange={(event) =>
@@ -4578,7 +4576,7 @@ function HostMessagesPanel({
                               {option.name} · {option.team}
                             </option>
                           ))}
-                        </select>
+                        </CompactSelect>
                         <button
                           className="icon-button"
                           title="更换这个身份"

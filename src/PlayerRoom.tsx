@@ -18,6 +18,7 @@ import {
   getScriptRoles,
   scripts,
 } from "./data";
+import { CompactSelect } from "./CompactSelect";
 import { DemonBluffMessage } from "./DemonBluffMessage";
 import { parseDemonBluffMessage } from "./demonBluffs";
 import {
@@ -1053,7 +1054,7 @@ function PlayerSkillChoicePanel({
       </div>
       {available ? (
         <div className={("player-skill-targets " + (spec.kind === "single" || spec.kind === "role" ? "single" : "")).trim()}>
-          {spec.kind !== "role" ? <select value={firstPlayerId} disabled={sending} aria-label={spec.title + "目标"} onChange={(event) => setFirstPlayerId(event.target.value)}>
+          {spec.kind !== "role" ? <CompactSelect value={firstPlayerId} disabled={sending} ariaLabel={spec.title + "目标"} onValueChange={setFirstPlayerId}>
             {candidates.map((player) => (
               <option
                 value={player.id}
@@ -1065,20 +1066,20 @@ function PlayerSkillChoicePanel({
                 {formatSeat(player.seat)} · {player.name || "玩家"}
               </option>
             ))}
-          </select> : null}
+          </CompactSelect> : null}
           {spec.kind === "pair" ? (
-            <select value={secondPlayerId} disabled={sending} aria-label={spec.title + "第二目标"} onChange={(event) => setSecondPlayerId(event.target.value)}>
+            <CompactSelect value={secondPlayerId} disabled={sending} ariaLabel={spec.title + "第二目标"} onValueChange={setSecondPlayerId}>
               {candidates.map((player) => (
                 <option value={player.id} key={player.id} disabled={player.id === firstPlayerId}>
                   {formatSeat(player.seat)} · {player.name || "玩家"}
                 </option>
               ))}
-            </select>
+            </CompactSelect>
           ) : null}
           {spec.kind === "role" || spec.kind === "single-role" ? (
-            <select value={roleChoiceId} disabled={sending} aria-label={spec.roleLabel ?? "选择角色"} onChange={(event) => setRoleChoiceId(event.target.value)}>
+            <CompactSelect value={roleChoiceId} disabled={sending} ariaLabel={spec.roleLabel ?? "选择角色"} onValueChange={setRoleChoiceId}>
               {selectableRoles.map((role) => <option value={role.id} key={role.id}>{role.name} · {role.team}</option>)}
-            </select>
+            </CompactSelect>
           ) : null}
           <button className="primary-button" disabled={sending || (spec.kind !== "role" && !firstPlayerId) || ((spec.kind === "role" || spec.kind === "single-role") && !roleChoiceId) || (spec.kind === "pair" && (!secondPlayerId || firstPlayerId === secondPlayerId))} onClick={() => void submitChoice()}>
             <Send size={15} />{sending ? "提交中" : latestChoice ? "更新选择" : spec.submitLabel}

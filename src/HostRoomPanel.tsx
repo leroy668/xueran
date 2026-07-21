@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import { CompactSelect } from "./CompactSelect";
 import { getPlayerVisibleRoleId, getRole, getScriptRoles } from "./data";
 import {
   buildPlayerSkillChoiceMessage,
@@ -717,18 +718,18 @@ function SimulatedPlayerSkillReplyForm({
               ) : null}
               {choiceSpec?.kind === "role" ||
               choiceSpec?.kind === "single-role" ? (
-                <select
+                <CompactSelect
                   value={roleChoiceId}
                   disabled={busy || sending}
-                  aria-label={`模拟${selectedRole?.name ?? "玩家"}选择角色`}
-                  onChange={(event) => setRoleChoiceId(event.target.value)}
+                  ariaLabel={`模拟${selectedRole?.name ?? "玩家"}选择角色`}
+                  onValueChange={setRoleChoiceId}
                 >
                   {roleChoices.map((role) => (
                     <option value={role.id} key={role.id}>
                       {role.name} · {role.team}
                     </option>
                   ))}
-                </select>
+                </CompactSelect>
               ) : null}
               <button
                 className="primary-button"
