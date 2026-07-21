@@ -662,6 +662,17 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .host-private-chat-message-bubble p { margin: 0; padding: 9px 11px; color: var(--ink); font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .host-private-chat-message-copy > small { display: inline-flex; align-items: center; gap: 4px; color: var(--dim); font-size: 8px; }
 .host-private-chat-no-conversation { min-height: 520px; }
+.day-workspace { display: flex; flex-direction: column; gap: 10px; }
+.day-workspace-toolbar { min-height: 58px; padding: 9px 12px; border: 1px solid var(--line); background: #18181b; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.day-workspace-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.day-workspace-title > svg { flex: 0 0 auto; color: var(--gold); }
+.day-workspace-title > div { min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+.day-workspace-title strong { color: var(--ink); font-family: Georgia, "Microsoft YaHei", serif; font-size: 17px; }
+.day-workspace-title span { color: var(--dim); font-size: 10px; white-space: nowrap; }
+.day-workspace-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(310px, 100%); padding: 3px; border: 1px solid var(--line); background: #101012; }
+.day-workspace-tabs button { min-height: 34px; border: 0; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; font-weight: 700; }
+.day-workspace-tabs button:hover { color: var(--ink); background: #252529; }
+.day-workspace-tabs button.active { background: var(--red); color: #fff; }
 
 .identity-page { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 32px 18px; background: #111113; }
 .player-hub-page { min-height: 100vh; min-height: 100dvh; width: min(100% - 32px, 720px); margin: 0 auto; padding: 24px 0 92px; }
@@ -1116,11 +1127,18 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .role-library-heading input { width: 100%; }
   .role-row { grid-template-columns: 30px 70px 42px minmax(0, 1fr); gap: 6px; }
   .role-row p { line-height: 1.35; }
-  .mobile-nav { position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; height: 66px; display: grid; grid-template-columns: repeat(6, 1fr); background: #1b1b1e; border-top: 1px solid var(--line); }
+  .mobile-nav { position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; height: 66px; display: grid; grid-template-columns: repeat(5, 1fr); background: #1b1b1e; border-top: 1px solid var(--line); }
   .mobile-nav-item { position: relative; border: 0; background: transparent; color: var(--dim); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; font-size: 10px; }
   .mobile-nav-item.active { color: var(--ink); }
   .mobile-nav-item.active svg { color: var(--red); }
   .mobile-nav-badge { position: absolute; top: 6px; left: calc(50% + 9px); min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--red); color: white; display: grid; place-items: center; font-size: 8px; }
+  .day-workspace { gap: 7px; }
+  .day-workspace-toolbar { min-height: 0; padding: 8px; align-items: stretch; flex-direction: column; gap: 8px; }
+  .day-workspace-title { padding: 1px 3px; }
+  .day-workspace-title > div { flex: 1; justify-content: space-between; }
+  .day-workspace-title strong { font-size: 16px; }
+  .day-workspace-tabs { width: 100%; }
+  .day-workspace-tabs button { min-height: 36px; font-size: 11px; }
   .host-private-chat-page { gap: 9px; }
   .host-private-chat-heading { min-height: 0; align-items: stretch; flex-direction: column; gap: 11px; padding: 13px; }
   .host-private-chat-heading h2 { font-size: 19px; }

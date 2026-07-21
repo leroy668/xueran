@@ -15,14 +15,13 @@ import {
   UsersRound,
   Vote,
 } from "lucide-react";
-import { getPlayerVisibleRoleId, getRole } from "./data";
-import { SimulatedPlayerSkillReplyForm } from "./HostRoomPanel";
-import { PlayerPrivateChats } from "./PlayerPrivateChats";
+import { getPlayerVisibleRoleId, getRole } from "../data";
+import { PlayerPrivateChats } from "../PlayerPrivateChats";
 import {
   getPlayerMessageDisplayBody,
-} from "./playerSkillChoices";
-import { getPlayerNightMessageDisplayBody } from "./roleSkillMessages";
-import { RoleIcon } from "./RoleIcon";
+} from "../playerSkillChoices";
+import { getPlayerNightMessageDisplayBody } from "../roleSkillMessages";
+import { RoleIcon } from "../RoleIcon";
 import type {
   DayPrivateChatStat,
   DayPrivateMessage,
@@ -34,9 +33,10 @@ import type {
   PlayerMessage,
   PublicRoomPlayer,
   SharedRoom,
-} from "./room";
-import { formatSeat } from "./seat";
-import type { Phase, Player } from "./types";
+} from "../room";
+import { formatSeat } from "../seat";
+import type { Phase, Player } from "../types";
+import { SimulatedPlayerSkillReplyForm } from "./SimulatedPlayerSkillReplyForm";
 
 type SimulationView = "skill" | "host-chat" | "private-chat" | "voting";
 

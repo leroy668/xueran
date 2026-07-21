@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -48,8 +50,15 @@ import {
 } from "./demonBluffs";
 import { HostRoomPanel } from "./HostRoomPanel";
 import { HostPrivateChats } from "./HostPrivateChats";
-import { PlayerSimulationConsole } from "./PlayerSimulationConsole";
 import { PlayerRoom } from "./PlayerRoom";
+import {
+  loadPlayerSimulationConsole,
+  setRoomSimulation,
+  simulateDayPrivateMessage,
+  simulateNomination,
+  simulatePlayerMessage,
+  simulateVote,
+} from "./player-simulation";
 import {
   getPlayerMessageDisplayBody,
   parsePlayerSkillChoiceMessage,
@@ -81,11 +90,6 @@ import {
   resetRoom,
   revokeClaim,
   sendNightMessage,
-  setRoomSimulation,
-  simulateDayPrivateMessage,
-  simulateNomination,
-  simulatePlayerMessage,
-  simulateVote,
   syncRoom,
   type DayResolution,
   type DayPrivateMessage,
@@ -122,12 +126,15 @@ import type {
 
 const tabs: { id: TabId; label: string; icon: typeof BookOpen }[] = [
   { id: "grimoire", label: "魔典", icon: BookOpen },
+  { id: "day", label: "白天顺序", icon: Sun },
   { id: "night", label: "夜晚顺序", icon: MoonStar },
   { id: "messages", label: "玩家消息", icon: MessageSquareText },
-  { id: "private-chats", label: "白天私聊", icon: MessageCircleMore },
-  { id: "voting", label: "提名投票", icon: Gavel },
   { id: "script", label: "剧本角色", icon: ScrollText },
 ];
+
+const PlayerSimulationConsole = lazy(loadPlayerSimulationConsole);
+
+type DayWorkspaceView = "private-chats" | "voting";
 
 const teamLabels: Record<Team, string> = {
   镇民: "townsfolk",
@@ -481,6 +488,8 @@ function GrimoireApp() {
       : saved;
   });
   const [activeTab, setActiveTab] = useState<TabId>("grimoire");
+  const [dayWorkspaceView, setDayWorkspaceView] =
+    useState<DayWorkspaceView>("private-chats");
   const [toast, setToast] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [room, setRoom] = useState<SharedRoom | null>(null);
@@ -1360,29 +1369,67 @@ function GrimoireApp() {
           />
         ) : null}
 
-        {activeTab === "private-chats" ? (
-          <HostPrivateChats
-            roomAvailable={Boolean(room)}
-            players={roomPlayers}
-            threads={dayPrivateThreads}
-            messages={dayPrivateMessages}
-          />
-        ) : null}
+        {activeTab === "day" ? (
+          <div className="day-workspace">
+            <div className="day-workspace-toolbar">
+              <div className="day-workspace-title">
+                <Sun size={18} />
+                <div>
+                  <strong>白天顺序</strong>
+                  <span>
+                    第 {state.phase === "夜晚" ? Math.max(1, state.round - 1) : state.round} 天
+                  </span>
+                </div>
+              </div>
+              <div
+                className="day-workspace-tabs"
+                role="tablist"
+                aria-label="白天顺序功能"
+              >
+                <button
+                  className={dayWorkspaceView === "private-chats" ? "active" : ""}
+                  role="tab"
+                  aria-selected={dayWorkspaceView === "private-chats"}
+                  onClick={() => setDayWorkspaceView("private-chats")}
+                >
+                  <MessageCircleMore size={15} />
+                  白天私聊
+                </button>
+                <button
+                  className={dayWorkspaceView === "voting" ? "active" : ""}
+                  role="tab"
+                  aria-selected={dayWorkspaceView === "voting"}
+                  onClick={() => setDayWorkspaceView("voting")}
+                >
+                  <Gavel size={15} />
+                  提名投票
+                </button>
+              </div>
+            </div>
 
-        {activeTab === "voting" ? (
-          <HostVotingPanel
-            roomAvailable={Boolean(room)}
-            phase={state.phase}
-            round={state.round}
-            players={roomPlayers}
-            gamePlayers={state.players}
-            nominations={nominations}
-            votes={votes}
-            resolutions={dayResolutions}
-            busy={roomBusy}
-            onCloseNomination={handleCloseNomination}
-            onFinalizeExecution={handleFinalizeExecution}
-          />
+            {dayWorkspaceView === "private-chats" ? (
+              <HostPrivateChats
+                roomAvailable={Boolean(room)}
+                players={roomPlayers}
+                threads={dayPrivateThreads}
+                messages={dayPrivateMessages}
+              />
+            ) : (
+              <HostVotingPanel
+                roomAvailable={Boolean(room)}
+                phase={state.phase}
+                round={state.round}
+                players={roomPlayers}
+                gamePlayers={state.players}
+                nominations={nominations}
+                votes={votes}
+                resolutions={dayResolutions}
+                busy={roomBusy}
+                onCloseNomination={handleCloseNomination}
+                onFinalizeExecution={handleFinalizeExecution}
+              />
+            )}
+          </div>
         ) : null}
 
         {activeTab === "script" ? (
@@ -1395,28 +1442,36 @@ function GrimoireApp() {
         ) : null}
 
         {activeTab === "simulation" ? (
-          <PlayerSimulationConsole
-            room={room}
-            players={roomPlayers}
-            gamePlayers={state.players}
-            scriptId={state.scriptId}
-            phase={state.phase}
-            round={state.round}
-            nightMessages={nightMessages}
-            playerMessages={playerMessages}
-            dayPrivateThreads={dayPrivateThreads}
-            dayPrivateMessages={dayPrivateMessages}
-            nominations={nominations}
-            votes={votes}
-            resolutions={dayResolutions}
-            busy={roomBusy || syncStatus === "syncing"}
-            onBack={() => setActiveTab("grimoire")}
-            onToggleSimulation={handleToggleSimulation}
-            onSendPlayerMessage={handleSimulatePlayerMessage}
-            onSendPrivateMessage={handleSimulateDayPrivateMessage}
-            onNominate={handleSimulateNomination}
-            onVote={handleSimulateVote}
-          />
+          <Suspense
+            fallback={
+              <div className="player-simulation-empty-page">
+                <strong>正在加载玩家模拟模块</strong>
+              </div>
+            }
+          >
+            <PlayerSimulationConsole
+              room={room}
+              players={roomPlayers}
+              gamePlayers={state.players}
+              scriptId={state.scriptId}
+              phase={state.phase}
+              round={state.round}
+              nightMessages={nightMessages}
+              playerMessages={playerMessages}
+              dayPrivateThreads={dayPrivateThreads}
+              dayPrivateMessages={dayPrivateMessages}
+              nominations={nominations}
+              votes={votes}
+              resolutions={dayResolutions}
+              busy={roomBusy || syncStatus === "syncing"}
+              onBack={() => setActiveTab("grimoire")}
+              onToggleSimulation={handleToggleSimulation}
+              onSendPlayerMessage={handleSimulatePlayerMessage}
+              onSendPrivateMessage={handleSimulateDayPrivateMessage}
+              onNominate={handleSimulateNomination}
+              onVote={handleSimulateVote}
+            />
+          </Suspense>
         ) : null}
       </main>
 
