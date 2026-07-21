@@ -1058,14 +1058,17 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .table-seat.dense .table-fortune-status { font-size: 6px; }
   .grimoire-workbench:is(.large, .mobile-grid) .grimoire-table { width: 100%; aspect-ratio: auto; border-radius: 0; box-shadow: inset 0 0 0 1px var(--line); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 6px; }
   .grimoire-workbench:is(.large, .mobile-grid) .grimoire-table::before, .grimoire-workbench:is(.large, .mobile-grid) .table-center { display: none; }
-  .grimoire-workbench:is(.large, .mobile-grid) .table-seat { position: relative; left: auto !important; top: auto !important; width: 100%; height: 52px; transform: none; grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: 1fr 1fr; column-gap: 4px; padding: 5px 4px 3px; }
-  .grimoire-workbench:is(.large, .mobile-grid) .table-seat.has-role-info { height: calc(74px + var(--role-info-extra-height, 0px)); grid-template-rows: 1fr 1fr auto; }
-  .grimoire-workbench:is(.large, .mobile-grid) .table-seat.has-role-info.has-role-state { height: calc(86px + var(--role-info-extra-height, 0px)); grid-template-rows: 1fr 1fr auto auto; }
+  .grimoire-workbench:is(.large, .mobile-grid) .table-seat { position: relative; left: auto !important; top: auto !important; width: 100%; height: auto; min-height: 62px; transform: none; grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: 30px minmax(20px, auto); column-gap: 4px; padding: 5px 4px 4px; }
+  .grimoire-workbench:is(.large, .mobile-grid) .table-seat.has-role-info { height: auto; min-height: calc(84px + var(--role-info-extra-height, 0px)); grid-template-rows: 30px minmax(20px, auto) auto; }
+  .grimoire-workbench:is(.large, .mobile-grid) .table-seat.has-role-state:not(.has-role-info) { height: auto; min-height: 76px; grid-template-rows: 30px minmax(20px, auto) auto; }
+  .grimoire-workbench:is(.large, .mobile-grid) .table-seat.has-role-info.has-role-state { height: auto; min-height: calc(98px + var(--role-info-extra-height, 0px)); grid-template-rows: 30px minmax(20px, auto) auto auto; }
   .grimoire-workbench:is(.large, .mobile-grid) .table-seat.selected { transform: none; }
-  .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-role-icon { width: 30px; height: 30px; font-size: 8px; }
+  .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-role-icon { width: 30px; height: 30px; font-size: 8px; grid-row: 1; }
   .grimoire-workbench.mobile-grid .table-seat .role-icon-image { width: 30px; height: 30px; }
-  .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-player-name { font-size: 9px; }
-.grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-role-name { margin-top: 0; padding-right: 18px; font-size: 8px; }
+  .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-player-name { grid-row: 1; align-self: center; font-size: 9px; }
+  .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-role-name { grid-column: 1 / -1; grid-row: 2; align-self: center; min-height: 20px; margin-top: 0; padding-right: 20px; font-size: 9px; line-height: 1.12; }
+  .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-role-name-text { overflow: visible; text-overflow: clip; white-space: normal; word-break: keep-all; }
+  .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-seat-number { position: absolute; right: 4px; bottom: 4px; }
   .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-role-info { font-size: 7px; }
   .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-fortune-status { font-size: 7px; }
   .grimoire-workbench:is(.large, .mobile-grid) .table-seat .table-fortune-result strong { font-size: 7px; }
