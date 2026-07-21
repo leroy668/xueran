@@ -127,11 +127,11 @@ import type {
 
 const tabs: { id: TabId; label: string; icon: typeof BookOpen }[] = [
   { id: "grimoire", label: "魔典", icon: BookOpen },
-  { id: "simulation", label: "玩家模拟", icon: Gamepad2 },
   { id: "day", label: "白天顺序", icon: Sun },
   { id: "night", label: "夜晚顺序", icon: MoonStar },
   { id: "messages", label: "玩家消息", icon: MessageSquareText },
   { id: "script", label: "剧本角色", icon: ScrollText },
+  { id: "simulation", label: "玩家模拟", icon: Gamepad2 },
 ];
 
 const PlayerSimulationConsole = lazy(loadPlayerSimulationConsole);
