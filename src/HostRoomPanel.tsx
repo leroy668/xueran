@@ -1,4 +1,6 @@
 import {
+  Check,
+  ChevronDown,
   Cloud,
   Copy,
   Link2,
@@ -56,6 +58,15 @@ type Props = {
     body: string,
   ) => Promise<void>;
   onClose: () => void;
+};
+
+type SimulationPlayerOption = {
+  id: string;
+  seat: number;
+  name: string;
+  roleId: string;
+  roleName: string;
+  visibleRoleName: string;
 };
 
 export function HostRoomPanel({
@@ -212,6 +223,113 @@ export function HostRoomPanel({
   );
 }
 
+function SimulationPlayerPicker({
+  label,
+  value,
+  options,
+  disabledIds = [],
+  disabled,
+  open,
+  onToggle,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: SimulationPlayerOption[];
+  disabledIds?: string[];
+  disabled: boolean;
+  open: boolean;
+  onToggle: () => void;
+  onChange: (playerId: string) => void;
+}) {
+  const selected = options.find((option) => option.id === value);
+  const disabledIdSet = new Set(disabledIds.filter(Boolean));
+
+  return (
+    <div className="simulation-player-picker">
+      <span className="simulation-player-picker-label">{label}</span>
+      <button
+        className={
+          open
+            ? "simulation-player-current open"
+            : "simulation-player-current"
+        }
+        type="button"
+        disabled={disabled}
+        aria-expanded={open}
+        onClick={onToggle}
+      >
+        {selected ? (
+          <>
+            <span className="simulation-player-role-icon">
+              <RoleIcon roleId={selected.roleId} size={20} />
+            </span>
+            <span className="simulation-player-copy">
+              <span className="simulation-player-title">
+                <b>{formatSeat(selected.seat)}</b>
+                <strong>{selected.roleName}</strong>
+              </span>
+              <small>{selected.name}</small>
+              {selected.visibleRoleName ? (
+                <em>玩家视角：{selected.visibleRoleName}</em>
+              ) : null}
+            </span>
+          </>
+        ) : (
+          <span className="simulation-player-empty">请选择玩家</span>
+        )}
+        <ChevronDown className="simulation-player-chevron" size={15} />
+      </button>
+
+      {open ? (
+        <div
+          className="simulation-player-options"
+          role="listbox"
+          aria-label={label}
+        >
+          {options.map((option) => {
+            const active = option.id === value;
+            const optionDisabled = disabledIdSet.has(option.id);
+
+            return (
+              <button
+                className={
+                  active
+                    ? "simulation-player-option active"
+                    : "simulation-player-option"
+                }
+                type="button"
+                role="option"
+                aria-selected={active}
+                disabled={optionDisabled}
+                key={option.id}
+                onClick={() => onChange(option.id)}
+              >
+                <span className="simulation-player-role-icon">
+                  <RoleIcon roleId={option.roleId} size={19} />
+                </span>
+                <span className="simulation-player-copy">
+                  <span className="simulation-player-title">
+                    <b>{formatSeat(option.seat)}</b>
+                    <strong>{option.roleName}</strong>
+                  </span>
+                  <small>{option.name}</small>
+                  {option.visibleRoleName ? (
+                    <em>玩家视角：{option.visibleRoleName}</em>
+                  ) : null}
+                </span>
+                {active ? (
+                  <Check className="simulation-player-check" size={14} />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SimulatedPlayerSkillReplyForm({
   scriptId,
   players,
@@ -240,6 +358,9 @@ function SimulatedPlayerSkillReplyForm({
     players.find((player) => player.id !== players[0]?.id)?.id ?? "",
   );
   const [roleChoiceId, setRoleChoiceId] = useState("");
+  const [openPlayerPicker, setOpenPlayerPicker] = useState<
+    "player" | "first" | "second" | null
+  >(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
 
@@ -262,13 +383,25 @@ function SimulatedPlayerSkillReplyForm({
         ? getPlayerVisibleRoleId(gamePlayer.roleId, gamePlayer.drunkRoleId)
         : "washerwoman",
     );
-  const getSimulationRoleLabel = (gamePlayer?: Player) => {
-    if (!gamePlayer) return "未知角色";
-    const actualRole = getRole(gamePlayer.roleId);
+  const getSimulationPlayerOption = (
+    player: PublicRoomPlayer,
+    showVisibleRole = true,
+  ): SimulationPlayerOption => {
+    const gamePlayer = gamePlayers.find((item) => item.id === player.id);
+    const actualRole = getRole(gamePlayer?.roleId ?? "washerwoman");
     const visibleRole = getVisibleRole(gamePlayer);
-    return actualRole.id === visibleRole.id
-      ? visibleRole.name
-      : `${actualRole.name}（玩家看到：${visibleRole.name}）`;
+
+    return {
+      id: player.id,
+      seat: player.seat,
+      name: player.name || "玩家",
+      roleId: actualRole.id,
+      roleName: actualRole.name,
+      visibleRoleName:
+        showVisibleRole && actualRole.id !== visibleRole.id
+          ? visibleRole.name
+          : "",
+    };
   };
   const selectedRole = selectedGamePlayer
     ? getVisibleRole(selectedGamePlayer)
@@ -305,6 +438,12 @@ function SimulatedPlayerSkillReplyForm({
       playerId,
       players,
     ],
+  );
+  const simulatedPlayerOptions = simulatedPlayers.map((player) =>
+    getSimulationPlayerOption(player),
+  );
+  const targetPlayerOptions = targetPlayers.map((player) =>
+    getSimulationPlayerOption(player, false),
   );
 
   useEffect(() => {
@@ -491,27 +630,22 @@ function SimulatedPlayerSkillReplyForm({
       </div>
       {simulatedPlayers.length ? (
         <>
-          <label className="simulation-skill-player">
-            <span>模拟玩家</span>
-            <select
-              value={playerId}
-              disabled={busy || sending}
-              onChange={(event) => setPlayerId(event.target.value)}
-              aria-label="选择模拟玩家"
-            >
-              {simulatedPlayers.map((player) => {
-                const gamePlayer = gamePlayers.find(
-                  (item) => item.id === player.id,
-                );
-                return (
-                  <option value={player.id} key={player.id}>
-                    {formatSeat(player.seat)} · {player.name} ·{" "}
-                    {getSimulationRoleLabel(gamePlayer)}
-                  </option>
-                );
-              })}
-            </select>
-          </label>
+          <SimulationPlayerPicker
+            label="模拟玩家"
+            value={playerId}
+            options={simulatedPlayerOptions}
+            disabled={busy || sending}
+            open={openPlayerPicker === "player"}
+            onToggle={() =>
+              setOpenPlayerPicker((current) =>
+                current === "player" ? null : "player",
+              )
+            }
+            onChange={(nextPlayerId) => {
+              setPlayerId(nextPlayerId);
+              setOpenPlayerPicker(null);
+            }}
+          />
           <div className="simulation-skill-summary">
             <span>
               <RoleIcon
@@ -521,8 +655,8 @@ function SimulatedPlayerSkillReplyForm({
             </span>
             <div>
               <strong>
-                {selectedPlayer
-                  ? `${formatSeat(selectedPlayer.seat)} · ${getSimulationRoleLabel(selectedGamePlayer)}`
+                {selectedPlayer && selectedRole
+                  ? `${selectedRole.name}技能`
                   : "未选择玩家"}
               </strong>
               {selectedRole ? (
@@ -541,56 +675,45 @@ function SimulatedPlayerSkillReplyForm({
           </div>
           {canSubmitSkillChoice ? (
             <div className="simulation-skill-targets">
-              {choiceSpec?.kind !== "role" ? <select
-                value={firstTargetId}
-                disabled={busy || sending}
-                aria-label={`模拟${selectedRole?.name ?? "玩家"}技能目标`}
-                onChange={(event) => setFirstTargetId(event.target.value)}
-              >
-                {targetPlayers.map((player) => {
-                  const role = getRole(
-                    gamePlayers.find((item) => item.id === player.id)?.roleId ??
-                      "washerwoman",
-                  );
-                  return (
-                    <option
-                      value={player.id}
-                      key={player.id}
-                      disabled={
-                        choiceSpec?.kind === "pair" &&
-                        player.id === secondTargetId
-                      }
-                    >
-                      {formatSeat(player.seat)} · {player.name || "玩家"} ·{" "}
-                      {role.name}
-                    </option>
-                  );
-                })}
-              </select> : null}
-              {choiceSpec?.kind === "pair" ? (
-                <select
-                  value={secondTargetId}
+              {choiceSpec?.kind !== "role" ? (
+                <SimulationPlayerPicker
+                  label={choiceSpec?.kind === "pair" ? "第一目标" : "技能目标"}
+                  value={firstTargetId}
+                  options={targetPlayerOptions}
+                  disabledIds={
+                    choiceSpec?.kind === "pair" ? [secondTargetId] : []
+                  }
                   disabled={busy || sending}
-                  aria-label={`模拟${selectedRole?.name ?? "玩家"}第二技能目标`}
-                  onChange={(event) => setSecondTargetId(event.target.value)}
-                >
-                  {targetPlayers.map((player) => {
-                    const role = getRole(
-                      gamePlayers.find((item) => item.id === player.id)
-                        ?.roleId ?? "washerwoman",
-                    );
-                    return (
-                      <option
-                        value={player.id}
-                        key={player.id}
-                        disabled={player.id === firstTargetId}
-                      >
-                        {formatSeat(player.seat)} · {player.name || "玩家"} ·{" "}
-                        {role.name}
-                      </option>
-                    );
-                  })}
-                </select>
+                  open={openPlayerPicker === "first"}
+                  onToggle={() =>
+                    setOpenPlayerPicker((current) =>
+                      current === "first" ? null : "first",
+                    )
+                  }
+                  onChange={(nextPlayerId) => {
+                    setFirstTargetId(nextPlayerId);
+                    setOpenPlayerPicker(null);
+                  }}
+                />
+              ) : null}
+              {choiceSpec?.kind === "pair" ? (
+                <SimulationPlayerPicker
+                  label="第二目标"
+                  value={secondTargetId}
+                  options={targetPlayerOptions}
+                  disabledIds={[firstTargetId]}
+                  disabled={busy || sending}
+                  open={openPlayerPicker === "second"}
+                  onToggle={() =>
+                    setOpenPlayerPicker((current) =>
+                      current === "second" ? null : "second",
+                    )
+                  }
+                  onChange={(nextPlayerId) => {
+                    setSecondTargetId(nextPlayerId);
+                    setOpenPlayerPicker(null);
+                  }}
+                />
               ) : null}
               {choiceSpec?.kind === "role" ||
               choiceSpec?.kind === "single-role" ? (

@@ -93,7 +93,27 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .simulation-message-heading strong { color: var(--blue); font-size: 10px; }
 .simulation-message-heading small { margin-top: 3px; color: var(--dim); font-size: 8px; }
 .simulation-message-panel select { width: 100%; height: 30px; border: 1px solid var(--line); background: #17171a; color: var(--ink); padding: 0 8px; font-size: 10px; }
-.simulation-skill-player > span { display: block; margin-bottom: 4px; color: var(--muted); font-size: 8px; }
+.simulation-player-picker { min-width: 0; }
+.simulation-player-picker-label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 8px; font-weight: 700; }
+.simulation-player-current { position: relative; width: 100%; min-height: 46px; border: 1px solid rgba(141,170,195,.28); background: #17171a; color: var(--ink); padding: 5px 30px 5px 6px; display: grid; grid-template-columns: 34px minmax(0,1fr); align-items: center; gap: 7px; text-align: left; }
+.simulation-player-current:hover:not(:disabled), .simulation-player-current.open { border-color: rgba(141,170,195,.62); background: #1c2024; }
+.simulation-player-role-icon { width: 34px; height: 34px; min-width: 0; overflow: hidden; display: grid; place-items: center; border: 1px solid rgba(141,170,195,.24); background: rgba(141,170,195,.07); }
+.simulation-player-role-icon .role-icon-image { width: 34px; height: 34px; object-fit: contain; }
+.simulation-player-copy { min-width: 0; display: block; }
+.simulation-player-title { min-width: 0; display: flex; align-items: baseline; gap: 5px; }
+.simulation-player-title b { flex: 0 0 auto; color: var(--gold); font-size: 10px; }
+.simulation-player-title strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-size: 10px; }
+.simulation-player-copy small { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); font-size: 8px; }
+.simulation-player-copy em { max-width: 100%; min-height: 17px; margin-top: 3px; padding: 1px 5px; display: inline-flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid rgba(215,97,86,.3); background: rgba(215,97,86,.08); color: #e8aaa4; font-size: 7px; font-style: normal; }
+.simulation-player-empty { color: var(--dim); font-size: 9px; }
+.simulation-player-chevron { position: absolute; right: 9px; top: 50%; color: var(--blue); transform: translateY(-50%); transition: transform .16s ease; }
+.simulation-player-current.open .simulation-player-chevron { transform: translateY(-50%) rotate(180deg); }
+.simulation-player-options { max-height: 280px; margin-top: 5px; padding: 5px; overflow-y: auto; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px; border: 1px solid rgba(141,170,195,.28); background: #111113; scrollbar-width: thin; }
+.simulation-player-option { position: relative; min-width: 0; min-height: 48px; border: 1px solid var(--line); background: #19191c; color: var(--ink); padding: 6px 22px 6px 6px; display: grid; grid-template-columns: 34px minmax(0,1fr); align-items: center; gap: 6px; text-align: left; }
+.simulation-player-option:hover:not(:disabled) { border-color: rgba(141,170,195,.54); background: #202126; }
+.simulation-player-option.active { border-color: rgba(121,181,138,.55); background: rgba(121,181,138,.09); }
+.simulation-player-option:disabled { opacity: .28; }
+.simulation-player-check { position: absolute; top: 6px; right: 6px; color: var(--green); }
 .simulation-skill-summary { margin-top: 8px; padding: 8px; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(141,170,195,.2); background: #17171a; }
 .simulation-skill-summary > span { width: 28px; height: 28px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid rgba(141,170,195,.3); background: rgba(141,170,195,.08); color: var(--blue); }
 .simulation-skill-summary strong, .simulation-skill-summary small { display: block; }
@@ -1004,6 +1024,8 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .player-room-page { width: calc(100% - 24px); padding-top: 20px; }
   .seat-claim-panel { padding: 17px; }
   .seat-choice { grid-template-columns: 34px minmax(0, 1fr) 64px; }
+  .simulation-player-options { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 300px; }
+  .simulation-player-option { min-height: 55px; }
   .admin-login-page { padding: 14px; }
   .admin-login-panel { padding: 22px 18px; }
   .admin-topbar { min-height: 64px; padding: 10px 14px; }
@@ -1021,4 +1043,8 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .admin-room-meta { gap: 8px; }
   .admin-room-actions { grid-column: 1 / -1; width: 100%; }
   .admin-close-room, .admin-delete-room { width: 100%; min-height: 34px; }
+}
+
+@media (max-width: 370px) {
+  .simulation-player-options { grid-template-columns: 1fr; }
 }
