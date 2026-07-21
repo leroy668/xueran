@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Dices,
   Gavel,
+  MessageCircleMore,
   MoonStar,
   MessageSquareText,
   Plus,
@@ -46,6 +47,8 @@ import {
   parseDemonBluffMessage,
 } from "./demonBluffs";
 import { HostRoomPanel } from "./HostRoomPanel";
+import { HostPrivateChats } from "./HostPrivateChats";
+import { PlayerSimulationConsole } from "./PlayerSimulationConsole";
 import { PlayerRoom } from "./PlayerRoom";
 import {
   getPlayerMessageDisplayBody,
@@ -67,6 +70,8 @@ import {
   findRoomByCode,
   finalizeExecution,
   getRoomDayResolutions,
+  getRoomDayPrivateMessages,
+  getRoomDayPrivateThreads,
   getRoomNightMessages,
   getRoomNominations,
   getRoomPlayerMessages,
@@ -77,9 +82,14 @@ import {
   revokeClaim,
   sendNightMessage,
   setRoomSimulation,
+  simulateDayPrivateMessage,
+  simulateNomination,
   simulatePlayerMessage,
+  simulateVote,
   syncRoom,
   type DayResolution,
+  type DayPrivateMessage,
+  type DayPrivateThread,
   type DayVote,
   type NightMessage,
   type Nomination,
@@ -114,6 +124,7 @@ const tabs: { id: TabId; label: string; icon: typeof BookOpen }[] = [
   { id: "grimoire", label: "魔典", icon: BookOpen },
   { id: "night", label: "夜晚顺序", icon: MoonStar },
   { id: "messages", label: "玩家消息", icon: MessageSquareText },
+  { id: "private-chats", label: "白天私聊", icon: MessageCircleMore },
   { id: "voting", label: "提名投票", icon: Gavel },
   { id: "script", label: "剧本角色", icon: ScrollText },
 ];
@@ -476,6 +487,8 @@ function GrimoireApp() {
   const [roomPlayers, setRoomPlayers] = useState<PublicRoomPlayer[]>([]);
   const [nightMessages, setNightMessages] = useState<NightMessage[]>([]);
   const [playerMessages, setPlayerMessages] = useState<PlayerMessage[]>([]);
+  const [dayPrivateThreads, setDayPrivateThreads] = useState<DayPrivateThread[]>([]);
+  const [dayPrivateMessages, setDayPrivateMessages] = useState<DayPrivateMessage[]>([]);
   const [nominations, setNominations] = useState<Nomination[]>([]);
   const [votes, setVotes] = useState<DayVote[]>([]);
   const [dayResolutions, setDayResolutions] = useState<DayResolution[]>([]);
@@ -525,6 +538,8 @@ function GrimoireApp() {
       players,
       messages,
       incomingMessages,
+      nextDayPrivateThreads,
+      nextDayPrivateMessages,
       nextNominations,
       nextVotes,
       nextDayResolutions,
@@ -533,6 +548,8 @@ function GrimoireApp() {
       getRoomPlayers(targetRoom.id),
       getRoomNightMessages(targetRoom.id),
       getRoomPlayerMessages(targetRoom.id),
+      getRoomDayPrivateThreads(targetRoom.id),
+      getRoomDayPrivateMessages(targetRoom.id),
       getRoomNominations(targetRoom.id),
       getRoomVotes(targetRoom.id),
       getRoomDayResolutions(targetRoom.id),
@@ -544,6 +561,8 @@ function GrimoireApp() {
       setRoomPlayers([]);
       setNightMessages([]);
       setPlayerMessages([]);
+      setDayPrivateThreads([]);
+      setDayPrivateMessages([]);
       setNominations([]);
       setVotes([]);
       setDayResolutions([]);
@@ -554,6 +573,8 @@ function GrimoireApp() {
     setRoomPlayers(players);
     setNightMessages(messages);
     setPlayerMessages(incomingMessages);
+    setDayPrivateThreads(nextDayPrivateThreads);
+    setDayPrivateMessages(nextDayPrivateMessages);
     setNominations(nextNominations);
     setVotes(nextVotes);
     setDayResolutions(nextDayResolutions);
@@ -676,6 +697,26 @@ function GrimoireApp() {
           event: "INSERT",
           schema: "public",
           table: "xueran_player_messages",
+          filter: `room_id=eq.${room.id}`,
+        },
+        () => void refreshRoomAdmin(room),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "xueran_day_private_threads",
+          filter: `room_id=eq.${room.id}`,
+        },
+        () => void refreshRoomAdmin(room),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "xueran_day_private_messages",
           filter: `room_id=eq.${room.id}`,
         },
         () => void refreshRoomAdmin(room),
@@ -1117,7 +1158,7 @@ function GrimoireApp() {
     }
   };
 
-  const handleSimulatePlayerSkillReply = async (
+  const handleSimulatePlayerMessage = async (
     playerId: string,
     body: string,
   ) => {
@@ -1133,18 +1174,69 @@ function GrimoireApp() {
         ...current.filter((item) => item.id !== message.id),
       ]);
       const target = roomPlayers.find((player) => player.id === playerId);
-      const gamePlayer = state.players.find((player) => player.id === playerId);
-      const roleName = gamePlayer ? getRole(gamePlayer.roleId).name : "玩家";
-      setToast(
-        `已模拟 ${target?.seat ?? "?"} 号${roleName}技能回复`,
-      );
+      setToast(`已模拟 ${formatSeat(target?.seat)} 玩家消息`);
     } catch (reason) {
       setToast(
         reason instanceof Error &&
           /function|schema cache|simulate_player_message/i.test(reason.message)
-          ? "模拟技能回复数据库尚未配置"
-          : "模拟技能回复发送失败",
+          ? "玩家模拟数据库尚未配置"
+          : "模拟玩家消息发送失败",
       );
+      throw reason;
+    }
+  };
+
+  const handleSimulateDayPrivateMessage = async (
+    senderPlayerId: string,
+    recipientPlayerId: string,
+    body: string,
+  ) => {
+    if (!room) throw new Error("请先创建共享房间");
+    try {
+      await simulateDayPrivateMessage({
+        roomId: room.id,
+        senderPlayerId,
+        recipientPlayerId,
+        body,
+      });
+      await refreshRoomAdmin(room);
+      setToast("已模拟玩家发送白天私聊");
+    } catch (reason) {
+      setToast("模拟白天私聊发送失败");
+      throw reason;
+    }
+  };
+
+  const handleSimulateNomination = async (
+    nominatorPlayerId: string,
+    nomineePlayerId: string,
+  ) => {
+    if (!room) throw new Error("请先创建共享房间");
+    try {
+      await simulateNomination({
+        roomId: room.id,
+        nominatorPlayerId,
+        nomineePlayerId,
+      });
+      await refreshRoomAdmin(room);
+      setToast("已模拟玩家发起提名");
+    } catch (reason) {
+      setToast("模拟提名失败");
+      throw reason;
+    }
+  };
+
+  const handleSimulateVote = async (
+    nominationId: string,
+    voterPlayerId: string,
+  ) => {
+    if (!room) throw new Error("请先创建共享房间");
+    try {
+      await simulateVote({ nominationId, voterPlayerId });
+      await refreshRoomAdmin(room);
+      setToast("已模拟玩家投票");
+    } catch (reason) {
+      setToast("模拟投票失败");
       throw reason;
     }
   };
@@ -1224,20 +1316,12 @@ function GrimoireApp() {
                 room={room}
                 roomUrl={room ? buildRoomUrl(room.code) : ""}
                 players={roomPlayers}
-                gamePlayers={state.players}
-                nightMessages={nightMessages}
-                playerMessages={playerMessages}
-                phase={state.phase}
-                round={state.round}
                 busy={roomBusy}
                 syncStatus={syncStatus}
                 onCreate={() => void startSharedRoom()}
                 onCopy={() => void shareRoom()}
                 onRevoke={(playerId) => void handleRevokeClaim(playerId)}
-                onToggleSimulation={(enabled) =>
-                  void handleToggleSimulation(enabled)
-                }
-                onSimulatePlayerSkillReply={handleSimulatePlayerSkillReply}
+                onOpenSimulation={() => setActiveTab("simulation")}
                 onClose={() => void endSharedRoom()}
               />
             }
@@ -1276,6 +1360,15 @@ function GrimoireApp() {
           />
         ) : null}
 
+        {activeTab === "private-chats" ? (
+          <HostPrivateChats
+            roomAvailable={Boolean(room)}
+            players={roomPlayers}
+            threads={dayPrivateThreads}
+            messages={dayPrivateMessages}
+          />
+        ) : null}
+
         {activeTab === "voting" ? (
           <HostVotingPanel
             roomAvailable={Boolean(room)}
@@ -1298,6 +1391,31 @@ function GrimoireApp() {
             roleFilter={roleFilter}
             onSelectScript={(scriptId) => update({ scriptId })}
             onFilter={setRoleFilter}
+          />
+        ) : null}
+
+        {activeTab === "simulation" ? (
+          <PlayerSimulationConsole
+            room={room}
+            players={roomPlayers}
+            gamePlayers={state.players}
+            scriptId={state.scriptId}
+            phase={state.phase}
+            round={state.round}
+            nightMessages={nightMessages}
+            playerMessages={playerMessages}
+            dayPrivateThreads={dayPrivateThreads}
+            dayPrivateMessages={dayPrivateMessages}
+            nominations={nominations}
+            votes={votes}
+            resolutions={dayResolutions}
+            busy={roomBusy || syncStatus === "syncing"}
+            onBack={() => setActiveTab("grimoire")}
+            onToggleSimulation={handleToggleSimulation}
+            onSendPlayerMessage={handleSimulatePlayerMessage}
+            onSendPrivateMessage={handleSimulateDayPrivateMessage}
+            onNominate={handleSimulateNomination}
+            onVote={handleSimulateVote}
           />
         ) : null}
       </main>

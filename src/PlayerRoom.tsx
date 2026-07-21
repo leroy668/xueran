@@ -5,6 +5,7 @@ import {
   Gavel,
   LoaderCircle,
   MessageSquareText,
+  MessagesSquare,
   MoonStar,
   RefreshCw,
   ScrollText,
@@ -24,6 +25,9 @@ import { parseDemonBluffMessage } from "./demonBluffs";
 import {
   claimSeat,
   findRoomByCode,
+  getDayPrivateChatStats,
+  getMyDayPrivateMessages,
+  getMyDayPrivateThreads,
   getMyIdentity,
   getMyNightMessages,
   getMyPlayerMessages,
@@ -31,7 +35,11 @@ import {
   getRoomNominations,
   getRoomPlayers,
   getRoomVotes,
+  sendDayPrivateMessage,
   sendPlayerMessage,
+  type DayPrivateChatStat,
+  type DayPrivateMessage,
+  type DayPrivateThread,
   type DayResolution,
   type DayVote,
   type NightMessage,
@@ -42,6 +50,7 @@ import {
   type SharedRoom,
 } from "./room";
 import { RoleIcon } from "./RoleIcon";
+import { PlayerPrivateChats } from "./PlayerPrivateChats";
 import {
   buildPlayerSkillChoiceMessage,
   getPlayerMessageDisplayBody,
@@ -61,7 +70,7 @@ import { ensureAnonymousSession, supabase } from "./supabase";
 import type { IdentityPayload, Team } from "./types";
 import { PlayerVotingPanel } from "./VotingPanels";
 
-type PlayerView = "identity" | "script" | "messages" | "voting";
+type PlayerView = "identity" | "script" | "messages" | "private-chat" | "voting";
 
 const scriptTeams: Team[] = ["镇民", "外来者", "爪牙", "恶魔"];
 
@@ -71,6 +80,9 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
   const [identity, setIdentity] = useState<PlayerIdentity | null>(null);
   const [nightMessages, setNightMessages] = useState<NightMessage[]>([]);
   const [playerMessages, setPlayerMessages] = useState<PlayerMessage[]>([]);
+  const [privateThreads, setPrivateThreads] = useState<DayPrivateThread[]>([]);
+  const [privateMessages, setPrivateMessages] = useState<DayPrivateMessage[]>([]);
+  const [privateChatStats, setPrivateChatStats] = useState<DayPrivateChatStat[]>([]);
   const [nominations, setNominations] = useState<Nomination[]>([]);
   const [votes, setVotes] = useState<DayVote[]>([]);
   const [dayResolutions, setDayResolutions] = useState<DayResolution[]>([]);
@@ -87,6 +99,9 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       nextIdentity,
       nextNightMessages,
       nextPlayerMessages,
+      nextPrivateThreads,
+      nextPrivateMessages,
+      nextPrivateChatStats,
       nextNominations,
       nextVotes,
       nextDayResolutions,
@@ -96,6 +111,9 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       getMyIdentity(targetRoom.id),
       getMyNightMessages(targetRoom.id),
       getMyPlayerMessages(targetRoom.id),
+      getMyDayPrivateThreads(targetRoom.id),
+      getMyDayPrivateMessages(targetRoom.id),
+      getDayPrivateChatStats(targetRoom.id),
       getRoomNominations(targetRoom.id),
       getRoomVotes(targetRoom.id),
       getRoomDayResolutions(targetRoom.id),
@@ -108,6 +126,9 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       setIdentity(null);
       setNightMessages([]);
       setPlayerMessages([]);
+      setPrivateThreads([]);
+      setPrivateMessages([]);
+      setPrivateChatStats([]);
       setNominations([]);
       setVotes([]);
       setDayResolutions([]);
@@ -119,6 +140,9 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
     setIdentity(nextIdentity);
     setNightMessages(nextNightMessages);
     setPlayerMessages(nextPlayerMessages);
+    setPrivateThreads(nextPrivateThreads);
+    setPrivateMessages(nextPrivateMessages);
+    setPrivateChatStats(nextPrivateChatStats);
     setNominations(nextNominations);
     setVotes(nextVotes);
     setDayResolutions(nextDayResolutions);
@@ -186,6 +210,16 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       )
       .on(
         "postgres_changes",
+        { event: "*", schema: "public", table: "xueran_day_private_threads", filter: `room_id=eq.${room.id}` },
+        () => void refresh(room),
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "xueran_day_private_messages", filter: `room_id=eq.${room.id}` },
+        () => void refresh(room),
+      )
+      .on(
+        "postgres_changes",
         { event: "*", schema: "public", table: "xueran_nominations", filter: `room_id=eq.${room.id}` },
         () => void refresh(room),
       )
@@ -237,6 +271,20 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       message,
       ...current.filter((item) => item.id !== message.id),
     ]);
+  };
+
+  const sendPrivateMessage = async (recipientPlayerId: string, body: string) => {
+    if (!room) throw new Error("房间尚未加载");
+    const message = await sendDayPrivateMessage({
+      roomId: room.id,
+      recipientPlayerId,
+      body,
+    });
+    setPrivateMessages((current) => [
+      ...current.filter((item) => item.id !== message.id),
+      message,
+    ]);
+    await refresh(room);
   };
 
   if (loading) {
@@ -296,10 +344,14 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
         players={players}
         nightMessages={nightMessages}
         playerMessages={playerMessages}
+        privateThreads={privateThreads}
+        privateMessages={privateMessages}
+        privateChatStats={privateChatStats}
         nominations={nominations}
         votes={votes}
         dayResolutions={dayResolutions}
         onSendPlayerMessage={sendMessageToHost}
+        onSendPrivateMessage={sendPrivateMessage}
         onRefresh={() => refresh(room)}
       />
     );
@@ -386,10 +438,14 @@ function ClaimedIdentity({
   players,
   nightMessages,
   playerMessages,
+  privateThreads,
+  privateMessages,
+  privateChatStats,
   nominations,
   votes,
   dayResolutions,
   onSendPlayerMessage,
+  onSendPrivateMessage,
   onRefresh,
 }: {
   identity: IdentityPayload;
@@ -402,21 +458,29 @@ function ClaimedIdentity({
   players: PublicRoomPlayer[];
   nightMessages: NightMessage[];
   playerMessages: PlayerMessage[];
+  privateThreads: DayPrivateThread[];
+  privateMessages: DayPrivateMessage[];
+  privateChatStats: DayPrivateChatStat[];
   nominations: Nomination[];
   votes: DayVote[];
   dayResolutions: DayResolution[];
   onSendPlayerMessage: (body: string) => Promise<void>;
+  onSendPrivateMessage: (recipientPlayerId: string, body: string) => Promise<void>;
   onRefresh: () => Promise<void>;
 }) {
   const [revealed, setRevealed] = useState(false);
   const identitySeenKey = `xueran-identity-seen-${roomCode}-${identity.seat}-${identity.roleId}`;
   const messageReadKey = `xueran-message-read-${roomCode}-${identity.seat}`;
+  const privateReadKey = `xueran-private-chat-read-${roomCode}-${identity.seat}`;
   const [identitySeen, setIdentitySeen] = useState(
     () => localStorage.getItem(identitySeenKey) === "true",
   );
   const [activeView, setActiveView] = useState<PlayerView>("identity");
   const [lastReadAt, setLastReadAt] = useState(
     () => localStorage.getItem(messageReadKey) ?? "",
+  );
+  const [privateLastReadAt, setPrivateLastReadAt] = useState(
+    () => localStorage.getItem(privateReadKey) ?? "",
   );
   const role = getRole(identity.roleId);
   const script = scripts.find((item) => item.id === scriptId) ?? scripts[0];
@@ -425,12 +489,26 @@ function ClaimedIdentity({
   const unreadCount = nightMessages.filter(
     (message) => new Date(message.created_at).getTime() > lastReadTime,
   ).length;
+  const privateLastReadTime = privateLastReadAt
+    ? new Date(privateLastReadAt).getTime()
+    : 0;
+  const privateUnreadCount = privateMessages.filter(
+    (message) =>
+      message.recipient_player_id === playerId &&
+      new Date(message.created_at).getTime() > privateLastReadTime,
+  ).length;
   useEffect(() => {
     if (activeView !== "messages" || !nightMessages[0]) return;
     const latestMessageAt = nightMessages[0].created_at;
     localStorage.setItem(messageReadKey, latestMessageAt);
     setLastReadAt(latestMessageAt);
   }, [activeView, messageReadKey, nightMessages]);
+  useEffect(() => {
+    const latestMessage = privateMessages.at(-1);
+    if (activeView !== "private-chat" || !latestMessage) return;
+    localStorage.setItem(privateReadKey, latestMessage.created_at);
+    setPrivateLastReadAt(latestMessage.created_at);
+  }, [activeView, privateMessages, privateReadKey]);
 
   const revealIdentity = () => {
     setRevealed(true);
@@ -452,7 +530,7 @@ function ClaimedIdentity({
 
       {identitySeen ? (
         <nav
-          className="player-hub-nav with-voting"
+          className="player-hub-nav with-private-chat"
           aria-label="玩家页面导航"
         >
           <button
@@ -476,6 +554,16 @@ function ClaimedIdentity({
             <MessageSquareText size={18} />
             <span>上帝消息</span>
             {unreadCount ? <strong>{Math.min(unreadCount, 99)}</strong> : null}
+          </button>
+          <button
+            className={activeView === "private-chat" ? "active" : ""}
+            onClick={() => setActiveView("private-chat")}
+          >
+            <MessagesSquare size={18} />
+            <span>白天私聊</span>
+            {privateUnreadCount ? (
+              <strong>{Math.min(privateUnreadCount, 99)}</strong>
+            ) : null}
           </button>
           <button
             className={activeView === "voting" ? "active" : ""}
@@ -564,6 +652,18 @@ function ClaimedIdentity({
           votes={votes}
           resolutions={dayResolutions}
           onRefresh={onRefresh}
+        />
+      ) : null}
+
+      {activeView === "private-chat" ? (
+        <PlayerPrivateChats
+          currentPlayerId={playerId}
+          phase={phase}
+          players={players}
+          threads={privateThreads}
+          messages={privateMessages}
+          stats={privateChatStats}
+          onSend={onSendPrivateMessage}
         />
       ) : null}
 

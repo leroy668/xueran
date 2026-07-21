@@ -1,6 +1,13 @@
 export type Phase = "白天" | "夜晚";
 export type Team = "镇民" | "外来者" | "爪牙" | "恶魔";
-export type TabId = "grimoire" | "night" | "messages" | "voting" | "script";
+export type TabId =
+  | "grimoire"
+  | "night"
+  | "messages"
+  | "private-chats"
+  | "voting"
+  | "script"
+  | "simulation";
 
 export type RoleDefinition = {
   id: string;

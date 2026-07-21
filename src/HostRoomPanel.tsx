@@ -43,21 +43,12 @@ type Props = {
   room: SharedRoom | null;
   roomUrl: string;
   players: PublicRoomPlayer[];
-  gamePlayers: Player[];
-  nightMessages: NightMessage[];
-  playerMessages: PlayerMessage[];
-  phase: Phase;
-  round: number;
   busy: boolean;
   syncStatus: "idle" | "syncing" | "synced" | "error";
   onCreate: () => void;
   onCopy: () => void;
   onRevoke: (playerId: string) => void;
-  onToggleSimulation: (enabled: boolean) => void;
-  onSimulatePlayerSkillReply: (
-    playerId: string,
-    body: string,
-  ) => Promise<void>;
+  onOpenSimulation: () => void;
   onClose: () => void;
 };
 
@@ -74,18 +65,12 @@ export function HostRoomPanel({
   room,
   roomUrl,
   players,
-  gamePlayers,
-  nightMessages,
-  playerMessages,
-  phase,
-  round,
   busy,
   syncStatus,
   onCreate,
   onCopy,
   onRevoke,
-  onToggleSimulation,
-  onSimulatePlayerSkillReply,
+  onOpenSimulation,
   onClose,
 }: Props) {
   if (!room) {
@@ -153,34 +138,17 @@ export function HostRoomPanel({
       </button>
 
       <div className="claim-section">
-        <label className="simulation-toggle">
-          <span className="simulation-toggle-copy">
-            <strong>模拟全员入座</strong>
-            <small>空座使用测试玩家，可随时恢复真实状态</small>
+        <button
+          className="simulation-console-entry"
+          type="button"
+          onClick={onOpenSimulation}
+        >
+          <span>
+            <Radio size={15} />
+            <strong>玩家模拟后台</strong>
           </span>
-          <input
-            type="checkbox"
-            checked={simulationEnabled}
-            disabled={busy}
-            onChange={(event) => onToggleSimulation(event.target.checked)}
-          />
-          <span className="simulation-toggle-track" aria-hidden="true">
-            <span />
-          </span>
-        </label>
-        {simulationEnabled ? (
-          <SimulatedPlayerSkillReplyForm
-            scriptId={room.script_id}
-            players={players}
-            gamePlayers={gamePlayers}
-            nightMessages={nightMessages}
-            playerMessages={playerMessages}
-            phase={phase}
-            round={round}
-            busy={busy || syncStatus === "syncing"}
-            onSend={onSimulatePlayerSkillReply}
-          />
-        ) : null}
+          <small>{simulationEnabled ? "模拟模式已开启" : "技能、消息、私聊与投票测试"}</small>
+        </button>
         <div className="claim-section-heading">
           <span>已入座玩家</span>
           <strong>
@@ -331,7 +299,7 @@ function SimulationPlayerPicker({
   );
 }
 
-function SimulatedPlayerSkillReplyForm({
+export function SimulatedPlayerSkillReplyForm({
   scriptId,
   players,
   gamePlayers,
@@ -341,6 +309,9 @@ function SimulatedPlayerSkillReplyForm({
   round,
   busy,
   onSend,
+  selectedPlayerId,
+  onPlayerChange,
+  showPlayerPicker = true,
 }: {
   scriptId: string;
   players: PublicRoomPlayer[];
@@ -351,9 +322,24 @@ function SimulatedPlayerSkillReplyForm({
   round: number;
   busy: boolean;
   onSend: (playerId: string, body: string) => Promise<void>;
+  selectedPlayerId?: string;
+  onPlayerChange?: (playerId: string) => void;
+  showPlayerPicker?: boolean;
 }) {
-  const simulatedPlayers = players.filter((player) => player.is_simulated);
-  const [playerId, setPlayerId] = useState(simulatedPlayers[0]?.id ?? "");
+  const simulationPlayers = players.filter((player) => player.is_claimed);
+  const [internalPlayerId, setInternalPlayerId] = useState(
+    simulationPlayers[0]?.id ?? "",
+  );
+  const requestedPlayerId = selectedPlayerId ?? internalPlayerId;
+  const playerId = simulationPlayers.some(
+    (player) => player.id === requestedPlayerId,
+  )
+    ? requestedPlayerId
+    : simulationPlayers[0]?.id ?? "";
+  const selectPlayer = (nextPlayerId: string) => {
+    setInternalPlayerId(nextPlayerId);
+    onPlayerChange?.(nextPlayerId);
+  };
   const [firstTargetId, setFirstTargetId] = useState(players[0]?.id ?? "");
   const [secondTargetId, setSecondTargetId] = useState(
     players.find((player) => player.id !== players[0]?.id)?.id ?? "",
@@ -365,14 +351,7 @@ function SimulatedPlayerSkillReplyForm({
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
 
-  useEffect(() => {
-    if (!simulatedPlayers.some((player) => player.id === playerId)) {
-      setPlayerId(simulatedPlayers[0]?.id ?? "");
-    }
-    setSendError("");
-  }, [playerId, simulatedPlayers]);
-
-  const selectedPlayer = simulatedPlayers.find(
+  const selectedPlayer = simulationPlayers.find(
     (player) => player.id === playerId,
   );
   const selectedGamePlayer = gamePlayers.find(
@@ -440,7 +419,7 @@ function SimulatedPlayerSkillReplyForm({
       players,
     ],
   );
-  const simulatedPlayerOptions = simulatedPlayers.map((player) =>
+  const simulatedPlayerOptions = simulationPlayers.map((player) =>
     getSimulationPlayerOption(player),
   );
   const targetPlayerOptions = targetPlayers.map((player) =>
@@ -629,24 +608,26 @@ function SimulatedPlayerSkillReplyForm({
         <strong>模拟玩家视角</strong>
         <small>提交玩家技能选择，并查看该玩家收到的上帝技能回复</small>
       </div>
-      {simulatedPlayers.length ? (
+      {simulationPlayers.length ? (
         <>
-          <SimulationPlayerPicker
-            label="模拟玩家"
-            value={playerId}
-            options={simulatedPlayerOptions}
-            disabled={busy || sending}
-            open={openPlayerPicker === "player"}
-            onToggle={() =>
-              setOpenPlayerPicker((current) =>
-                current === "player" ? null : "player",
-              )
-            }
-            onChange={(nextPlayerId) => {
-              setPlayerId(nextPlayerId);
-              setOpenPlayerPicker(null);
-            }}
-          />
+          {showPlayerPicker ? (
+            <SimulationPlayerPicker
+              label="模拟玩家"
+              value={playerId}
+              options={simulatedPlayerOptions}
+              disabled={busy || sending}
+              open={openPlayerPicker === "player"}
+              onToggle={() =>
+                setOpenPlayerPicker((current) =>
+                  current === "player" ? null : "player",
+                )
+              }
+              onChange={(nextPlayerId) => {
+                selectPlayer(nextPlayerId);
+                setOpenPlayerPicker(null);
+              }}
+            />
+          ) : null}
           <div className="simulation-skill-summary">
             <span>
               <RoleIcon

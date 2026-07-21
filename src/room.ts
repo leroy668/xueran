@@ -64,6 +64,36 @@ export type PlayerMessage = {
   created_at: string;
 };
 
+export type DayPrivateThread = {
+  id: string;
+  room_id: string;
+  round: number;
+  player_a_id: string;
+  player_b_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DayPrivateMessage = {
+  id: string;
+  thread_id: string;
+  room_id: string;
+  round: number;
+  sender_player_id: string;
+  recipient_player_id: string;
+  body: string;
+  estimated_seconds: number;
+  created_at: string;
+};
+
+export type DayPrivateChatStat = {
+  player_id: string;
+  conversation_count: number;
+  message_count: number;
+  estimated_seconds: number;
+  last_activity_at: string | null;
+};
+
 export type Nomination = {
   id: string;
   room_id: string;
@@ -371,6 +401,56 @@ export const getRoomPlayerMessages = getAllPlayerMessages;
 
 export const getMyPlayerMessages = getAllPlayerMessages;
 
+const isMissingDayPrivateChat = (error: { code?: string; message?: string }) =>
+  error.code === "42P01" ||
+  error.code === "PGRST202" ||
+  error.code === "PGRST205" ||
+  /xueran_(day_private|send_day_private|get_day_private)|schema cache/i.test(
+    error.message ?? "",
+  );
+
+export const getMyDayPrivateThreads = async (roomId: string) => {
+  const { data, error } = await supabase
+    .from("xueran_day_private_threads")
+    .select("*")
+    .eq("room_id", roomId)
+    .order("updated_at", { ascending: false });
+  if (error && isMissingDayPrivateChat(error)) return [];
+  if (error) throw error;
+  return data as DayPrivateThread[];
+};
+
+export const getMyDayPrivateMessages = async (roomId: string) => {
+  const { data, error } = await supabase
+    .from("xueran_day_private_messages")
+    .select("*")
+    .eq("room_id", roomId)
+    .order("created_at", { ascending: true });
+  if (error && isMissingDayPrivateChat(error)) return [];
+  if (error) throw error;
+  return data as DayPrivateMessage[];
+};
+
+export const getRoomDayPrivateThreads = getMyDayPrivateThreads;
+
+export const getRoomDayPrivateMessages = getMyDayPrivateMessages;
+
+export const getDayPrivateChatStats = async (roomId: string) => {
+  const { data, error } = await supabase.rpc(
+    "xueran_get_day_private_chat_stats",
+    { p_room_id: roomId },
+  );
+  if (
+    error &&
+    (isMissingDayPrivateChat(error) ||
+      /claimed player access required/i.test(error.message))
+  ) {
+    return [];
+  }
+  if (error) throw error;
+  return (data ?? []) as DayPrivateChatStat[];
+};
+
 const isMissingVotingTable = (error: { code?: string; message?: string }) =>
   error.code === "42P01" ||
   error.code === "PGRST205" ||
@@ -488,6 +568,27 @@ export const sendPlayerMessage = async ({
   return data as PlayerMessage;
 };
 
+export const sendDayPrivateMessage = async ({
+  roomId,
+  recipientPlayerId,
+  body,
+}: {
+  roomId: string;
+  recipientPlayerId: string;
+  body: string;
+}) => {
+  const { data, error } = await supabase.rpc(
+    "xueran_send_day_private_message",
+    {
+      p_room_id: roomId,
+      p_recipient_player_id: recipientPlayerId,
+      p_body: body,
+    },
+  );
+  if (error) throw error;
+  return data as DayPrivateMessage;
+};
+
 export const simulatePlayerMessage = async ({
   roomId,
   playerId,
@@ -515,6 +616,63 @@ export const simulatePlayerMessage = async ({
   }
   if (error) throw error;
   return data as PlayerMessage;
+};
+
+export const simulateDayPrivateMessage = async ({
+  roomId,
+  senderPlayerId,
+  recipientPlayerId,
+  body,
+}: {
+  roomId: string;
+  senderPlayerId: string;
+  recipientPlayerId: string;
+  body: string;
+}) => {
+  const { data, error } = await supabase.rpc(
+    "xueran_simulate_day_private_message",
+    {
+      p_room_id: roomId,
+      p_sender_player_id: senderPlayerId,
+      p_recipient_player_id: recipientPlayerId,
+      p_body: body,
+    },
+  );
+  if (error) throw error;
+  return data as DayPrivateMessage;
+};
+
+export const simulateNomination = async ({
+  roomId,
+  nominatorPlayerId,
+  nomineePlayerId,
+}: {
+  roomId: string;
+  nominatorPlayerId: string;
+  nomineePlayerId: string;
+}) => {
+  const { data, error } = await supabase.rpc("xueran_simulate_nominate", {
+    p_room_id: roomId,
+    p_nominator_player_id: nominatorPlayerId,
+    p_nominee_player_id: nomineePlayerId,
+  });
+  if (error) throw error;
+  return data as Nomination;
+};
+
+export const simulateVote = async ({
+  nominationId,
+  voterPlayerId,
+}: {
+  nominationId: string;
+  voterPlayerId: string;
+}) => {
+  const { data, error } = await supabase.rpc("xueran_simulate_cast_vote", {
+    p_nomination_id: nominationId,
+    p_voter_player_id: voterPlayerId,
+  });
+  if (error) throw error;
+  return data as DayVote;
 };
 
 export const claimSeat = async (
