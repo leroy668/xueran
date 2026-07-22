@@ -3136,6 +3136,15 @@ function NightPanel({
       return true;
     });
   }, [currentRole, state.players, targetPlayerId]);
+  const grandchildCandidates = useMemo(
+    () =>
+      state.players.filter(
+        (player) =>
+          player.id !== targetPlayerId &&
+          ["镇民", "外来者"].includes(getRole(player.roleId).team),
+      ),
+    [state.players, targetPlayerId],
+  );
   const calculatedChefResult = useMemo(() => {
     const orderedPlayers = [...state.players].sort(
       (left, right) => left.seat - right.seat,
@@ -3397,21 +3406,19 @@ function NightPanel({
       return;
     }
     if (currentRole?.id === "grandmother" && state.round <= 1) {
-      const grandchild = state.players.find(
-        (player) =>
-          player.id !== targetPlayerId &&
-          ["镇民", "外来者"].includes(getRole(player.roleId).team),
+      const selectionIsValid = grandchildCandidates.some(
+        (player) => player.id === singleSkillTargetId,
       );
-      if (grandchild && singleSkillTargetId !== grandchild.id) {
-        setSingleSkillTargetId(grandchild.id);
+      if (!selectionIsValid) {
+        setSingleSkillTargetId(grandchildCandidates[0]?.id ?? "");
       }
     }
   }, [
     currentRole?.id,
+    grandchildCandidates,
     singleSkillTargetId,
     state.players,
     state.round,
-    targetPlayerId,
   ]);
 
   useEffect(() => {
@@ -4233,6 +4240,17 @@ function NightPanel({
     void submitSkill(`你的孙辈是${targetLabel}，角色是${shownRole.name}`);
   };
 
+  const selectRandomGrandchild = () => {
+    if (!grandchildCandidates.length) return;
+    const alternatives = grandchildCandidates.filter(
+      (player) => player.id !== singleSkillTargetId,
+    );
+    const pool = alternatives.length ? alternatives : grandchildCandidates;
+    const randomGrandchild = pool[Math.floor(Math.random() * pool.length)];
+    setSingleSkillTargetId(randomGrandchild.id);
+    setRevealedSkillRoleId(randomGrandchild.roleId);
+  };
+
   const sendFortuneTellerResult = async (hasDemon: boolean) => {
     if (!pairTargetsReady) return;
     const first = getNightSeatLabel(skillTargets.first);
@@ -4930,10 +4948,13 @@ function NightPanel({
                   {state.round <= 1 ? (
                     <>
                       <div className="night-skill-reveal-grid">
-                        <label><span>孙辈玩家</span><CompactSelect value={singleSkillTargetId} disabled={sending} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{state.players.filter((player) => ["镇民", "外来者"].includes(getRole(player.roleId).team) && player.id !== selectedPlayer?.id).map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect></label>
+                        <label><span>孙辈玩家</span><CompactSelect value={singleSkillTargetId} disabled={sending} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{grandchildCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect></label>
                         <label><span>展示角色</span><CompactSelect value={revealedSkillRoleId} disabled={sending} onChange={(event) => setRevealedSkillRoleId(event.target.value)}>{getScriptRoles(state.scriptId).filter((role) => ["镇民", "外来者"].includes(role.team)).map((role) => <option value={role.id} key={role.id}>{role.name}</option>)}</CompactSelect></label>
                       </div>
-                      <button className="primary-button night-skill-submit" disabled={!canUseSkill || !singleSkillTargetId || !revealedSkillRoleId} onClick={sendGrandmotherInfo}><Send size={15} />发送孙辈信息</button>
+                      <div className="night-skill-footer">
+                        <button className="secondary-button night-skill-reroll" disabled={sending || !grandchildCandidates.length} onClick={selectRandomGrandchild}><Dices size={14} />系统随机选择</button>
+                        <button className="primary-button night-skill-submit" disabled={!canUseSkill || !singleSkillTargetId || !revealedSkillRoleId} onClick={sendGrandmotherInfo}><Send size={15} />发送孙辈信息</button>
+                      </div>
                     </>
                   ) : (
                     <div className="night-skill-result-grid fortune-results">
