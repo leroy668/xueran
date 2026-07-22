@@ -481,6 +481,23 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .juggler-auto-result strong { margin: 0 3px; color: #d8efda; font-size: 15px; }
 .night-skill-result-grid.juggler-results { grid-template-columns: repeat(6, minmax(48px, 1fr)); }
 .night-skill-result-grid .recommended { border-color: rgba(121,181,138,.72); background: rgba(121,181,138,.16); color: #d8efda; box-shadow: inset 0 -2px #79b58a; }
+.oracle-summary { margin-bottom: 8px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.oracle-summary article { min-width: 0; min-height: 67px; padding: 7px 8px; border: 1px solid var(--line); background: #151517; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 7px; }
+.oracle-summary article.registration { border-color: rgba(141,170,195,.42); background: rgba(141,170,195,.08); }
+.oracle-summary span { color: var(--muted); font-size: 8px; }
+.oracle-summary strong { color: var(--ink); font-family: Georgia, serif; font-size: 20px; }
+.oracle-summary small { grid-column: 1 / -1; color: var(--dim); font-size: 8px; line-height: 1.35; }
+.oracle-registration-note { min-height: 31px; margin-bottom: 8px; padding: 6px 8px; border: 1px solid rgba(213,166,110,.35); background: rgba(213,166,110,.08); color: #d9b98e; display: flex; align-items: center; gap: 7px; font-size: 8px; line-height: 1.4; }
+.oracle-registration-note svg { flex: 0 0 auto; }
+.oracle-result-editor { display: grid; grid-template-columns: minmax(145px, 1fr) auto auto; align-items: end; gap: 7px; }
+.oracle-result-editor > label { min-width: 0; display: grid; gap: 5px; }
+.oracle-result-editor > label > span { color: var(--muted); font-size: 8px; }
+.oracle-number-field { min-width: 0; display: grid; grid-template-columns: 36px minmax(52px, 1fr) 36px; }
+.oracle-number-field button, .oracle-number-field input { min-width: 0; min-height: 36px; border: 1px solid var(--line-light); background: #111113; color: var(--ink); text-align: center; }
+.oracle-number-field button + input, .oracle-number-field input + button { border-left: 0; }
+.oracle-number-field input { width: 100%; font-size: 15px; font-weight: 800; }
+.oracle-recommend-button, .oracle-result-editor > .primary-button { min-height: 36px; white-space: nowrap; }
+.oracle-result-help { display: block; margin-top: 7px; color: var(--dim); font-size: 8px; line-height: 1.4; }
 .night-ravenkeeper-notify { width: 100%; min-height: 36px; margin-bottom: 8px; justify-content: center; border-color: rgba(215,97,86,.42); color: #e8aaa4; }
 .night-skill-preset { margin-bottom: 9px; padding: 9px; border: 1px solid var(--line); background: #151517; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .night-skill-preset > span { color: var(--muted); font-size: 9px; font-weight: 700; white-space: nowrap; }
@@ -1190,6 +1207,9 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .night-skill-result-grid .secondary-button { min-height: 38px; padding: 3px; font-size: 13px; }
   .night-skill-result-grid.fortune-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .night-skill-result-grid.juggler-results { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .oracle-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .oracle-result-editor { grid-template-columns: 1fr 1fr; }
+  .oracle-result-editor > label { grid-column: 1 / -1; }
   .player-juggler-row, .simulation-juggler-row { grid-template-columns: 22px minmax(0, 1fr) 18px minmax(0, 1fr) 30px; gap: 4px; }
   .night-skill-preset { align-items: stretch; flex-direction: column; gap: 7px; }
   .night-skill-segments { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }

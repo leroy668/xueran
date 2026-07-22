@@ -37,6 +37,10 @@ import {
 } from "lucide-react";
 import { AdminRooms } from "./AdminRooms";
 import { assessChambermaidWake } from "./chambermaid";
+import {
+  assessOracleResult,
+  isOracleResultCompatible,
+} from "./oracle";
 import { CompactSelect } from "./CompactSelect";
 import {
   getNightActions,
@@ -2921,6 +2925,7 @@ function NightPanel({
   const [revealedSkillRoleId, setRevealedSkillRoleId] = useState("");
   const [librarianNoOutsider, setLibrarianNoOutsider] = useState(false);
   const [chefResult, setChefResult] = useState(0);
+  const [oracleResultDraft, setOracleResultDraft] = useState(0);
   const [sendError, setSendError] = useState("");
   const [impSuccessorPlayerId, setImpSuccessorPlayerId] = useState("");
   const [sendingBluffs, setSendingBluffs] = useState(false);
@@ -3220,11 +3225,27 @@ function NightPanel({
   const calculatedEmpathResult = empathNeighbors.filter((player) =>
     ["爪牙", "恶魔"].includes(getRole(player.roleId).team),
   ).length;
-  const calculatedOracleResult = state.players.filter(
-    (player) =>
-      !player.alive &&
-      ["爪牙", "恶魔"].includes(getRole(player.roleId).team),
-  ).length;
+  const oracleAssessment = useMemo(
+    () =>
+      assessOracleResult(
+        state.players.map((player) => {
+          const role = getRole(player.roleId);
+          return {
+            alive: player.alive,
+            roleId: player.roleId,
+            roleName: role.name,
+            seat: player.seat,
+            team: role.team,
+          };
+        }),
+      ),
+    [state.players],
+  );
+  useEffect(() => {
+    if (currentRole?.id === "oracle") {
+      setOracleResultDraft(oracleAssessment.trueEvilCount);
+    }
+  }, [currentRole?.id, oracleAssessment.trueEvilCount, targetPlayerId]);
   const nodashiiPoisonedPlayers = useMemo(() => {
     if (currentRole?.id !== "nodashii" || !selectedPlayer) return [];
     const ordered = [...state.players].sort(
@@ -4536,17 +4557,26 @@ function NightPanel({
     void submitSkill(`你在首日的公开猜测中猜对了 ${count} 个`);
   };
   const sendOracleResult = async (count: number) => {
-    const registrationRoles = state.players.filter(
-      (player) => !player.alive && ["recluse", "spy"].includes(player.roleId),
-    );
+    if (!Number.isInteger(count) || count < 0) {
+      setSendError("神谕者结果必须是大于或等于 0 的整数");
+      return;
+    }
+    const registrationRange =
+      oracleAssessment.minimumRegisteredEvil ===
+      oracleAssessment.maximumRegisteredEvil
+        ? `${oracleAssessment.minimumRegisteredEvil}`
+        : `${oracleAssessment.minimumRegisteredEvil}–${oracleAssessment.maximumRegisteredEvil}`;
     if (!(await confirmSkillResult({
       title: "确认发送神谕者结果？",
-      sendLines: [`发送结果：${count} 名邪恶玩家`],
-      sentMatchesBaseline: count === calculatedOracleResult,
-      baseline: `按死亡玩家真实阵营计算为 ${calculatedOracleResult} 名邪恶玩家`,
-      caveats: registrationRoles.length
-        ? [`死亡玩家中的${registrationRoles.map((player) => `${formatSeat(player.seat)} ${getRole(player.roleId).name}`).join("、")}可能改变善恶登记`]
-        : [],
+      sendLines: [
+        `发送结果：全部 ${oracleAssessment.deadCount} 名死亡玩家中，有 ${count} 名邪恶玩家`,
+      ],
+      sentMatchesBaseline: isOracleResultCompatible(count, oracleAssessment),
+      baseline: `死亡玩家共 ${oracleAssessment.deadCount} 名；按登记规则应为 ${registrationRange} 名邪恶玩家（按真实阵营为 ${oracleAssessment.trueEvilCount} 名）`,
+      caveats: oracleAssessment.registrationExceptions.map(
+        (exception) =>
+          `${formatSeat(exception.seat)} ${exception.roleName}：${exception.effect}`,
+      ),
     }))) return;
     void submitSkill(`死亡玩家中有 ${count} 名邪恶玩家`);
   };
@@ -5267,9 +5297,102 @@ function NightPanel({
                 </div>
               ) : null}
               {currentRole.id === "oracle" ? (
-                <div className="night-skill-panel compact">
-                  <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><ScrollText size={14} />神谕者结果</span><small>当前死亡玩家中有 {state.players.filter((player) => !player.alive && ["爪牙", "恶魔"].includes(getRole(player.roleId).team)).length} 名真实邪恶玩家</small></div></div>
-                  <div className="night-skill-result-grid">{Array.from({length: Math.max(3, state.players.filter((player) => !player.alive).length + 1)}, (_, count) => count).map((count) => <button className="secondary-button" key={count} disabled={!canUseSkill} onClick={() => sendOracleResult(count)}>{count}<small>名邪恶</small></button>)}</div>
+                <div className="night-skill-panel oracle-skill-panel">
+                  <div className="night-skill-panel-heading">
+                    <div className="night-skill-heading-title">
+                      <span><ScrollText size={14} />神谕者结果</span>
+                      <small>统计全部已死亡玩家中的邪恶人数，不是仅统计本晚死亡玩家。</small>
+                    </div>
+                  </div>
+                  <div className="oracle-summary">
+                    <article>
+                      <span>死亡玩家</span>
+                      <strong>{oracleAssessment.deadCount}</strong>
+                      <small>当前累计死亡总数</small>
+                    </article>
+                    <article>
+                      <span>真实邪恶</span>
+                      <strong>{oracleAssessment.trueEvilCount}</strong>
+                      <small>按当前真实阵营计算</small>
+                    </article>
+                    <article className="registration">
+                      <span>可登记范围</span>
+                      <strong>
+                        {oracleAssessment.minimumRegisteredEvil ===
+                        oracleAssessment.maximumRegisteredEvil
+                          ? oracleAssessment.minimumRegisteredEvil
+                          : `${oracleAssessment.minimumRegisteredEvil}–${oracleAssessment.maximumRegisteredEvil}`}
+                      </strong>
+                      <small>已考虑死亡的陌客与间谍</small>
+                    </article>
+                  </div>
+                  {oracleAssessment.registrationExceptions.length ? (
+                    <div className="oracle-registration-note">
+                      <AlertTriangle size={13} />
+                      <span>
+                        {oracleAssessment.registrationExceptions
+                          .map(
+                            (exception) =>
+                              `${formatSeat(exception.seat)} ${exception.roleName}${exception.roleId === "recluse" ? "可登记邪恶" : "可登记善良"}`,
+                          )
+                          .join("；")}
+                      </span>
+                    </div>
+                  ) : null}
+                  <div className="oracle-result-editor">
+                    <label>
+                      <span>准备发送的人数</span>
+                      <div className="oracle-number-field">
+                        <button
+                          type="button"
+                          disabled={!canUseSkill || oracleResultDraft <= 0}
+                          onClick={() =>
+                            setOracleResultDraft((value) => Math.max(0, value - 1))
+                          }
+                          aria-label="减少神谕者结果"
+                        >−</button>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={oracleResultDraft}
+                          disabled={!canUseSkill}
+                          onChange={(event) => {
+                            const nextValue = Number(event.target.value);
+                            setOracleResultDraft(
+                              Number.isFinite(nextValue)
+                                ? Math.max(0, Math.trunc(nextValue))
+                                : 0,
+                            );
+                          }}
+                          aria-label="神谕者发送的邪恶玩家人数"
+                        />
+                        <button
+                          type="button"
+                          disabled={!canUseSkill}
+                          onClick={() => setOracleResultDraft((value) => value + 1)}
+                          aria-label="增加神谕者结果"
+                        >+</button>
+                      </div>
+                    </label>
+                    <button
+                      type="button"
+                      className="secondary-button oracle-recommend-button"
+                      disabled={!canUseSkill}
+                      onClick={() =>
+                        setOracleResultDraft(oracleAssessment.trueEvilCount)
+                      }
+                    >采用真实阵营基准</button>
+                    <button
+                      type="button"
+                      className="primary-button"
+                      disabled={!canUseSkill}
+                      onClick={() => void sendOracleResult(oracleResultDraft)}
+                    ><Send size={15} />确认并发送</button>
+                  </div>
+                  <small className="oracle-result-help">
+                    可以输入任意非负整数；若不在当前规则范围内，再次确认时会标红，但上帝仍可强制发送。
+                  </small>
                 </div>
               ) : null}
               {currentRole.id === "nightwatchman" ? (
