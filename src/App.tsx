@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Dices,
+  ExternalLink,
   Gamepad2,
   Gavel,
   MessageCircleMore,
@@ -65,6 +66,7 @@ import {
   parsePlayerSkillChoiceMessage,
 } from "./playerSkillChoices";
 import { RoleIcon } from "./RoleIcon";
+import { getRoleDetailsUrl } from "./roleDetails";
 import { distributeRoles } from "./roleDistribution";
 import {
   buildRoleSkillMessage,
@@ -5720,14 +5722,23 @@ function ScriptPanel({
         </div>
         <div className="role-table">
           {filteredRoles.map((role) => (
-            <div className="role-row" key={role.id}>
+            <a
+              className="role-row role-row-link"
+              href={getRoleDetailsUrl(role)}
+              key={role.id}
+              target="_blank"
+              rel="noreferrer"
+              title={`查看${role.name}的详细说明`}
+              aria-label={`查看${role.name}的详细说明`}
+            >
               <span className={`mini-role-icon ${teamLabels[role.team]}`}>
                 <RoleIcon roleId={role.id} size={16} />
               </span>
               <strong>{role.name}</strong>
               <span className={`team-label ${teamLabels[role.team]}`}>{role.team}</span>
               <p>{role.short}</p>
-            </div>
+              <ExternalLink className="role-details-icon" size={13} aria-hidden="true" />
+            </a>
           ))}
         </div>
       </section>

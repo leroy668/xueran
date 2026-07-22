@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   Eye,
+  ExternalLink,
   Gavel,
   LoaderCircle,
   MessageSquareText,
@@ -52,6 +53,7 @@ import {
   type SharedRoom,
 } from "./room";
 import { RoleIcon } from "./RoleIcon";
+import { getRoleDetailsUrl } from "./roleDetails";
 import { PlayerPrivateChats } from "./PlayerPrivateChats";
 import {
   buildPlayerSkillChoiceMessage,
@@ -619,7 +621,15 @@ function ClaimedIdentity({
                   </div>
                   <div className="player-script-role-list">
                     {teamRoles.map((item) => (
-                      <article className="player-script-role" key={item.id}>
+                      <a
+                        className="player-script-role"
+                        href={getRoleDetailsUrl(item)}
+                        key={item.id}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={`查看${item.name}的详细说明`}
+                        aria-label={`查看${item.name}的详细说明`}
+                      >
                         <span className="player-script-role-icon">
                           <RoleIcon roleId={item.id} size={22} />
                         </span>
@@ -627,7 +637,8 @@ function ClaimedIdentity({
                           <strong>{item.name}</strong>
                           <p>{item.short}</p>
                         </div>
-                      </article>
+                        <ExternalLink className="role-details-icon" size={13} aria-hidden="true" />
+                      </a>
                     ))}
                   </div>
                 </section>
