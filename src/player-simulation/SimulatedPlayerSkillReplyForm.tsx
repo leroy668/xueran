@@ -3,7 +3,9 @@ import {
   ChevronDown,
   LoaderCircle,
   MessageSquareText,
+  Plus,
   Send,
+  Trash2,
   UserRound,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -12,6 +14,7 @@ import { getPlayerVisibleRoleId, getRole, getScriptRoles } from "../data";
 import {
   buildPlayerSkillChoiceMessage,
   parsePlayerSkillChoiceMessage,
+  type PlayerSkillGuess,
 } from "../playerSkillChoices";
 import {
   getPlayerNightMessageDisplayBody,
@@ -23,11 +26,7 @@ import {
   isTriggeredAbilityNotice,
   triggeredAbilityNotices,
 } from "../troubleBrewingSkills";
-import type {
-  NightMessage,
-  PlayerMessage,
-  PublicRoomPlayer,
-} from "../room";
+import type { NightMessage, PlayerMessage, PublicRoomPlayer } from "../room";
 import { formatSeat } from "../seat";
 import type { Phase, Player } from "../types";
 
@@ -68,9 +67,7 @@ function SimulationPlayerPicker({
       <span className="simulation-player-picker-label">{label}</span>
       <button
         className={
-          open
-            ? "simulation-player-current open"
-            : "simulation-player-current"
+          open ? "simulation-player-current open" : "simulation-player-current"
         }
         type="button"
         disabled={disabled}
@@ -204,7 +201,7 @@ export function SimulatedPlayerSkillReplyForm({
     (player) => player.id === requestedPlayerId,
   )
     ? requestedPlayerId
-    : simulationPlayers[0]?.id ?? "";
+    : (simulationPlayers[0]?.id ?? "");
   const selectPlayer = (nextPlayerId: string) => {
     setInternalPlayerId(nextPlayerId);
     onPlayerChange?.(nextPlayerId);
@@ -214,6 +211,7 @@ export function SimulatedPlayerSkillReplyForm({
     players.find((player) => player.id !== players[0]?.id)?.id ?? "",
   );
   const [roleChoiceId, setRoleChoiceId] = useState("");
+  const [jugglerGuesses, setJugglerGuesses] = useState<PlayerSkillGuess[]>([]);
   const [openPlayerPicker, setOpenPlayerPicker] = useState<
     "player" | "first" | "second" | null
   >(null);
@@ -304,22 +302,28 @@ export function SimulatedPlayerSkillReplyForm({
     const playerIds = new Set(targetPlayers.map((player) => player.id));
     const nextFirst = playerIds.has(firstTargetId)
       ? firstTargetId
-      : targetPlayers[0]?.id ?? "";
-    const nextSecond =
-      needsSecondTarget
-        ? playerIds.has(secondTargetId) &&
-          secondTargetId !== nextFirst &&
-          (!needsImpSuccessor || secondTargetId !== playerId)
-          ? secondTargetId
-          : targetPlayers.find(
-              (player) =>
-                player.id !== nextFirst &&
-                (!needsImpSuccessor || player.id !== playerId),
-            )?.id ?? ""
-        : "";
+      : (targetPlayers[0]?.id ?? "");
+    const nextSecond = needsSecondTarget
+      ? playerIds.has(secondTargetId) &&
+        secondTargetId !== nextFirst &&
+        (!needsImpSuccessor || secondTargetId !== playerId)
+        ? secondTargetId
+        : (targetPlayers.find(
+            (player) =>
+              player.id !== nextFirst &&
+              (!needsImpSuccessor || player.id !== playerId),
+          )?.id ?? "")
+      : "";
     if (nextFirst !== firstTargetId) setFirstTargetId(nextFirst);
     if (nextSecond !== secondTargetId) setSecondTargetId(nextSecond);
-  }, [firstTargetId, needsImpSuccessor, needsSecondTarget, playerId, secondTargetId, targetPlayers]);
+  }, [
+    firstTargetId,
+    needsImpSuccessor,
+    needsSecondTarget,
+    playerId,
+    secondTargetId,
+    targetPlayers,
+  ]);
 
   useEffect(() => {
     if (!roleChoices.some((role) => role.id === roleChoiceId)) {
@@ -339,6 +343,7 @@ export function SimulatedPlayerSkillReplyForm({
   const firstNightLocked = Boolean(
     choiceSpec && phase === "夜晚" && round <= 1 && !choiceSpec.allowFirstNight,
   );
+  const firstDayLocked = Boolean(choiceSpec?.firstDayOnly && round !== 1);
   const triggerNotice = selectedRole
     ? triggeredAbilityNotices[
         selectedRole.id as keyof typeof triggeredAbilityNotices
@@ -346,40 +351,41 @@ export function SimulatedPlayerSkillReplyForm({
     : undefined;
   const triggerNoticeReceived = Boolean(
     triggerNotice &&
-      nightMessages.some(
-        (message) =>
-          message.player_id === playerId &&
-          message.round === round &&
-          message.body === triggerNotice,
-      ),
+    nightMessages.some(
+      (message) =>
+        message.player_id === playerId &&
+        message.round === round &&
+        message.body === triggerNotice,
+    ),
   );
   const deathLocked = Boolean(
     choiceSpec?.onlyWhenDead &&
-      selectedGamePlayer?.alive !== false &&
-      !triggerNoticeReceived,
+    selectedGamePlayer?.alive !== false &&
+    !triggerNoticeReceived,
   );
   const hostTriggerLocked = Boolean(triggerNotice && !triggerNoticeReceived);
   const oneUseLocked = Boolean(
     Boolean(choiceSpec?.oneUse) &&
-      playerMessages
-        .filter((message) => message.player_id === playerId)
-        .map((message) => ({
-          message,
-          choice: parsePlayerSkillChoiceMessage(message.body),
-        }))
-        .some(
-          (entry) =>
-            entry.choice?.roleId === selectedRole?.id &&
-            entry.message.round !== round,
-        ),
+    playerMessages
+      .filter((message) => message.player_id === playerId)
+      .map((message) => ({
+        message,
+        choice: parsePlayerSkillChoiceMessage(message.body),
+      }))
+      .some(
+        (entry) =>
+          entry.choice?.roleId === selectedRole?.id &&
+          entry.message.round !== round,
+      ),
   );
   const canSubmitSkillChoice = Boolean(
     choiceSpec &&
-      phaseAllowed &&
-      !firstNightLocked &&
-      !deathLocked &&
-      !hostTriggerLocked &&
-      !oneUseLocked,
+    phaseAllowed &&
+    !firstNightLocked &&
+    !firstDayLocked &&
+    !deathLocked &&
+    !hostTriggerLocked &&
+    !oneUseLocked,
   );
   const unavailableText = !choiceSpec
     ? "无需玩家选择，等待上帝发送技能结果"
@@ -389,15 +395,17 @@ export function SimulatedPlayerSkillReplyForm({
         : "请切换到白天阶段测试"
       : firstNightLocked
         ? "首夜不能发动，进入第一晚后即可测试"
-      : deathLocked
-          ? "需要先在魔典中将该玩家标记为死亡"
-          : hostTriggerLocked
-            ? selectedRole?.id === "godfather"
-              ? "需要上帝先确认今天有外来者死亡并通知教父"
-              : "需要上帝先发送死亡通知"
-            : oneUseLocked
-              ? "本局能力已经使用"
-              : "";
+        : firstDayLocked
+          ? "杂耍猜测仅可在首日提交"
+          : deathLocked
+            ? "需要先在魔典中将该玩家标记为死亡"
+            : hostTriggerLocked
+              ? selectedRole?.id === "godfather"
+                ? "需要上帝先确认今天有外来者死亡并通知教父"
+                : "需要上帝先发送死亡通知"
+              : oneUseLocked
+                ? "本局能力已经使用"
+                : "";
   const receivedSkillMessages = nightMessages
     .filter(
       (message) =>
@@ -412,31 +420,57 @@ export function SimulatedPlayerSkillReplyForm({
     );
   const latestSubmittedChoice = playerMessages
     .filter(
-      (message) =>
-        message.player_id === playerId && message.round === round,
+      (message) => message.player_id === playerId && message.round === round,
     )
     .map((message) => ({
       message,
       choice: parsePlayerSkillChoiceMessage(message.body),
     }))
-    .filter(
-      (entry) => entry.choice?.roleId === selectedRole?.id,
-    )
+    .filter((entry) => entry.choice?.roleId === selectedRole?.id)
     .sort(
       (left, right) =>
         new Date(right.message.created_at).getTime() -
         new Date(left.message.created_at).getTime(),
     )[0]?.choice;
 
+  const jugglerSavedSignature =
+    latestSubmittedChoice?.guesses === undefined
+      ? ""
+      : JSON.stringify(latestSubmittedChoice.guesses);
+
+  useEffect(() => {
+    if (selectedRole?.id !== "juggler") return;
+    if (jugglerSavedSignature) {
+      setJugglerGuesses(
+        JSON.parse(jugglerSavedSignature) as PlayerSkillGuess[],
+      );
+      return;
+    }
+    setJugglerGuesses(
+      players[0] && roleChoices[0]
+        ? [{ playerId: players[0].id, roleId: roleChoices[0].id }]
+        : [],
+    );
+  }, [jugglerSavedSignature, playerId, players, roleChoices, selectedRole?.id]);
   const submit = async () => {
-    const needsTarget = choiceSpec?.kind !== "role";
+    const isJuggler = choiceSpec?.kind === "juggler";
+    const needsTarget = choiceSpec?.kind !== "role" && !isJuggler;
     const needsRole =
       choiceSpec?.kind === "role" || choiceSpec?.kind === "single-role";
-    const playerIds = needsSecondTarget
-      ? [firstTargetId, secondTargetId]
-      : needsTarget
-        ? [firstTargetId]
-        : [];
+    const validJugglerGuesses = jugglerGuesses
+      .filter(
+        (guess) =>
+          players.some((player) => player.id === guess.playerId) &&
+          roleChoices.some((role) => role.id === guess.roleId),
+      )
+      .slice(0, 5);
+    const playerIds = isJuggler
+      ? validJugglerGuesses.map((guess) => guess.playerId)
+      : needsSecondTarget
+        ? [firstTargetId, secondTargetId]
+        : needsTarget
+          ? [firstTargetId]
+          : [];
     if (
       !canSubmitSkillChoice ||
       !choiceSpec ||
@@ -461,14 +495,25 @@ export function SimulatedPlayerSkillReplyForm({
           roleId: selectedRole.id,
           playerIds,
           roleIdChoice: needsRole ? roleChoiceId : undefined,
-          summary: `${choiceSpec.summaryPrefix}：${[
-            ...(needsImpSuccessor
-              ? [`${getSeatLabel(firstTargetId)}（自杀）`, `传给${getSeatLabel(secondTargetId)}`]
-              : playerIds.map(getSeatLabel)),
-            ...(needsRole
-              ? [getRole(roleChoiceId).name]
-              : []),
-          ].join(" · ")}`,
+          guesses: isJuggler ? validJugglerGuesses : undefined,
+          summary: isJuggler
+            ? validJugglerGuesses.length
+              ? `杂耍猜测（${validJugglerGuesses.length}项）：${validJugglerGuesses
+                  .map(
+                    (guess, index) =>
+                      `${index + 1}. ${getSeatLabel(guess.playerId)}是${getRole(guess.roleId).name}`,
+                  )
+                  .join("；")}`
+              : "杂耍猜测：本日不做猜测"
+            : `${choiceSpec.summaryPrefix}：${[
+                ...(needsImpSuccessor
+                  ? [
+                      `${getSeatLabel(firstTargetId)}（自杀）`,
+                      `传给${getSeatLabel(secondTargetId)}`,
+                    ]
+                  : playerIds.map(getSeatLabel)),
+                ...(needsRole ? [getRole(roleChoiceId).name] : []),
+              ].join(" · ")}`,
         }),
       );
     } catch (reason) {
@@ -519,10 +564,7 @@ export function SimulatedPlayerSkillReplyForm({
           ) : null}
           <div className="simulation-skill-summary">
             <span>
-              <RoleIcon
-                roleId={selectedRole?.id ?? "washerwoman"}
-                size={18}
-              />
+              <RoleIcon roleId={selectedRole?.id ?? "washerwoman"} size={18} />
             </span>
             <div>
               <strong>
@@ -546,14 +588,121 @@ export function SimulatedPlayerSkillReplyForm({
           </div>
           {canSubmitSkillChoice ? (
             <div className="simulation-skill-targets">
-              {choiceSpec?.kind !== "role" ? (
+              {choiceSpec?.kind === "juggler" ? (
+                <div className="simulation-juggler-editor">
+                  <div className="simulation-juggler-toolbar">
+                    <span>
+                      已填写 <strong>{jugglerGuesses.length}</strong> / 5 项
+                    </span>
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      disabled={
+                        busy ||
+                        sending ||
+                        jugglerGuesses.length >= 5 ||
+                        !players.length ||
+                        !roleChoices.length
+                      }
+                      onClick={() =>
+                        setJugglerGuesses((current) => [
+                          ...current,
+                          {
+                            playerId:
+                              players.find(
+                                (player) =>
+                                  !current.some(
+                                    (guess) => guess.playerId === player.id,
+                                  ),
+                              )?.id ?? players[0].id,
+                            roleId: roleChoices[0].id,
+                          },
+                        ])
+                      }
+                    >
+                      <Plus size={13} />
+                      添加
+                    </button>
+                  </div>
+                  {jugglerGuesses.length ? (
+                    <div className="simulation-juggler-list">
+                      {jugglerGuesses.map((guess, index) => (
+                        <div
+                          className="simulation-juggler-row"
+                          key={`${guess.playerId}-${guess.roleId}-${index}`}
+                        >
+                          <span>{index + 1}</span>
+                          <CompactSelect
+                            value={guess.playerId}
+                            disabled={busy || sending}
+                            ariaLabel={`模拟杂耍第${index + 1}项玩家`}
+                            onValueChange={(nextPlayerId) =>
+                              setJugglerGuesses((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, playerId: nextPlayerId }
+                                    : item,
+                                ),
+                              )
+                            }
+                          >
+                            {players.map((player) => (
+                              <option value={player.id} key={player.id}>
+                                {formatSeat(player.seat)} ·{" "}
+                                {player.name || "玩家"}
+                              </option>
+                            ))}
+                          </CompactSelect>
+                          <em>是</em>
+                          <CompactSelect
+                            value={guess.roleId}
+                            disabled={busy || sending}
+                            ariaLabel={`模拟杂耍第${index + 1}项角色`}
+                            onValueChange={(nextRoleId) =>
+                              setJugglerGuesses((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, roleId: nextRoleId }
+                                    : item,
+                                ),
+                              )
+                            }
+                          >
+                            {roleChoices.map((role) => (
+                              <option value={role.id} key={role.id}>
+                                {role.name} · {role.team}
+                              </option>
+                            ))}
+                          </CompactSelect>
+                          <button
+                            className="simulation-juggler-remove"
+                            type="button"
+                            aria-label={`删除模拟杂耍第${index + 1}项`}
+                            disabled={busy || sending}
+                            onClick={() =>
+                              setJugglerGuesses((current) =>
+                                current.filter(
+                                  (_item, itemIndex) => itemIndex !== index,
+                                ),
+                              )
+                            }
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>当前将提交“本日不做猜测”。</p>
+                  )}
+                </div>
+              ) : null}
+              {choiceSpec?.kind !== "role" && choiceSpec?.kind !== "juggler" ? (
                 <SimulationPlayerPicker
                   label={choiceSpec?.kind === "pair" ? "第一目标" : "技能目标"}
                   value={firstTargetId}
                   options={targetPlayerOptions}
-                  disabledIds={
-                    needsSecondTarget ? [secondTargetId] : []
-                  }
+                  disabledIds={needsSecondTarget ? [secondTargetId] : []}
                   disabled={busy || sending}
                   open={openPlayerPicker === "first"}
                   onToggle={() =>
@@ -572,7 +721,11 @@ export function SimulatedPlayerSkillReplyForm({
                   label={needsImpSuccessor ? "恶魔继承玩家" : "第二目标"}
                   value={secondTargetId}
                   options={targetPlayerOptions}
-                  disabledIds={needsImpSuccessor ? [firstTargetId, playerId] : [firstTargetId]}
+                  disabledIds={
+                    needsImpSuccessor
+                      ? [firstTargetId, playerId]
+                      : [firstTargetId]
+                  }
                   disabled={busy || sending}
                   open={openPlayerPicker === "second"}
                   onToggle={() =>
@@ -607,7 +760,9 @@ export function SimulatedPlayerSkillReplyForm({
                 disabled={
                   busy ||
                   sending ||
-                  (choiceSpec?.kind !== "role" && !firstTargetId) ||
+                  (choiceSpec?.kind !== "role" &&
+                    choiceSpec?.kind !== "juggler" &&
+                    !firstTargetId) ||
                   ((choiceSpec?.kind === "role" ||
                     choiceSpec?.kind === "single-role") &&
                     !roleChoiceId) ||
@@ -627,7 +782,9 @@ export function SimulatedPlayerSkillReplyForm({
                 {sending
                   ? "提交中"
                   : latestSubmittedChoice
-                    ? "更新目标"
+                    ? choiceSpec?.kind === "juggler"
+                      ? "更新全部猜测"
+                      : "更新目标"
                     : choiceSpec?.submitLabel}
               </button>
               {latestSubmittedChoice ? (

@@ -3246,6 +3246,29 @@ function NightPanel({
           new Date(left.message.created_at).getTime(),
       )[0]?.choice ?? null;
   }, [currentRole, playerMessages, state.phase, state.round, targetPlayerId]);
+  const jugglerGuessRows = useMemo(() => {
+    if (currentRole?.id !== "juggler") return [];
+    return (latestPlayerSkillChoice?.guesses ?? []).map((guess) => {
+      const target = state.players.find(
+        (player) => player.id === guess.playerId,
+      );
+      const guessedRole = getRole(guess.roleId);
+      const actualRole = getRole(target?.roleId ?? "");
+      return {
+        target,
+        guessedRole,
+        actualRole,
+        correct: Boolean(target && target.roleId === guess.roleId),
+      };
+    });
+  }, [currentRole?.id, latestPlayerSkillChoice?.guesses, state.players]);
+  const hasJugglerSubmission = Boolean(
+    currentRole?.id === "juggler" &&
+      latestPlayerSkillChoice?.guesses !== undefined,
+  );
+  const calculatedJugglerResult = jugglerGuessRows.filter(
+    (guess) => guess.correct,
+  ).length;
   const ravenkeeperDeathNotified = nightMessages.some(
     (message) =>
       message.player_id === targetPlayerId &&
@@ -4254,6 +4277,61 @@ function NightPanel({
     );
   };
 
+  const sendJugglerResult = async (count: number) => {
+    if (!hasJugglerSubmission) {
+      if (
+        !window.confirm(
+          "玩家尚未通过系统提交首日猜测，无法自动核对。确认按上帝线下记录发送该数字？",
+        )
+      ) {
+        return;
+      }
+      void submitSkill(`你在首日的公开猜测中猜对了 ${count} 个`);
+      return;
+    }
+    const registrationRows = jugglerGuessRows.filter(
+      (guess) =>
+        guess.target && ["recluse", "spy"].includes(guess.target.roleId),
+    );
+    const detail = jugglerGuessRows.length
+      ? jugglerGuessRows
+          .map(
+            (guess, index) =>
+              `${index + 1}. ${
+                guess.target ? formatSeat(guess.target.seat) : "未知座位"
+              }猜${guess.guessedRole.name}，实际为${
+                guess.actualRole.name
+              }（${guess.correct ? "正确" : "错误"}）`,
+          )
+          .join("；")
+      : "玩家提交了 0 项猜测";
+    if (
+      !(await confirmSkillResult({
+        title: "确认发送杂耍艺人结果？",
+        sendLines: [
+          `玩家共提交 ${jugglerGuessRows.length} 项猜测`,
+          `发送结果：猜对 ${count} 个`,
+        ],
+        sentMatchesBaseline: count === calculatedJugglerResult,
+        baseline: `${detail}；按真实身份计算共猜对 ${calculatedJugglerResult} 个`,
+        caveats: registrationRows.length
+          ? [
+              `${registrationRows
+                .map(
+                  (guess) =>
+                    `${formatSeat(guess.target?.seat)} ${
+                      guess.actualRole.name
+                    }`,
+                )
+                .join("、")}可能登记为其他角色`,
+            ]
+          : [],
+      }))
+    ) {
+      return;
+    }
+    void submitSkill(`你在首日的公开猜测中猜对了 ${count} 个`);
+  };
   const sendOracleResult = async (count: number) => {
     const registrationRoles = state.players.filter(
       (player) => !player.alive && ["recluse", "spy"].includes(player.roleId),
@@ -4894,9 +4972,88 @@ function NightPanel({
                 </div>
               ) : null}
               {currentRole.id === "juggler" ? (
-                <div className="night-skill-panel compact">
-                  <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><ScrollText size={14} />杂耍结算</span><small>发送首日公开猜测的正确数量</small></div></div>
-                  <div className="night-skill-result-grid">{[0,1,2,3,4,5].map((count) => <button className="secondary-button" key={count} disabled={!canUseSkill} onClick={() => void submitSkill(`你在首日的公开猜测中猜对了 ${count} 个`)}>{count}<small>个正确</small></button>)}</div>
+                <div className="night-skill-panel juggler-host-panel">
+                  <div className="night-skill-panel-heading">
+                    <div className="night-skill-heading-title">
+                      <span>
+                        <ScrollText size={14} />
+                        杂耍结算
+                      </span>
+                      <small>自动核对玩家首日提交的全部公开猜测</small>
+                    </div>
+                  </div>
+                  <div
+                    className={
+                      hasJugglerSubmission
+                        ? "night-player-choice"
+                        : "night-player-choice waiting"
+                    }
+                  >
+                    <Target size={14} />
+                    <span>
+                      {hasJugglerSubmission
+                        ? latestPlayerSkillChoice?.summary
+                        : "玩家尚未通过系统提交；仍可按线下公开猜测手动发送"}
+                    </span>
+                  </div>
+                  {hasJugglerSubmission ? (
+                    <>
+                      <div className="juggler-host-guesses">
+                        {jugglerGuessRows.length ? (
+                          jugglerGuessRows.map((guess, index) => (
+                            <article
+                              className={guess.correct ? "correct" : "incorrect"}
+                              key={`${guess.target?.id ?? "missing"}-${guess.guessedRole.id}-${index}`}
+                            >
+                              <span>{index + 1}</span>
+                              <div>
+                                <strong>
+                                  {guess.target
+                                    ? getNightPublicPlayerLabel(guess.target.id)
+                                    : "未知玩家"}
+                                  <em>猜 {guess.guessedRole.name}</em>
+                                </strong>
+                                <small>实际身份：{guess.actualRole.name}</small>
+                              </div>
+                              <b>{guess.correct ? "正确" : "错误"}</b>
+                            </article>
+                          ))
+                        ) : (
+                          <p>玩家提交了 0 项猜测。</p>
+                        )}
+                      </div>
+                      <div className="juggler-auto-result">
+                        <Check size={15} />
+                        <span>
+                          自动计算：共猜对
+                          <strong>{calculatedJugglerResult}</strong>个
+                        </span>
+                      </div>
+                    </>
+                  ) : null}
+                  <div className="night-skill-result-grid juggler-results">
+                    {[0, 1, 2, 3, 4, 5].map((count) => (
+                      <button
+                        className={`secondary-button ${
+                          hasJugglerSubmission &&
+                          count === calculatedJugglerResult
+                            ? "active recommended"
+                            : ""
+                        }`}
+                        key={count}
+                        disabled={!canUseSkill}
+                        onClick={() => void sendJugglerResult(count)}
+                      >
+                        {count}
+                        <small>
+                          {hasJugglerSubmission &&
+                          count === calculatedJugglerResult
+                            ? "自动结果"
+                            : "个正确"}
+                        </small>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ) : null}
               {currentRole.id === "oracle" ? (

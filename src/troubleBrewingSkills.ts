@@ -3,7 +3,7 @@ import type { Team } from "./types";
 export type SkillPhase = "首夜" | "夜晚" | "白天" | "被动" | "设置";
 
 export type PlayerChoiceSpec = {
-  kind: "single" | "pair" | "role" | "single-role";
+  kind: "single" | "pair" | "role" | "single-role" | "juggler";
   title: string;
   help: string;
   submitLabel: string;
@@ -14,6 +14,7 @@ export type PlayerChoiceSpec = {
   aliveOnly: boolean;
   onlyWhenDead?: boolean;
   oneUse?: boolean;
+  firstDayOnly?: boolean;
   roleTeams?: Team[];
   roleLabel?: string;
 };
@@ -102,7 +103,13 @@ const skills: TroubleBrewingSkill[] = [
     roleId: "philosopher", phase: "夜晚", interaction: "玩家每局一次选择一个善良角色并获得其能力", hostHint: "若该角色在场，该角色醉酒；随后按获得的能力处理。",
     playerChoice: { kind: "role", title: "哲学家选角", help: "每局一次，选择要获得能力的善良角色", submitLabel: "提交角色", summaryPrefix: "哲学家选择", phase: "night", allowFirstNight: true, excludeSelf: false, aliveOnly: false, oneUse: true, roleTeams: ["镇民", "外来者"], roleLabel: "获得能力" },
   },
-  { roleId: "juggler", phase: "夜晚", interaction: "上帝记录首日公开猜测，并在第一晚发送猜对数量", hostHint: "只在首日后的夜晚结算，结果为 0 至 5。" },
+  {
+    roleId: "juggler",
+    phase: "夜晚",
+    interaction: "玩家在首日提交至多五组玩家与角色猜测，上帝在当晚自动核对并发送猜对数量",
+    hostHint: "系统按真实角色自动计算基准；中毒、醉酒或角色错误登记时仍可改发其他数字。",
+    playerChoice: { kind: "juggler", title: "首日杂耍猜测", help: "添加至多五组“玩家 + 角色”公开猜测，首日结束前可以更新", submitLabel: "提交全部猜测", summaryPrefix: "杂耍猜测", phase: "day", allowFirstNight: false, excludeSelf: false, aliveOnly: false, oneUse: true, firstDayOnly: true },
+  },
   { roleId: "oracle", phase: "夜晚", interaction: "上帝统计死亡玩家中的邪恶人数并发送结果", hostHint: "陌客可能被视为邪恶；中毒或醉酒时可发送错误信息。" },
   {
     roleId: "nightwatchman", phase: "夜晚", interaction: "玩家每局一次选择一名其他玩家，上帝向目标确认守夜人身份", hostHint: "需要同时给守夜人发送确认，并向目标玩家发送身份通知。",

@@ -8,10 +8,12 @@ import {
   MessageSquareText,
   MessagesSquare,
   MoonStar,
+  Plus,
   RefreshCw,
   ScrollText,
   Send,
   ShieldCheck,
+  Trash2,
   UserRoundCheck,
   Users,
 } from "lucide-react";
@@ -59,6 +61,7 @@ import {
   buildPlayerSkillChoiceMessage,
   getPlayerMessageDisplayBody,
   parsePlayerSkillChoiceMessage,
+  type PlayerSkillGuess,
 } from "./playerSkillChoices";
 import {
   getPlayerNightMessageDisplayBody,
@@ -971,6 +974,20 @@ function PlayerRoleSkillPanel({
 }) {
   const skill = getTroubleBrewingSkill(roleId);
   if (!skill?.playerChoice) return null;
+  if (skill.playerChoice.kind === "juggler") {
+    return (
+      <PlayerJugglerSkillPanel
+        roleId={roleId}
+        roleOptions={roleOptions}
+        round={round}
+        phase={phase}
+        players={players}
+        messages={messages}
+        spec={skill.playerChoice}
+        onSend={onSend}
+      />
+    );
+  }
   return (
     <PlayerSkillChoicePanel
       roleId={roleId}
@@ -987,6 +1004,284 @@ function PlayerRoleSkillPanel({
   );
 }
 
+type JugglerDraftGuess = PlayerSkillGuess & { key: number };
+
+function PlayerJugglerSkillPanel({
+  roleId,
+  roleOptions,
+  round,
+  phase,
+  players,
+  messages,
+  spec,
+  onSend,
+}: {
+  roleId: string;
+  roleOptions: ReturnType<typeof getScriptRoles>;
+  round: number;
+  phase: "白天" | "夜晚";
+  players: PublicRoomPlayer[];
+  messages: PlayerMessage[];
+  spec: PlayerChoiceSpec;
+  onSend: (body: string) => Promise<void>;
+}) {
+  const nextGuessKey = useRef(1);
+  const roleChoices = messages
+    .map((message) => ({
+      message,
+      choice: parsePlayerSkillChoiceMessage(message.body),
+    }))
+    .filter(
+      (entry): entry is {
+        message: PlayerMessage;
+        choice: NonNullable<ReturnType<typeof parsePlayerSkillChoiceMessage>>;
+      } => entry.choice?.roleId === roleId,
+    )
+    .sort(
+      (left, right) =>
+        new Date(right.message.created_at).getTime() -
+        new Date(left.message.created_at).getTime(),
+    );
+  const latestChoice = roleChoices.find(
+    (entry) => entry.message.round === round,
+  )?.choice;
+  const submittedChoice = latestChoice ?? roleChoices[0]?.choice;
+  const [guesses, setGuesses] = useState<JugglerDraftGuess[]>(() => {
+    const saved = latestChoice?.guesses ?? [];
+    if (saved.length) {
+      return saved.map((guess) => ({
+        ...guess,
+        key: nextGuessKey.current++,
+      }));
+    }
+    return players[0] && roleOptions[0]
+      ? [{
+          key: nextGuessKey.current++,
+          playerId: players[0].id,
+          roleId: roleOptions[0].id,
+        }]
+      : [];
+  });
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const savedGuessSignature =
+    latestChoice?.guesses === undefined
+      ? ""
+      : JSON.stringify(latestChoice.guesses);
+
+  useEffect(() => {
+    if (!savedGuessSignature) return;
+    const saved = JSON.parse(savedGuessSignature) as PlayerSkillGuess[];
+    setGuesses(
+      saved.map((guess) => ({
+        ...guess,
+        key: nextGuessKey.current++,
+      })),
+    );
+  }, [savedGuessSignature]);
+
+  const firstDayLocked = Boolean(spec.firstDayOnly && round !== 1);
+  const phaseAllowed = phase === "白天";
+  const oneUseLocked = Boolean(
+    spec.oneUse && roleChoices.some((entry) => entry.message.round !== round),
+  );
+  const available = phaseAllowed && !firstDayLocked && !oneUseLocked;
+  const addGuess = () => {
+    if (guesses.length >= 5 || !players.length || !roleOptions.length) return;
+    const usedPlayerIds = new Set(guesses.map((guess) => guess.playerId));
+    const playerId =
+      players.find((player) => !usedPlayerIds.has(player.id))?.id ??
+      players[0].id;
+    setGuesses((current) => [
+      ...current,
+      {
+        key: nextGuessKey.current++,
+        playerId,
+        roleId: roleOptions[0].id,
+      },
+    ]);
+  };
+  const updateGuess = (key: number, patch: Partial<PlayerSkillGuess>) => {
+    setGuesses((current) =>
+      current.map((guess) =>
+        guess.key === key ? { ...guess, ...patch } : guess,
+      ),
+    );
+  };
+  const getPlayerLabel = (playerId: string) => {
+    const player = players.find((item) => item.id === playerId);
+    return player
+      ? `${formatSeat(player.seat)} ${player.name || "玩家"}`
+      : "未知座位";
+  };
+  const submitGuesses = async () => {
+    if (!available || sending) return;
+    const validGuesses = guesses
+      .filter(
+        (guess) =>
+          players.some((player) => player.id === guess.playerId) &&
+          roleOptions.some((role) => role.id === guess.roleId),
+      )
+      .slice(0, 5)
+      .map(({ playerId, roleId: guessedRoleId }) => ({
+        playerId,
+        roleId: guessedRoleId,
+      }));
+    const detail = validGuesses.map(
+      (guess, index) =>
+        `${index + 1}. ${getPlayerLabel(guess.playerId)}是${getRole(guess.roleId).name}`,
+    );
+    const summary = detail.length
+      ? `杂耍猜测（${detail.length}项）：${detail.join("；")}`
+      : "杂耍猜测：本日不做猜测";
+    if (
+      !window.confirm(
+        `确认提交以下首日公开猜测？\n\n${
+          detail.join("\n") || "本日不做猜测"
+        }`,
+      )
+    ) {
+      return;
+    }
+    setSending(true);
+    setSendError("");
+    try {
+      await onSend(
+        buildPlayerSkillChoiceMessage({
+          roleId,
+          playerIds: validGuesses.map((guess) => guess.playerId),
+          guesses: validGuesses,
+          summary,
+        }),
+      );
+    } catch {
+      setSendError("杂耍猜测发送失败，请稍后重试");
+    } finally {
+      setSending(false);
+    }
+  };
+  const unavailableText = !phaseAllowed
+    ? "请在白天阶段提交首日公开猜测"
+    : firstDayLocked
+      ? "杂耍猜测仅可在首日提交"
+      : oneUseLocked
+        ? "首日猜测已经结束"
+        : "";
+
+  return (
+    <section
+      className={(
+        "player-skill-action player-juggler-skill " +
+        (available ? "" : "is-locked")
+      ).trim()}
+    >
+      <div className="player-skill-action-heading">
+        <span className="player-skill-action-icon">
+          <RoleIcon roleId={roleId} size={21} />
+        </span>
+        <div>
+          <strong>{spec.title}</strong>
+          <small>{spec.help}</small>
+        </div>
+        {submittedChoice ? (
+          <span className="player-skill-submitted">已提交</span>
+        ) : null}
+      </div>
+      {available ? (
+        <>
+          <div className="player-juggler-toolbar">
+            <span>
+              已填写 <strong>{guesses.length}</strong> / 5 项
+            </span>
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={sending || guesses.length >= 5}
+              onClick={addGuess}
+            >
+              <Plus size={14} />
+              添加猜测
+            </button>
+          </div>
+          {guesses.length ? (
+            <div className="player-juggler-list">
+              {guesses.map((guess, index) => (
+                <div className="player-juggler-row" key={guess.key}>
+                  <span>{index + 1}</span>
+                  <CompactSelect
+                    value={guess.playerId}
+                    disabled={sending}
+                    ariaLabel={`第${index + 1}项猜测玩家`}
+                    onValueChange={(playerId) =>
+                      updateGuess(guess.key, { playerId })
+                    }
+                  >
+                    {players.map((player) => (
+                      <option value={player.id} key={player.id}>
+                        {formatSeat(player.seat)} · {player.name || "玩家"}
+                      </option>
+                    ))}
+                  </CompactSelect>
+                  <em>是</em>
+                  <CompactSelect
+                    value={guess.roleId}
+                    disabled={sending}
+                    ariaLabel={`第${index + 1}项猜测角色`}
+                    onValueChange={(nextRoleId) =>
+                      updateGuess(guess.key, { roleId: nextRoleId })
+                    }
+                  >
+                    {roleOptions.map((role) => (
+                      <option value={role.id} key={role.id}>
+                        {role.name} · {role.team}
+                      </option>
+                    ))}
+                  </CompactSelect>
+                  <button
+                    className="player-juggler-remove"
+                    type="button"
+                    aria-label={`删除第${index + 1}项猜测`}
+                    disabled={sending}
+                    onClick={() =>
+                      setGuesses((current) =>
+                        current.filter((item) => item.key !== guess.key),
+                      )
+                    }
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="player-juggler-empty">
+              当前没有猜测；可以直接提交“本日不做猜测”，或添加一项。
+            </p>
+          )}
+          <button
+            className="primary-button player-juggler-submit"
+            type="button"
+            disabled={sending}
+            onClick={() => void submitGuesses()}
+          >
+            <Send size={15} />
+            {sending
+              ? "提交中"
+              : latestChoice
+                ? "更新全部猜测"
+                : spec.submitLabel}
+          </button>
+        </>
+      ) : (
+        <p className="player-skill-locked-note">{unavailableText}</p>
+      )}
+      {submittedChoice ? (
+        <p className="player-skill-latest">{submittedChoice.summary}</p>
+      ) : null}
+      {sendError ? <div className="inline-error">{sendError}</div> : null}
+    </section>
+  );
+}
 function PlayerSkillChoicePanel({
   roleId,
   roleOptions,

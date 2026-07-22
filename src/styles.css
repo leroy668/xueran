@@ -144,6 +144,18 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-disguise-warning { margin: 8px 0 0; padding: 8px 10px; display: flex; align-items: flex-start; gap: 7px; border-left: 2px solid var(--red); background: rgba(215,97,86,.08); color: #e4b5ae; font-size: 9px; line-height: 1.5; }
 .night-disguise-warning svg { flex: 0 0 auto; margin-top: 1px; }
 .simulation-skill-targets { margin-top: 6px; display: grid; gap: 6px; }
+.simulation-juggler-editor { min-width: 0; display: grid; gap: 6px; }
+.simulation-juggler-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 7px; color: var(--muted); font-size: 8px; }
+.simulation-juggler-toolbar strong { color: var(--gold); font-size: 11px; }
+.simulation-juggler-toolbar .secondary-button { min-height: 27px; padding: 0 8px; font-size: 8px; }
+.simulation-juggler-list { display: grid; gap: 5px; }
+.simulation-juggler-row { min-width: 0; display: grid; grid-template-columns: 19px minmax(0, 1fr) 15px minmax(0, 1fr) 27px; align-items: center; gap: 4px; }
+.simulation-juggler-row > span { height: 32px; display: grid; place-items: center; background: #111113; color: var(--gold); font-size: 8px; }
+.simulation-juggler-row > em { color: var(--dim); font-size: 8px; font-style: normal; text-align: center; }
+.simulation-juggler-row .compact-select { min-width: 0; }
+.simulation-juggler-row .compact-select-trigger { min-height: 32px; background: #111113; }
+.simulation-juggler-remove { width: 27px; height: 32px; padding: 0; display: grid; place-items: center; border: 1px solid rgba(215,97,86,.3); background: rgba(215,97,86,.06); color: #d7857e; }
+.simulation-juggler-editor > p { margin: 0; padding: 7px; border: 1px dashed var(--line); color: var(--dim); font-size: 8px; }
 .simulation-skill-targets .primary-button { width: 100%; min-height: 32px; font-size: 10px; }
 .simulation-skill-submitted { margin: 0; padding: 6px 8px; border-left: 2px solid var(--green); background: rgba(121,181,138,.08); color: #a8cfaa; font-size: 9px; line-height: 1.4; }
 .simulation-skill-error { margin: 0; padding: 6px 8px; border-left: 2px solid var(--red); background: rgba(215,97,86,.08); color: #e8aaa4; font-size: 9px; line-height: 1.4; }
@@ -453,6 +465,22 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-player-choice { min-height: 32px; margin-bottom: 8px; padding: 6px 8px; display: flex; align-items: center; gap: 7px; border: 1px solid rgba(121,181,138,.34); background: rgba(121,181,138,.08); color: #a8cfaa; font-size: 9px; line-height: 1.45; }
 .night-player-choice svg { flex: 0 0 auto; }
 .night-player-choice.waiting { border-color: var(--line); background: #18181b; color: var(--muted); }
+.juggler-host-guesses { margin: 0 0 8px; display: grid; gap: 5px; }
+.juggler-host-guesses article { min-height: 42px; padding: 6px 8px; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 7px; border: 1px solid var(--line); background: #151517; }
+.juggler-host-guesses article > span { width: 22px; height: 22px; display: grid; place-items: center; background: #222226; color: var(--muted); font-size: 8px; font-weight: 800; }
+.juggler-host-guesses article > div { min-width: 0; }
+.juggler-host-guesses article strong, .juggler-host-guesses article small { display: block; }
+.juggler-host-guesses article strong { color: var(--ink); font-size: 9px; }
+.juggler-host-guesses article strong em { margin-left: 6px; color: var(--blue); font-style: normal; }
+.juggler-host-guesses article small { margin-top: 2px; color: var(--dim); font-size: 8px; }
+.juggler-host-guesses article > b { padding: 3px 6px; border: 1px solid currentColor; font-size: 8px; }
+.juggler-host-guesses article.correct > b { color: #a8cfaa; }
+.juggler-host-guesses article.incorrect > b { color: #e98e87; }
+.juggler-host-guesses > p { margin: 0; padding: 9px; background: #151517; color: var(--muted); font-size: 9px; }
+.juggler-auto-result { min-height: 34px; margin-bottom: 8px; padding: 6px 9px; display: flex; align-items: center; gap: 7px; border: 1px solid rgba(121,181,138,.4); background: rgba(121,181,138,.1); color: #a8cfaa; font-size: 9px; }
+.juggler-auto-result strong { margin: 0 3px; color: #d8efda; font-size: 15px; }
+.night-skill-result-grid.juggler-results { grid-template-columns: repeat(6, minmax(48px, 1fr)); }
+.night-skill-result-grid .recommended { border-color: rgba(121,181,138,.72); background: rgba(121,181,138,.16); color: #d8efda; box-shadow: inset 0 -2px #79b58a; }
 .night-ravenkeeper-notify { width: 100%; min-height: 36px; margin-bottom: 8px; justify-content: center; border-color: rgba(215,97,86,.42); color: #e8aaa4; }
 .night-skill-preset { margin-bottom: 9px; padding: 9px; border: 1px solid var(--line); background: #151517; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .night-skill-preset > span { color: var(--muted); font-size: 9px; font-weight: 700; white-space: nowrap; }
@@ -914,6 +942,20 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .player-skill-targets button { min-width: 98px; min-height: 38px; padding: 0 10px; font-size: 10px; }
 .player-skill-latest { margin: 7px 0 0; color: var(--blue); font-size: 9px; line-height: 1.45; }
 .player-skill-locked-note { margin: 8px 0 0 43px; color: var(--dim); font-size: 9px; line-height: 1.4; }
+.player-juggler-toolbar { margin-top: 9px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.player-juggler-toolbar > span { color: var(--muted); font-size: 9px; }
+.player-juggler-toolbar > span strong { color: var(--gold); font-size: 12px; }
+.player-juggler-toolbar .secondary-button { min-height: 30px; padding: 0 9px; font-size: 9px; }
+.player-juggler-list { margin-top: 7px; display: grid; gap: 5px; }
+.player-juggler-row { min-width: 0; display: grid; grid-template-columns: 22px minmax(0, 1fr) 18px minmax(0, 1fr) 30px; align-items: center; gap: 5px; }
+.player-juggler-row > span { width: 22px; height: 36px; display: grid; place-items: center; border: 1px solid var(--line); background: #111113; color: var(--gold); font-size: 9px; font-weight: 800; }
+.player-juggler-row > em { color: var(--dim); font-size: 9px; font-style: normal; text-align: center; }
+.player-juggler-row .compact-select { min-width: 0; }
+.player-juggler-row .compact-select-trigger { min-height: 36px; background: #111113; }
+.player-juggler-remove { width: 30px; height: 36px; padding: 0; display: grid; place-items: center; border: 1px solid rgba(215,97,86,.3); background: rgba(215,97,86,.06); color: #d7857e; }
+.player-juggler-remove:hover:not(:disabled) { border-color: rgba(215,97,86,.65); background: rgba(215,97,86,.13); }
+.player-juggler-empty { margin: 8px 0 0; padding: 9px; border: 1px dashed var(--line); color: var(--dim); font-size: 9px; line-height: 1.45; }
+.player-juggler-submit { width: 100%; min-height: 38px; margin-top: 8px; }
 .player-skill-action .inline-error { margin-top: 7px; }
 .player-chat-composer { position: sticky; z-index: 2; bottom: 0; flex: 0 0 auto; padding: 11px 13px 8px; border-top: 1px solid var(--line); background: #1b1b1e; }
 .player-chat-composer-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 9px; }
@@ -1147,6 +1189,8 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .night-skill-result-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .night-skill-result-grid .secondary-button { min-height: 38px; padding: 3px; font-size: 13px; }
   .night-skill-result-grid.fortune-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .night-skill-result-grid.juggler-results { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .player-juggler-row, .simulation-juggler-row { grid-template-columns: 22px minmax(0, 1fr) 18px minmax(0, 1fr) 30px; gap: 4px; }
   .night-skill-preset { align-items: stretch; flex-direction: column; gap: 7px; }
   .night-skill-segments { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .night-skill-segments .secondary-button { min-width: 0; padding: 0 5px; }

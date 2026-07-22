@@ -1,10 +1,16 @@
 const playerSkillChoicePrefix = "【技能选择】";
 
+export type PlayerSkillGuess = {
+  playerId: string;
+  roleId: string;
+};
+
 export type PlayerSkillChoice = {
   version: 1;
   roleId: string;
   playerIds: string[];
   roleIdChoice?: string;
+  guesses?: PlayerSkillGuess[];
   summary: string;
 };
 
@@ -31,6 +37,16 @@ export const parsePlayerSkillChoiceMessage = (
       !parsed.playerIds.every((playerId) => typeof playerId === "string") ||
       (parsed.roleIdChoice !== undefined &&
         typeof parsed.roleIdChoice !== "string") ||
+      (parsed.guesses !== undefined &&
+        (!Array.isArray(parsed.guesses) ||
+          parsed.guesses.length > 5 ||
+          !parsed.guesses.every(
+            (guess) =>
+              typeof guess === "object" &&
+              guess !== null &&
+              typeof (guess as PlayerSkillGuess).playerId === "string" &&
+              typeof (guess as PlayerSkillGuess).roleId === "string",
+          ))) ||
       typeof parsed.summary !== "string"
     ) {
       return null;
