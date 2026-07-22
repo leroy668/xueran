@@ -2063,17 +2063,18 @@ function GrimoirePanel({
                         .join("\n"),
                     )
                     .join("\n\n");
-                  const roleInfoRows = Math.max(
-                    1,
-                    Math.ceil(roleSkillTimeline.length / 2),
-                  );
-                  const roleInfoStyle = {
-                    left: `${left}%`,
-                    top: `${top}%`,
-                    "--role-info-extra-height": `${Math.max(0, roleInfoRows - 1) * 22}px`,
-                  } as CSSProperties;
                   const redHerring = isFortuneTellerRedHerring(player);
                   const roleState = getPlayerRoleState(player, role.id);
+                  const cardNoteCount =
+                    roleSkillTimeline.length +
+                    (redHerring ? 1 : 0) +
+                    (roleState ? 1 : 0);
+                  const cardNoteRows = Math.max(1, Math.ceil(cardNoteCount / 2));
+                  const cardStyle = {
+                    left: `${left}%`,
+                    top: `${top}%`,
+                    "--card-notes-extra-height": `${Math.max(0, cardNoteRows - 1) * 22}px`,
+                  } as CSSProperties;
 
                   return (
                     <button
@@ -2082,18 +2083,16 @@ function GrimoirePanel({
                         teamLabels[role.team],
                         player.alive ? "" : "dead",
                         isSelected ? "selected" : "",
-                        latestSkill || latestChoice ? "has-role-info" : "",
-                        redHerring ? "has-red-herring" : "",
-                        roleState ? "has-role-state" : "",
+                        cardNoteCount > 0 ? "has-card-notes" : "",
                         state.players.length > 10 ? "dense" : "",
                         state.players.length > 15 ? "very-dense" : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
-                      style={roleInfoStyle}
+                      style={cardStyle}
                       key={player.id}
                       onClick={() => setSelectedPlayerId(player.id)}
-                      aria-label={`${formatSeat(player.seat)}，${getDisplayName(player)}，${role.name}，${player.alive ? "存活" : "死亡"}${infoPreview ? `，已传达信息：${infoPreview}` : ""}`}
+                      aria-label={`${formatSeat(player.seat)}，${getDisplayName(player)}，${role.name}，${player.alive ? "存活" : "死亡"}${redHerring ? `，${fortuneTellerRedHerringNoteBody}` : ""}${roleState ? `，角色状态：${roleState.body}` : ""}${infoPreview ? `，已传达信息：${infoPreview}` : ""}`}
                       aria-pressed={isSelected}
                     >
                       <span className="table-role-icon">
@@ -2115,44 +2114,44 @@ function GrimoirePanel({
                         <span className="table-seat-number">
                           {formatSeat(player.seat)}
                         </span>
-                        {redHerring ? (
-                          <span
-                            className="table-red-herring"
-                            title={fortuneTellerRedHerringNoteBody}
-                          >
-                            <Target size={8} />
-                            敌
-                          </span>
-                        ) : null}
                       </span>
-                      {roleState ? (
-                        <span className="table-role-state" title={(roleState.stage ?? "阶段未记录") + " · " + roleState.body}>
-                          <Check size={9} />
-                          <span>{roleState.body}</span>
-                        </span>
-                      ) : null}
-                      {latestSkill || latestChoice ? (
-                        <span
-                          className="table-role-info"
-                          title={roleInfoTitle}
-                        >
-                          <MessageSquareText size={10} />
-                          <span className="table-role-timeline">
-                            {roleSkillTimeline.map((entry) => (
-                              <span
-                                className="table-role-timeline-item"
-                                key={entry.round}
-                              >
-                                <strong>
-                                  {getSeatCardSkillStageLabel(
-                                    skillRoleId,
-                                    entry.round,
-                                  )}
-                                </strong>
-                                <span>{entry.preview}</span>
-                              </span>
-                            ))}
-                          </span>
+                      {cardNoteCount > 0 ? (
+                        <span className="table-card-notes">
+                          {redHerring ? (
+                            <span
+                              className="table-card-note is-red-herring"
+                              title={fortuneTellerRedHerringNoteBody}
+                            >
+                              <strong>身份标签</strong>
+                              <span>占卜师宿敌</span>
+                            </span>
+                          ) : null}
+                          {roleState ? (
+                            <span
+                              className="table-card-note is-role-state"
+                              title={(roleState.stage ?? "阶段未记录") + " · " + roleState.body}
+                            >
+                              <strong>{roleState.stage ?? "角色状态"}</strong>
+                              <span>{roleState.body}</span>
+                            </span>
+                          ) : null}
+                          {latestSkill || latestChoice
+                            ? roleSkillTimeline.map((entry) => (
+                                <span
+                                  className="table-card-note"
+                                  key={entry.round}
+                                  title={roleInfoTitle}
+                                >
+                                  <strong>
+                                    {getSeatCardSkillStageLabel(
+                                      skillRoleId,
+                                      entry.round,
+                                    )}
+                                  </strong>
+                                  <span>{entry.preview}</span>
+                                </span>
+                              ))
+                            : null}
                         </span>
                       ) : null}
                       {!player.alive ? (
