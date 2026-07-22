@@ -8,6 +8,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import type {
+  DayPrivateChatDirectionStat,
   DayPrivateChatPairStat,
   DayPrivateMessage,
   DayPrivateThread,
@@ -44,6 +45,7 @@ export function PlayerPrivateChats({
   threads,
   messages,
   pairStats = [],
+  directionStats = [],
   onSend,
 }: {
   currentPlayerId: string;
@@ -52,6 +54,7 @@ export function PlayerPrivateChats({
   threads: DayPrivateThread[];
   messages: DayPrivateMessage[];
   pairStats?: DayPrivateChatPairStat[];
+  directionStats?: DayPrivateChatDirectionStat[];
   onSend: (recipientPlayerId: string, body: string) => Promise<void>;
 }) {
   const contacts = useMemo(
@@ -142,52 +145,94 @@ export function PlayerPrivateChats({
     return () => cancelAnimationFrame(frame);
   }, [latestSelectedMessage?.id, selectedPlayerId]);
 
-  const publicThreadStats = useMemo(() => {
-    const providedByThread = new Map(
-      pairStats.map((stat) => [stat.thread_id, stat]),
-    );
-    const fallbackByThread = new Map<
+  const publicDirectionStats = useMemo(() => {
+    const threadById = new Map(publicThreads.map((thread) => [thread.id, thread]));
+    const entries = new Map<
       string,
-      { messageCount: number; estimatedSeconds: number; lastActivityAt: string | null }
+      {
+        thread: DayPrivateThread;
+        senderPlayerId: string;
+        recipientPlayerId: string;
+        messageCount: number;
+        estimatedSeconds: number;
+        lastActivityAt: string | null;
+        directionKnown: boolean;
+      }
     >();
+    const providedKeys = new Set<string>();
+    directionStats.forEach((stat) => {
+      const thread = threadById.get(stat.thread_id);
+      if (!thread) return;
+      const key = `${stat.thread_id}:${stat.sender_player_id}:${stat.recipient_player_id}`;
+      providedKeys.add(key);
+      entries.set(key, {
+        thread,
+        senderPlayerId: stat.sender_player_id,
+        recipientPlayerId: stat.recipient_player_id,
+        messageCount: stat.message_count,
+        estimatedSeconds: stat.estimated_seconds,
+        lastActivityAt: stat.last_activity_at,
+        directionKnown: true,
+      });
+    });
     messages.forEach((message) => {
-      const current = fallbackByThread.get(message.thread_id) ?? {
+      const thread = threadById.get(message.thread_id);
+      if (!thread) return;
+      const key = `${message.thread_id}:${message.sender_player_id}:${message.recipient_player_id}`;
+      if (providedKeys.has(key)) return;
+      const current = entries.get(key) ?? {
+        thread,
+        senderPlayerId: message.sender_player_id,
+        recipientPlayerId: message.recipient_player_id,
         messageCount: 0,
         estimatedSeconds: 0,
         lastActivityAt: null,
+        directionKnown: true,
       };
       current.messageCount += 1;
       current.estimatedSeconds += message.estimated_seconds;
       if (!current.lastActivityAt || message.created_at > current.lastActivityAt) {
         current.lastActivityAt = message.created_at;
       }
-      fallbackByThread.set(message.thread_id, current);
+      entries.set(key, current);
     });
-
-    return publicThreads.map((thread) => {
-      const provided = providedByThread.get(thread.id);
-      const fallback = fallbackByThread.get(thread.id);
-      return {
+    const representedThreadIds = new Set(
+      [...entries.values()].map((entry) => entry.thread.id),
+    );
+    const pairStatByThread = new Map(
+      pairStats.map((stat) => [stat.thread_id, stat]),
+    );
+    publicThreads.forEach((thread) => {
+      if (representedThreadIds.has(thread.id)) return;
+      const pairStat = pairStatByThread.get(thread.id);
+      entries.set(`${thread.id}:pair`, {
         thread,
-        messageCount: provided?.message_count ?? fallback?.messageCount ?? 0,
-        estimatedSeconds:
-          provided?.estimated_seconds ?? fallback?.estimatedSeconds ?? 0,
-        lastActivityAt:
-          provided?.last_activity_at ?? fallback?.lastActivityAt ?? thread.updated_at,
-      };
+        senderPlayerId: thread.player_a_id,
+        recipientPlayerId: thread.player_b_id,
+        messageCount: pairStat?.message_count ?? 0,
+        estimatedSeconds: pairStat?.estimated_seconds ?? 0,
+        lastActivityAt: pairStat?.last_activity_at ?? thread.updated_at,
+        directionKnown: false,
+      });
     });
-  }, [messages, pairStats, publicThreads]);
+    return [...entries.values()].sort((left, right) => {
+      if (left.thread.round !== right.thread.round) {
+        return right.thread.round - left.thread.round;
+      }
+      return (right.lastActivityAt ?? "").localeCompare(left.lastActivityAt ?? "");
+    });
+  }, [directionStats, messages, pairStats, publicThreads]);
   const publicThreadDays = useMemo(() => {
     const days = new Map<
       number,
       {
         round: number;
-        entries: typeof publicThreadStats;
+        entries: typeof publicDirectionStats;
         messageCount: number;
         estimatedSeconds: number;
       }
     >();
-    publicThreadStats.forEach((entry) => {
+    publicDirectionStats.forEach((entry) => {
       const day = days.get(entry.thread.round) ?? {
         round: entry.thread.round,
         entries: [],
@@ -200,7 +245,7 @@ export function PlayerPrivateChats({
       days.set(entry.thread.round, day);
     });
     return [...days.values()].sort((left, right) => right.round - left.round);
-  }, [publicThreadStats]);
+  }, [publicDirectionStats]);
   const estimatedDraftSeconds = Math.max(
     0,
     Math.ceil(body.replace(/\s/g, "").length / 4),
@@ -399,12 +444,12 @@ export function PlayerPrivateChats({
         </div>
         <p className="private-chat-privacy-note">
           <ShieldCheck size={14} />
-          全体玩家可查看每天谁与谁发生了私聊、消息数量和估算语音时间，私聊内容仍仅会话双方与上帝可见。
+          全体玩家可查看每天谁向谁发送了私聊、消息数量和估算语音时间，私聊内容仍仅会话双方与上帝可见。
         </p>
         <div className="private-chat-pair-overview">
           <div className="private-chat-pair-overview-heading">
-            <strong>私聊双方</strong>
-            <span>{publicThreadStats.length} 组日会话</span>
+            <strong>私聊方向</strong>
+            <span>{publicDirectionStats.length} 条方向记录</span>
           </div>
           {publicThreadDays.length ? (
             <div className="private-chat-pair-days">
@@ -413,24 +458,29 @@ export function PlayerPrivateChats({
                   <header className="private-chat-pair-day-heading">
                     <strong>第 {day.round} 天</strong>
                     <span>
-                      {day.entries.length} 组 · {day.messageCount} 条 · {formatVoiceDuration(day.estimatedSeconds)}
+                      {day.entries.length} 条方向记录 · {day.messageCount} 条 · {formatVoiceDuration(day.estimatedSeconds)}
                     </span>
                   </header>
                   <div className="private-chat-pair-list">
-                    {day.entries.map(({ thread, messageCount, estimatedSeconds }) => {
-                      const playerA = playerById.get(thread.player_a_id);
-                      const playerB = playerById.get(thread.player_b_id);
+                    {day.entries.map(({ thread, senderPlayerId, recipientPlayerId, messageCount, estimatedSeconds, directionKnown }) => {
+                      const sender = playerById.get(senderPlayerId);
+                      const recipient = playerById.get(recipientPlayerId);
                       return (
-                        <article className="private-chat-pair-row" key={thread.id}>
+                        <article
+                          className="private-chat-pair-row"
+                          key={`${thread.id}:${senderPlayerId}:${recipientPlayerId}`}
+                        >
                           <div className="private-chat-pair-route">
                             <div className="private-chat-pair-player">
-                              <b>{playerA?.seat ?? "?"}</b>
-                              <span>{playerA?.name || "未知玩家"}</span>
+                              <b>{sender?.seat ?? "?"}</b>
+                              <span>{sender?.name || "未知玩家"}</span>
                             </div>
-                            <em>↔</em>
+                            <em aria-label={directionKnown ? "发送给" : "私聊双方"}>
+                              {directionKnown ? "→" : "↔"}
+                            </em>
                             <div className="private-chat-pair-player">
-                              <b>{playerB?.seat ?? "?"}</b>
-                              <span>{playerB?.name || "未知玩家"}</span>
+                              <b>{recipient?.seat ?? "?"}</b>
+                              <span>{recipient?.name || "未知玩家"}</span>
                             </div>
                           </div>
                           <div className="private-chat-pair-row-meta">

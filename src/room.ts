@@ -97,6 +97,17 @@ export type DayPrivateChatPairStat = {
   last_activity_at: string | null;
 };
 
+export type DayPrivateChatDirectionStat = {
+  thread_id: string;
+  room_id: string;
+  round: number;
+  sender_player_id: string;
+  recipient_player_id: string;
+  message_count: number;
+  estimated_seconds: number;
+  last_activity_at: string | null;
+};
+
 export type Nomination = {
   id: string;
   room_id: string;
@@ -452,6 +463,22 @@ export const getDayPrivateChatPairStats = async (roomId: string) => {
   }
   if (error) throw error;
   return (data ?? []) as DayPrivateChatPairStat[];
+};
+
+export const getDayPrivateChatDirectionStats = async (roomId: string) => {
+  const { data, error } = await supabase.rpc(
+    "xueran_get_day_private_chat_direction_stats",
+    { p_room_id: roomId },
+  );
+  if (
+    error &&
+    (isMissingDayPrivateChat(error) ||
+      /claimed player access required/i.test(error.message))
+  ) {
+    return [];
+  }
+  if (error) throw error;
+  return (data ?? []) as DayPrivateChatDirectionStat[];
 };
 
 const isMissingVotingTable = (error: { code?: string; message?: string }) =>
