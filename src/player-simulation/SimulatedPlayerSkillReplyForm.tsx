@@ -4,6 +4,7 @@ import {
   LoaderCircle,
   MessageSquareText,
   Send,
+  UserRound,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CompactSelect } from "../CompactSelect";
@@ -34,9 +35,10 @@ type SimulationPlayerOption = {
   id: string;
   seat: number;
   name: string;
-  roleId: string;
-  roleName: string;
-  visibleRoleName: string;
+  alive: boolean;
+  roleId?: string;
+  roleName?: string;
+  visibleRoleName?: string;
 };
 
 function SimulationPlayerPicker({
@@ -78,14 +80,24 @@ function SimulationPlayerPicker({
         {selected ? (
           <>
             <span className="simulation-player-role-icon">
-              <RoleIcon roleId={selected.roleId} size={20} />
+              {selected.roleId ? (
+                <RoleIcon roleId={selected.roleId} size={20} />
+              ) : (
+                <UserRound size={19} />
+              )}
             </span>
             <span className="simulation-player-copy">
               <span className="simulation-player-title">
                 <b>{formatSeat(selected.seat)}</b>
-                <strong>{selected.roleName}</strong>
+                <strong>{selected.roleName || selected.name}</strong>
               </span>
-              <small>{selected.name}</small>
+              <small>
+                {selected.roleName
+                  ? selected.name
+                  : selected.alive
+                    ? "存活玩家"
+                    : "已死亡玩家"}
+              </small>
               {selected.visibleRoleName ? (
                 <em>玩家视角：{selected.visibleRoleName}</em>
               ) : null}
@@ -122,14 +134,24 @@ function SimulationPlayerPicker({
                 onClick={() => onChange(option.id)}
               >
                 <span className="simulation-player-role-icon">
-                  <RoleIcon roleId={option.roleId} size={19} />
+                  {option.roleId ? (
+                    <RoleIcon roleId={option.roleId} size={19} />
+                  ) : (
+                    <UserRound size={18} />
+                  )}
                 </span>
                 <span className="simulation-player-copy">
                   <span className="simulation-player-title">
                     <b>{formatSeat(option.seat)}</b>
-                    <strong>{option.roleName}</strong>
+                    <strong>{option.roleName || option.name}</strong>
                   </span>
-                  <small>{option.name}</small>
+                  <small>
+                    {option.roleName
+                      ? option.name
+                      : option.alive
+                        ? "存活玩家"
+                        : "已死亡玩家"}
+                  </small>
                   {option.visibleRoleName ? (
                     <em>玩家视角：{option.visibleRoleName}</em>
                   ) : null}
@@ -212,7 +234,7 @@ export function SimulatedPlayerSkillReplyForm({
     );
   const getSimulationPlayerOption = (
     player: PublicRoomPlayer,
-    showVisibleRole = true,
+    revealRole = true,
   ): SimulationPlayerOption => {
     const gamePlayer = gamePlayers.find((item) => item.id === player.id);
     const actualRole = getRole(gamePlayer?.roleId ?? "washerwoman");
@@ -222,12 +244,13 @@ export function SimulatedPlayerSkillReplyForm({
       id: player.id,
       seat: player.seat,
       name: player.name || "玩家",
-      roleId: actualRole.id,
-      roleName: actualRole.name,
+      alive: gamePlayer?.alive ?? player.alive,
+      roleId: revealRole ? actualRole.id : undefined,
+      roleName: revealRole ? actualRole.name : undefined,
       visibleRoleName:
-        showVisibleRole && actualRole.id !== visibleRole.id
+        revealRole && actualRole.id !== visibleRole.id
           ? visibleRole.name
-          : "",
+          : undefined,
     };
   };
   const selectedRole = selectedGamePlayer

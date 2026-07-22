@@ -116,6 +116,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .simulation-player-current { position: relative; width: 100%; min-height: 46px; border: 1px solid rgba(141,170,195,.28); background: #17171a; color: var(--ink); padding: 5px 30px 5px 6px; display: grid; grid-template-columns: 34px minmax(0,1fr); align-items: center; gap: 7px; text-align: left; }
 .simulation-player-current:hover:not(:disabled), .simulation-player-current.open { border-color: rgba(141,170,195,.62); background: #1c2024; }
 .simulation-player-role-icon { width: 34px; height: 34px; min-width: 0; overflow: hidden; display: grid; place-items: center; border: 1px solid rgba(141,170,195,.24); background: rgba(141,170,195,.07); }
+.simulation-player-role-icon > svg { color: var(--blue); }
 .simulation-player-role-icon .role-icon-image { width: 34px; height: 34px; object-fit: contain; }
 .simulation-player-copy { min-width: 0; display: block; }
 .simulation-player-title { min-width: 0; display: flex; align-items: baseline; gap: 5px; }
