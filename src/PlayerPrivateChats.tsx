@@ -8,7 +8,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import type {
-  DayPrivateChatStat,
+  DayPrivateChatPairStat,
   DayPrivateMessage,
   DayPrivateThread,
   PublicRoomPlayer,
@@ -43,7 +43,7 @@ export function PlayerPrivateChats({
   players,
   threads,
   messages,
-  stats,
+  pairStats = [],
   onSend,
 }: {
   currentPlayerId: string;
@@ -51,7 +51,7 @@ export function PlayerPrivateChats({
   players: PublicRoomPlayer[];
   threads: DayPrivateThread[];
   messages: DayPrivateMessage[];
-  stats: DayPrivateChatStat[];
+  pairStats?: DayPrivateChatPairStat[];
   onSend: (recipientPlayerId: string, body: string) => Promise<void>;
 }) {
   const contacts = useMemo(
@@ -60,13 +60,6 @@ export function PlayerPrivateChats({
         .filter((player) => player.is_claimed && player.id !== currentPlayerId)
         .sort((left, right) => left.seat - right.seat),
     [currentPlayerId, players],
-  );
-  const occupiedPlayers = useMemo(
-    () =>
-      players
-        .filter((player) => player.is_claimed)
-        .sort((left, right) => left.seat - right.seat),
-    [players],
   );
   const playerById = useMemo(
     () => new Map(players.map((player) => [player.id, player])),
@@ -149,10 +142,65 @@ export function PlayerPrivateChats({
     return () => cancelAnimationFrame(frame);
   }, [latestSelectedMessage?.id, selectedPlayerId]);
 
-  const statByPlayer = useMemo(
-    () => new Map(stats.map((stat) => [stat.player_id, stat])),
-    [stats],
-  );
+  const publicThreadStats = useMemo(() => {
+    const providedByThread = new Map(
+      pairStats.map((stat) => [stat.thread_id, stat]),
+    );
+    const fallbackByThread = new Map<
+      string,
+      { messageCount: number; estimatedSeconds: number; lastActivityAt: string | null }
+    >();
+    messages.forEach((message) => {
+      const current = fallbackByThread.get(message.thread_id) ?? {
+        messageCount: 0,
+        estimatedSeconds: 0,
+        lastActivityAt: null,
+      };
+      current.messageCount += 1;
+      current.estimatedSeconds += message.estimated_seconds;
+      if (!current.lastActivityAt || message.created_at > current.lastActivityAt) {
+        current.lastActivityAt = message.created_at;
+      }
+      fallbackByThread.set(message.thread_id, current);
+    });
+
+    return publicThreads.map((thread) => {
+      const provided = providedByThread.get(thread.id);
+      const fallback = fallbackByThread.get(thread.id);
+      return {
+        thread,
+        messageCount: provided?.message_count ?? fallback?.messageCount ?? 0,
+        estimatedSeconds:
+          provided?.estimated_seconds ?? fallback?.estimatedSeconds ?? 0,
+        lastActivityAt:
+          provided?.last_activity_at ?? fallback?.lastActivityAt ?? thread.updated_at,
+      };
+    });
+  }, [messages, pairStats, publicThreads]);
+  const publicThreadDays = useMemo(() => {
+    const days = new Map<
+      number,
+      {
+        round: number;
+        entries: typeof publicThreadStats;
+        messageCount: number;
+        estimatedSeconds: number;
+      }
+    >();
+    publicThreadStats.forEach((entry) => {
+      const day = days.get(entry.thread.round) ?? {
+        round: entry.thread.round,
+        entries: [],
+        messageCount: 0,
+        estimatedSeconds: 0,
+      };
+      day.entries.push(entry);
+      day.messageCount += entry.messageCount;
+      day.estimatedSeconds += entry.estimatedSeconds;
+      days.set(entry.thread.round, day);
+    });
+    return [...days.values()].sort((left, right) => right.round - left.round);
+  }, [publicThreadStats]);
   const estimatedDraftSeconds = Math.max(
     0,
     Math.ceil(body.replace(/\s/g, "").length / 4),
@@ -184,74 +232,6 @@ export function PlayerPrivateChats({
 
   return (
     <section className="player-private-chat-page">
-      <div className="private-chat-stats">
-        <div className="private-chat-section-heading">
-          <div>
-            <span>公开统计</span>
-            <strong>本局玩家私聊概况</strong>
-          </div>
-          <UsersRound size={20} />
-        </div>
-        <p className="private-chat-privacy-note">
-          <ShieldCheck size={14} />
-          全体玩家可查看谁与谁发生了私聊及公开统计，私聊内容仍仅会话双方与上帝可见。
-        </p>
-        <div className="private-chat-pair-overview">
-          <div className="private-chat-pair-overview-heading">
-            <strong>私聊双方</strong>
-            <span>{publicThreads.length} 组会话</span>
-          </div>
-          {publicThreads.length ? (
-            <div className="private-chat-pair-list">
-              {publicThreads.map((thread) => {
-                const playerA = playerById.get(thread.player_a_id);
-                const playerB = playerById.get(thread.player_b_id);
-                return (
-                  <article className="private-chat-pair-row" key={thread.id}>
-                    <div className="private-chat-pair-player">
-                      <b>{playerA?.seat ?? "?"}</b>
-                      <span>{playerA?.name || "未知玩家"}</span>
-                    </div>
-                    <em>↔</em>
-                    <div className="private-chat-pair-player">
-                      <b>{playerB?.seat ?? "?"}</b>
-                      <span>{playerB?.name || "未知玩家"}</span>
-                    </div>
-                    <small>第 {thread.round} 天</small>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="private-chat-pair-empty">本局暂未发生私聊</div>
-          )}
-        </div>
-        <div className="private-chat-stat-list">
-          {occupiedPlayers.map((player) => {
-            const stat = statByPlayer.get(player.id);
-            return (
-              <article className="private-chat-stat-row" key={player.id}>
-                <span>{formatSeat(player.seat)}</span>
-                <div>
-                  <strong>
-                    {player.name || formatSeat(player.seat)}
-                    {player.id === currentPlayerId ? <em>我</em> : null}
-                  </strong>
-                  <small>
-                    私聊 {stat?.conversation_count ?? 0} 次 ·{" "}
-                    {stat?.message_count ?? 0} 条消息
-                  </small>
-                </div>
-                <time>
-                  <Clock3 size={12} />
-                  {formatVoiceDuration(stat?.estimated_seconds ?? 0)}
-                </time>
-              </article>
-            );
-          })}
-        </div>
-      </div>
-
       <div className="private-chat-workspace">
         <aside className="private-chat-contact-panel">
           <div className="private-chat-section-heading compact">
@@ -405,6 +385,70 @@ export function PlayerPrivateChats({
               <strong>等待其他玩家入座</strong>
               <span>有其他玩家入座后，就可以在白天发起私聊。</span>
             </div>
+          )}
+        </div>
+      </div>
+
+      <div className="private-chat-stats">
+        <div className="private-chat-section-heading">
+          <div>
+            <span>公开统计</span>
+            <strong>本局玩家私聊概况</strong>
+          </div>
+          <UsersRound size={20} />
+        </div>
+        <p className="private-chat-privacy-note">
+          <ShieldCheck size={14} />
+          全体玩家可查看每天谁与谁发生了私聊、消息数量和估算语音时间，私聊内容仍仅会话双方与上帝可见。
+        </p>
+        <div className="private-chat-pair-overview">
+          <div className="private-chat-pair-overview-heading">
+            <strong>私聊双方</strong>
+            <span>{publicThreadStats.length} 组日会话</span>
+          </div>
+          {publicThreadDays.length ? (
+            <div className="private-chat-pair-days">
+              {publicThreadDays.map((day) => (
+                <section className="private-chat-pair-day" key={day.round}>
+                  <header className="private-chat-pair-day-heading">
+                    <strong>第 {day.round} 天</strong>
+                    <span>
+                      {day.entries.length} 组 · {day.messageCount} 条 · {formatVoiceDuration(day.estimatedSeconds)}
+                    </span>
+                  </header>
+                  <div className="private-chat-pair-list">
+                    {day.entries.map(({ thread, messageCount, estimatedSeconds }) => {
+                      const playerA = playerById.get(thread.player_a_id);
+                      const playerB = playerById.get(thread.player_b_id);
+                      return (
+                        <article className="private-chat-pair-row" key={thread.id}>
+                          <div className="private-chat-pair-route">
+                            <div className="private-chat-pair-player">
+                              <b>{playerA?.seat ?? "?"}</b>
+                              <span>{playerA?.name || "未知玩家"}</span>
+                            </div>
+                            <em>↔</em>
+                            <div className="private-chat-pair-player">
+                              <b>{playerB?.seat ?? "?"}</b>
+                              <span>{playerB?.name || "未知玩家"}</span>
+                            </div>
+                          </div>
+                          <div className="private-chat-pair-row-meta">
+                            <span>{messageCount} 条消息</span>
+                            <time>
+                              <Clock3 size={11} />
+                              {formatVoiceDuration(estimatedSeconds)}
+                            </time>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="private-chat-pair-empty">本局暂未发生私聊</div>
           )}
         </div>
       </div>

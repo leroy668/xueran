@@ -25,7 +25,7 @@ import { parseDemonBluffMessage } from "./demonBluffs";
 import {
   claimSeat,
   findRoomByCode,
-  getDayPrivateChatStats,
+  getDayPrivateChatPairStats,
   getMyDayPrivateMessages,
   getMyDayPrivateThreads,
   getMyIdentity,
@@ -37,7 +37,7 @@ import {
   getRoomVotes,
   sendDayPrivateMessage,
   sendPlayerMessage,
-  type DayPrivateChatStat,
+  type DayPrivateChatPairStat,
   type DayPrivateMessage,
   type DayPrivateThread,
   type DayResolution,
@@ -82,7 +82,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
   const [playerMessages, setPlayerMessages] = useState<PlayerMessage[]>([]);
   const [privateThreads, setPrivateThreads] = useState<DayPrivateThread[]>([]);
   const [privateMessages, setPrivateMessages] = useState<DayPrivateMessage[]>([]);
-  const [privateChatStats, setPrivateChatStats] = useState<DayPrivateChatStat[]>([]);
+  const [privateChatPairStats, setPrivateChatPairStats] = useState<DayPrivateChatPairStat[]>([]);
   const [nominations, setNominations] = useState<Nomination[]>([]);
   const [votes, setVotes] = useState<DayVote[]>([]);
   const [dayResolutions, setDayResolutions] = useState<DayResolution[]>([]);
@@ -101,7 +101,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       nextPlayerMessages,
       nextPrivateThreads,
       nextPrivateMessages,
-      nextPrivateChatStats,
+      nextPrivateChatPairStats,
       nextNominations,
       nextVotes,
       nextDayResolutions,
@@ -113,7 +113,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       getMyPlayerMessages(targetRoom.id),
       getMyDayPrivateThreads(targetRoom.id),
       getMyDayPrivateMessages(targetRoom.id),
-      getDayPrivateChatStats(targetRoom.id),
+      getDayPrivateChatPairStats(targetRoom.id),
       getRoomNominations(targetRoom.id),
       getRoomVotes(targetRoom.id),
       getRoomDayResolutions(targetRoom.id),
@@ -128,7 +128,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
       setPlayerMessages([]);
       setPrivateThreads([]);
       setPrivateMessages([]);
-      setPrivateChatStats([]);
+      setPrivateChatPairStats([]);
       setNominations([]);
       setVotes([]);
       setDayResolutions([]);
@@ -142,7 +142,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
     setPlayerMessages(nextPlayerMessages);
     setPrivateThreads(nextPrivateThreads);
     setPrivateMessages(nextPrivateMessages);
-    setPrivateChatStats(nextPrivateChatStats);
+    setPrivateChatPairStats(nextPrivateChatPairStats);
     setNominations(nextNominations);
     setVotes(nextVotes);
     setDayResolutions(nextDayResolutions);
@@ -346,7 +346,7 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
         playerMessages={playerMessages}
         privateThreads={privateThreads}
         privateMessages={privateMessages}
-        privateChatStats={privateChatStats}
+        privateChatPairStats={privateChatPairStats}
         nominations={nominations}
         votes={votes}
         dayResolutions={dayResolutions}
@@ -440,7 +440,7 @@ function ClaimedIdentity({
   playerMessages,
   privateThreads,
   privateMessages,
-  privateChatStats,
+  privateChatPairStats,
   nominations,
   votes,
   dayResolutions,
@@ -460,7 +460,7 @@ function ClaimedIdentity({
   playerMessages: PlayerMessage[];
   privateThreads: DayPrivateThread[];
   privateMessages: DayPrivateMessage[];
-  privateChatStats: DayPrivateChatStat[];
+  privateChatPairStats: DayPrivateChatPairStat[];
   nominations: Nomination[];
   votes: DayVote[];
   dayResolutions: DayResolution[];
@@ -662,7 +662,7 @@ function ClaimedIdentity({
           players={players}
           threads={privateThreads}
           messages={privateMessages}
-          stats={privateChatStats}
+          pairStats={privateChatPairStats}
           onSend={onSendPrivateMessage}
         />
       ) : null}

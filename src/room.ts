@@ -86,9 +86,12 @@ export type DayPrivateMessage = {
   created_at: string;
 };
 
-export type DayPrivateChatStat = {
-  player_id: string;
-  conversation_count: number;
+export type DayPrivateChatPairStat = {
+  thread_id: string;
+  room_id: string;
+  round: number;
+  player_a_id: string;
+  player_b_id: string;
   message_count: number;
   estimated_seconds: number;
   last_activity_at: string | null;
@@ -435,9 +438,9 @@ export const getRoomDayPrivateThreads = getMyDayPrivateThreads;
 
 export const getRoomDayPrivateMessages = getMyDayPrivateMessages;
 
-export const getDayPrivateChatStats = async (roomId: string) => {
+export const getDayPrivateChatPairStats = async (roomId: string) => {
   const { data, error } = await supabase.rpc(
-    "xueran_get_day_private_chat_stats",
+    "xueran_get_day_private_chat_pair_stats",
     { p_room_id: roomId },
   );
   if (
@@ -448,7 +451,7 @@ export const getDayPrivateChatStats = async (roomId: string) => {
     return [];
   }
   if (error) throw error;
-  return (data ?? []) as DayPrivateChatStat[];
+  return (data ?? []) as DayPrivateChatPairStat[];
 };
 
 const isMissingVotingTable = (error: { code?: string; message?: string }) =>

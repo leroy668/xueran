@@ -24,7 +24,6 @@ import {
 import { getPlayerNightMessageDisplayBody } from "../roleSkillMessages";
 import { RoleIcon } from "../RoleIcon";
 import type {
-  DayPrivateChatStat,
   DayPrivateMessage,
   DayPrivateThread,
   DayResolution,
@@ -97,41 +96,6 @@ function getPlayerLabel(players: PublicRoomPlayer[], playerId: string) {
   return player
     ? `${formatSeat(player.seat)} ${player.name || "玩家"}`
     : "未知玩家";
-}
-
-function buildPrivateChatStats(
-  players: PublicRoomPlayer[],
-  threads: DayPrivateThread[],
-  messages: DayPrivateMessage[],
-): DayPrivateChatStat[] {
-  return players
-    .filter((player) => player.is_claimed)
-    .map((player) => {
-      const playerThreads = threads.filter(
-        (thread) =>
-          thread.player_a_id === player.id || thread.player_b_id === player.id,
-      );
-      const threadIds = new Set(playerThreads.map((thread) => thread.id));
-      const playerMessages = messages.filter((message) =>
-        threadIds.has(message.thread_id),
-      );
-      const lastActivity = playerMessages.reduce<string | null>(
-        (latest, message) =>
-          !latest || message.created_at > latest ? message.created_at : latest,
-        null,
-      );
-
-      return {
-        player_id: player.id,
-        conversation_count: playerThreads.length,
-        message_count: playerMessages.length,
-        estimated_seconds: playerMessages.reduce(
-          (total, message) => total + message.estimated_seconds,
-          0,
-        ),
-        last_activity_at: lastActivity,
-      };
-    });
 }
 
 function HostChatSimulation({
@@ -618,11 +582,6 @@ export function PlayerSimulationConsole({
   const simulationEnabled = Boolean(
     room?.simulation_enabled || players.some((player) => player.is_simulated),
   );
-  const privateChatStats = useMemo(
-    () => buildPrivateChatStats(players, dayPrivateThreads, dayPrivateMessages),
-    [dayPrivateMessages, dayPrivateThreads, players],
-  );
-
   if (!room) {
     return (
       <section className="player-simulation-empty-page">
@@ -792,7 +751,6 @@ export function PlayerSimulationConsole({
                 players={players}
                 threads={dayPrivateThreads}
                 messages={dayPrivateMessages}
-                stats={privateChatStats}
                 onSend={(recipientPlayerId, body) =>
                   onSendPrivateMessage(selectedPlayerId, recipientPlayerId, body)
                 }
