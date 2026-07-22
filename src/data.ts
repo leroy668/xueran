@@ -1,3 +1,4 @@
+import { getPhilosopherAbilityState } from "./philosopher";
 import type { RoleDefinition } from "./types";
 
 const troubleBrewingRoleIds = [
@@ -179,12 +180,28 @@ const troubleBrewingOtherNightOrder = createNightOrderMap(
   troubleBrewingOtherNightRoleIds,
 );
 
+const getNightStageLabel = (round: number) => {
+  if (round <= 1) return "首夜";
+  const value = Math.max(1, round - 1);
+  const digits = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+  const label =
+    value < 10
+      ? digits[value]
+      : value < 20
+        ? `十${value === 10 ? "" : digits[value - 10]}`
+        : value < 100
+          ? `${digits[Math.floor(value / 10)]}十${value % 10 ? digits[value % 10] : ""}`
+          : String(value);
+  return `第${label}晚`;
+};
+
 export const getNightActions = (
   players: {
     id?: string;
     seat?: number;
     roleId: string;
     drunkRoleId?: string;
+    notes?: string;
     alive: boolean;
   }[],
   firstNight: boolean,
@@ -204,7 +221,15 @@ export const getNightActions = (
     getRole(getPlayerVisibleRoleId(player.roleId, player.drunkRoleId));
   return players
     .flatMap((player) => {
-      const visibleRole = getActionRole(player);
+      const philosopherAbility = player.notes
+        ? getPhilosopherAbilityState({
+            roleId: player.roleId,
+            notes: player.notes,
+          })
+        : null;
+      const visibleRole = philosopherAbility
+        ? getRole(philosopherAbility.roleId)
+        : getActionRole(player);
       const actualRole = getRole(player.roleId);
       const actionRoles = [visibleRole];
       if (
@@ -220,14 +245,24 @@ export const getNightActions = (
         const isTroubleBrewingDemonInfo = Boolean(
           troubleBrewingOrder && firstNight && role.id === "imp",
         );
-        const order = troubleBrewingOrder
+        const normalOrder = troubleBrewingOrder
           ? isTroubleBrewingDemonInfo
             ? 0
             : troubleBrewingOrder.get(role.id) ?? 0
           : firstNight
             ? role.firstNightOrder
             : role.otherNightOrder;
-        if (!isTroubleBrewingDemonInfo && order <= 0) return [];
+        if (!isTroubleBrewingDemonInfo && normalOrder <= 0) return [];
+        const philosopherOrder = troubleBrewingOrder
+          ? troubleBrewingOrder.get("philosopher") ?? 0
+          : firstNight
+            ? getRole("philosopher").firstNightOrder
+            : getRole("philosopher").otherNightOrder;
+        const order =
+          philosopherAbility?.note.stage === getNightStageLabel(round) &&
+          normalOrder <= philosopherOrder
+            ? philosopherOrder + 0.01
+            : normalOrder;
         const canAct = player.alive || actsAfterDeathRoleIds.has(role.id);
         return [{
           kind: "role" as const,
@@ -237,6 +272,7 @@ export const getNightActions = (
           role,
           actualRole,
           isDisguised: role.id !== actualRole.id,
+          isPhilosopherAbility: Boolean(philosopherAbility),
           playerId: player.id,
           seat: player.seat,
           alive: player.alive,

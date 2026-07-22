@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { CompactSelect } from "../CompactSelect";
 import { getPlayerVisibleRoleId, getRole, getScriptRoles } from "../data";
+import { getPhilosopherAbilityRoleId } from "../philosopher";
 import {
   buildPlayerSkillChoiceMessage,
   parsePlayerSkillChoiceMessage,
@@ -252,7 +253,13 @@ export function SimulatedPlayerSkillReplyForm({
     };
   };
   const selectedRole = selectedGamePlayer
-    ? getVisibleRole(selectedGamePlayer)
+    ? getRole(
+        getPhilosopherAbilityRoleId(selectedGamePlayer) ||
+          getPlayerVisibleRoleId(
+            selectedGamePlayer.roleId,
+            selectedGamePlayer.drunkRoleId,
+          ),
+      )
     : null;
   const choiceSpec = selectedRole
     ? getTroubleBrewingSkill(selectedRole.id)?.playerChoice

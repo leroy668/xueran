@@ -52,6 +52,19 @@ import {
 } from "./demonBluffs";
 import { HostRoomPanel } from "./HostRoomPanel";
 import { HostPrivateChats } from "./HostPrivateChats";
+import {
+  buildPhilosopherAbilityMessage,
+  clearPhilosopherAbility,
+  getPhilosopherAbilityRoleId,
+  getPhilosopherDrunkNotes,
+  reconcilePhilosopherDrunkenness,
+  setPhilosopherAbility,
+} from "./philosopher";
+import {
+  parsePlayerNotes,
+  serializePlayerNotes,
+  type PlayerNoteEntry,
+} from "./playerNotes";
 import { PlayerRoom } from "./PlayerRoom";
 import {
   loadPlayerSimulationConsole,
@@ -151,44 +164,6 @@ const makeId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `player-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-type PlayerNoteEntry = {
-  id: string;
-  body: string;
-  createdAt?: string;
-  resolved?: boolean;
-  stage?: string;
-};
-
-const playerNotesPrefix = "__xueran_notes_v1__";
-
-const parsePlayerNotes = (value: string): PlayerNoteEntry[] => {
-  const trimmed = value.trim();
-  if (!trimmed) return [];
-  if (!trimmed.startsWith(playerNotesPrefix)) {
-    return [{ id: "legacy", body: value }];
-  }
-  try {
-    const parsed = JSON.parse(trimmed.slice(playerNotesPrefix.length));
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (note): note is PlayerNoteEntry =>
-        Boolean(note) &&
-        typeof note.id === "string" &&
-        typeof note.body === "string" &&
-        (note.createdAt === undefined || typeof note.createdAt === "string") &&
-        (note.resolved === undefined || typeof note.resolved === "boolean") &&
-        (note.stage === undefined || typeof note.stage === "string"),
-    );
-  } catch {
-    return [{ id: "legacy", body: value }];
-  }
-};
-
-const serializePlayerNotes = (notes: PlayerNoteEntry[]) =>
-  notes.length
-    ? `${playerNotesPrefix}${JSON.stringify(notes)}`
-    : "";
 
 const fortuneTellerRedHerringNoteId =
   "system:fortune-teller-red-herring";
@@ -1083,13 +1058,29 @@ function GrimoireApp() {
   }, [nightActions, state.nightIndex]);
 
   const updatePlayer = (id: string, patch: Partial<Player>) => {
-    setState((current) => ({
-      ...current,
-      players: current.players.map((player) =>
+    setState((current) => {
+      const previousPlayer = current.players.find((player) => player.id === id);
+      const players =
+        previousPlayer?.roleId === "philosopher" &&
+        patch.roleId !== undefined &&
+        patch.roleId !== "philosopher"
+          ? clearPhilosopherAbility(current.players, id)
+          : current.players;
+      const patchedPlayers = players.map((player) =>
         player.id === id ? { ...player, ...patch } : player,
-      ),
-      updatedAt: new Date().toISOString(),
-    }));
+      );
+      return {
+        ...current,
+        players:
+          patch.roleId !== undefined
+            ? reconcilePhilosopherDrunkenness(
+                patchedPlayers,
+                (roleId) => getRole(roleId).name,
+              )
+            : patchedPlayers,
+        updatedAt: new Date().toISOString(),
+      };
+    });
   };
 
   const addPlayer = () => {
@@ -1107,7 +1098,7 @@ function GrimoireApp() {
   const removePlayer = (id: string) => {
     setState((current) => ({
       ...current,
-      players: current.players
+      players: clearPhilosopherAbility(current.players, id)
         .filter((player) => player.id !== id)
         .map((player, index) => ({ ...player, seat: index + 1 })),
       updatedAt: new Date().toISOString(),
@@ -1374,9 +1365,15 @@ function GrimoireApp() {
   }) => {
     if (!room) throw new Error("请先创建共享房间");
     const recipient = state.players.find((player) => player.id === playerId);
-    const playerVisibleRoleId = recipient
-      ? getPlayerVisibleRoleId(recipient.roleId, recipient.drunkRoleId)
-      : roleId;
+    const philosopherAbilityRoleId = recipient
+      ? getPhilosopherAbilityRoleId(recipient)
+      : "";
+    const playerVisibleRoleId =
+      recipient && philosopherAbilityRoleId === roleId
+        ? philosopherAbilityRoleId
+        : recipient
+          ? getPlayerVisibleRoleId(recipient.roleId, recipient.drunkRoleId)
+          : roleId;
     const message = await sendNightMessage({
       roomId: room.id,
       playerId,
@@ -2056,10 +2053,16 @@ function GrimoirePanel({
                 </div>
                 {state.players.map((player, index) => {
                   const role = getRole(player.roleId);
-                  const skillRoleId = getPlayerVisibleRoleId(
-                    player.roleId,
-                    player.drunkRoleId,
-                  );
+                  const philosopherAbilityRoleId =
+                    getPhilosopherAbilityRoleId(player);
+                  const philosopherDrunkNotes =
+                    getPhilosopherDrunkNotes(player);
+                  const skillRoleId =
+                    philosopherAbilityRoleId ||
+                    getPlayerVisibleRoleId(
+                      player.roleId,
+                      player.drunkRoleId,
+                    );
                   const angle =
                     (index / state.players.length) * Math.PI * 2 - Math.PI / 2;
                   const radius = state.players.length > 15 ? 42 : 40;
@@ -2135,6 +2138,8 @@ function GrimoirePanel({
                   const cardNoteCount =
                     roleSkillTimeline.length +
                     (redHerring ? 1 : 0) +
+                    (philosopherAbilityRoleId ? 1 : 0) +
+                    philosopherDrunkNotes.length +
                     roleStateHistory.length;
                   const cardNoteRows = Math.max(1, cardNoteCount);
                   const cardStyle = {
@@ -2193,6 +2198,25 @@ function GrimoirePanel({
                               <span>占卜师宿敌</span>
                             </span>
                           ) : null}
+                          {philosopherAbilityRoleId ? (
+                            <span
+                              className="table-card-note is-role-state"
+                              title={`哲学家已获得${getRole(philosopherAbilityRoleId).name}的能力`}
+                            >
+                              <strong>哲学家能力</strong>
+                              <span>{getRole(philosopherAbilityRoleId).name}</span>
+                            </span>
+                          ) : null}
+                          {philosopherDrunkNotes.map((entry) => (
+                            <span
+                              className="table-card-note is-role-state"
+                              key={entry.id}
+                              title={entry.body}
+                            >
+                              <strong>醉酒</strong>
+                              <span>{entry.body}</span>
+                            </span>
+                          ))}
                           {roleStateHistory.map((entry) => (
                             <span
                               className="table-card-note is-role-state"
@@ -2918,17 +2942,21 @@ function NightPanel({
   const rolePlayers = useMemo(
     () =>
       currentRole
-        ? state.players.filter(
-            (player) =>
-              currentRole.id === "marionette"
-                ? player.roleId === "marionette"
-                : getPlayerVisibleRoleId(
-                    player.roleId,
-                    player.drunkRoleId,
-                  ) === currentRole.id,
-          )
+        ? currentAction?.isPhilosopherAbility && currentAction.playerId
+          ? state.players.filter(
+              (player) => player.id === currentAction.playerId,
+            )
+          : state.players.filter(
+              (player) =>
+                currentRole.id === "marionette"
+                  ? player.roleId === "marionette"
+                  : getPlayerVisibleRoleId(
+                      player.roleId,
+                      player.drunkRoleId,
+                    ) === currentRole.id,
+            )
         : [],
-    [currentRole, state.players],
+    [currentAction?.isPhilosopherAbility, currentAction?.playerId, currentRole, state.players],
   );
   const roomPlayersById = useMemo(
     () => new Map(roomPlayers.map((player) => [player.id, player])),
@@ -3839,6 +3867,47 @@ function NightPanel({
     }
   };
 
+  const confirmPhilosopherAbility = async () => {
+    if (!selectedPlayer || selectedPlayer.roleId !== "philosopher") return;
+    const roleId = latestPlayerSkillChoice?.roleIdChoice ?? "";
+    const chosenRole = getScriptRoles(state.scriptId).find(
+      (role) => role.id === roleId,
+    );
+    if (
+      !chosenRole ||
+      (chosenRole.team !== "镇民" && chosenRole.team !== "外来者")
+    ) {
+      setSendError("请选择当前剧本中的善良角色");
+      return;
+    }
+    const sent = await submitSkill(
+      buildPhilosopherAbilityMessage(chosenRole.name),
+    );
+    if (!sent) return;
+    const players = setPhilosopherAbility({
+      players: state.players,
+      philosopherPlayerId: selectedPlayer.id,
+      roleId: chosenRole.id,
+      roleName: chosenRole.name,
+      stage: currentStageLabel,
+    });
+    const nextActions = getNightActions(
+      players,
+      state.phase === "夜晚" && state.round <= 1,
+      state.scriptId,
+      state.round,
+    );
+    const acquiredAbilityIndex = nextActions.findIndex(
+      (action) =>
+        action.isPhilosopherAbility && action.playerId === selectedPlayer.id,
+    );
+    onUpdate({
+      players,
+      nightIndex:
+        acquiredAbilityIndex >= 0 ? acquiredAbilityIndex : state.nightIndex,
+    });
+  };
+
   const submitSkillToPlayer = async (
     playerId: string,
     roleId: string,
@@ -4480,7 +4549,11 @@ function NightPanel({
                           </small>
                         ) : null}
                       </span>
-                      {action.isDisguised ? (
+                      {action.isPhilosopherAbility ? (
+                        <b className="night-role-truth">
+                          哲学家获得 · 真实：{action.actualRole.name}
+                        </b>
+                      ) : action.isDisguised ? (
                         <b className="night-role-truth">
                           真实：{action.actualRole.name}
                         </b>
@@ -4989,7 +5062,7 @@ function NightPanel({
                 <div className="night-skill-panel compact">
                   <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><ScrollText size={14} />哲学家选角</span><small>{currentRole.short}</small></div></div>
                   <div className={latestPlayerSkillChoice ? "night-player-choice" : "night-player-choice waiting"}><Target size={14} /><span>{latestPlayerSkillChoice ? `玩家已提交：${latestPlayerSkillChoice.summary}` : "等待玩家选择善良角色"}</span></div>
-                  <button className="primary-button night-skill-submit" disabled={!canUseSkill || !latestPlayerSkillChoice?.roleIdChoice} onClick={() => void submitSkill(`你获得了${getRole(latestPlayerSkillChoice?.roleIdChoice ?? "").name}的能力；若该角色在场，其进入醉酒状态`)}><Send size={15} />确认获得能力</button>
+                  <button className="primary-button night-skill-submit" disabled={!canUseSkill || !latestPlayerSkillChoice?.roleIdChoice} onClick={() => void confirmPhilosopherAbility()}><Send size={15} />确认获得能力</button>
                 </div>
               ) : null}
               {currentRole.id === "juggler" ? (

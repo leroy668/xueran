@@ -25,6 +25,7 @@ import {
 import { CompactSelect } from "./CompactSelect";
 import { DemonBluffMessage } from "./DemonBluffMessage";
 import { parseDemonBluffMessage } from "./demonBluffs";
+import { parsePhilosopherAbilityMessage } from "./philosopher";
 import {
   claimSeat,
   findRoomByCode,
@@ -793,6 +794,20 @@ function PlayerMessages({
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const timelineRef = useRef<HTMLDivElement>(null);
+  const philosopherAbilityRoleId =
+    roleId === "philosopher"
+      ? [...hostMessages]
+          .sort(
+            (left, right) =>
+              new Date(right.created_at).getTime() -
+              new Date(left.created_at).getTime(),
+          )
+          .map((message) =>
+            parsePhilosopherAbilityMessage(message.body, roleOptions),
+          )
+          .find(Boolean) ?? ""
+      : "";
+  const skillRoleId = philosopherAbilityRoleId || roleId;
   const timeline = [
     ...hostMessages.map((message) => {
       const skillBody = getRoleSkillMessage(message.body);
@@ -866,8 +881,17 @@ function PlayerMessages({
         <MessageSquareText size={22} />
       </div>
 
+      {philosopherAbilityRoleId ? (
+        <div className="night-player-choice">
+          <ShieldCheck size={14} />
+          <span>
+            已获得{getRole(philosopherAbilityRoleId).name}能力，后续操作按该角色执行
+          </span>
+        </div>
+      ) : null}
+
       <PlayerRoleSkillPanel
-        roleId={roleId}
+        roleId={skillRoleId}
         roleOptions={roleOptions}
         currentPlayerId={currentPlayerId}
         round={round}
