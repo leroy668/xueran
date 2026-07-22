@@ -5260,28 +5260,19 @@ function HostMessagesPanel({
                 }}
               >
                 <span className="host-player-seat">
-                  {formatSeat(player.seat)}
+                  {formatSeat(player.seat)} · {getRole(player.roleId).name}
                 </span>
                 <span className="host-player-summary">
                   <strong>{playerLabel}</strong>
                   <small>
                     {latest
                       ? `${latest.direction === "outgoing" ? "我：" : ""}${latest.body}`
-                      : `${getRole(player.roleId).name} · 暂无消息`}
+                      : "暂无消息"}
                   </small>
                 </span>
                 {incomingCount ? (
                   <span className="host-player-count">{incomingCount}</span>
-                ) : (
-                  <span
-                    className={
-                      roomPlayer?.is_claimed
-                        ? "host-player-status online"
-                        : "host-player-status"
-                    }
-                    title={roomPlayer?.is_claimed ? "已入座" : "未入座"}
-                  />
-                )}
+                ) : null}
               </button>
             );
           })}

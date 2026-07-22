@@ -512,18 +512,16 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .host-conversation-heading { min-height: 81px; padding: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
 .host-conversation-heading h2 { margin: 0; font-size: 20px; }
 .host-conversation-heading > strong { min-width: 25px; height: 25px; padding: 0 6px; border-radius: 13px; background: var(--panel-raised); color: var(--gold); display: grid; place-items: center; font-size: 10px; }
-.host-player-tabs button { width: 100%; min-height: 66px; padding: 9px 12px; display: grid; grid-template-columns: 32px minmax(0, 1fr) 22px; align-items: center; gap: 9px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); text-align: left; }
+.host-player-tabs button { width: 100%; min-height: 58px; padding: 7px 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; gap: 2px 9px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); text-align: left; }
 .host-player-tabs { max-height: 610px; overflow-y: auto; }
 .host-player-tabs button:hover { background: #222226; }
 .host-player-tabs button.active { background: #28272a; box-shadow: inset 3px 0 var(--red); }
-.host-player-seat { color: var(--gold); font-family: Consolas, monospace; font-size: 11px; }
-.host-player-summary { min-width: 0; }
+.host-player-seat { min-width: 0; grid-column: 1; grid-row: 1; overflow: hidden; color: var(--gold); font-family: Consolas, monospace; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.host-player-summary { min-width: 0; grid-column: 1; grid-row: 2; }
 .host-player-summary strong, .host-player-summary small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .host-player-summary strong { font-size: 12px; }
-.host-player-summary small { margin-top: 5px; color: var(--dim); font-size: 9px; }
-.host-player-count { min-width: 21px; height: 21px; padding: 0 5px; border-radius: 11px; background: var(--red); color: white; display: grid; place-items: center; font-size: 8px; }
-.host-player-status { width: 7px; height: 7px; justify-self: center; border-radius: 50%; background: var(--dim); }
-.host-player-status.online { background: var(--green); box-shadow: 0 0 0 3px rgba(121,181,138,.12); }
+.host-player-summary small { margin-top: 2px; color: var(--dim); font-size: 9px; }
+.host-player-count { min-width: 21px; height: 21px; padding: 0 5px; grid-column: 2; grid-row: 1 / 3; border-radius: 11px; background: var(--red); color: white; display: grid; place-items: center; font-size: 8px; }
 .host-chat-panel { min-width: 0; display: flex; flex-direction: column; }
 .host-chat-header { min-height: 81px; padding: 13px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }
 .host-chat-role { width: 44px; height: 44px; flex: 0 0 auto; display: grid; place-items: center; border-left: 3px solid var(--gold); background: #17171a; overflow: hidden; }
@@ -1247,13 +1245,11 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .host-conversation-heading h2 { font-size: 13px; }
   .host-conversation-heading > strong { min-width: 21px; height: 21px; padding: 0 4px; }
   .host-player-tabs { min-height: 0; max-height: none; flex: 1 1 auto; display: block; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; }
-  .host-player-tabs button { width: 100%; min-width: 0; min-height: 58px; grid-template-columns: minmax(0, 1fr) 18px; grid-template-rows: auto auto; gap: 3px 4px; padding: 7px 6px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .host-player-tabs button { width: 100%; min-width: 0; min-height: 48px; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 4px; padding: 5px 6px; border-right: 0; border-bottom: 1px solid var(--line); }
   .host-player-tabs button.active { box-shadow: inset 3px 0 var(--red); }
-  .host-player-seat { grid-column: 1; grid-row: 1; font-size: 10px; }
-  .host-player-summary { grid-column: 1; grid-row: 2; }
+  .host-player-seat { font-size: 9px; }
   .host-player-summary strong { font-size: 10px; }
   .host-player-summary small { display: none; }
-  .host-player-count, .host-player-status { grid-column: 2; grid-row: 1 / 3; }
   .host-player-count { min-width: 18px; height: 18px; padding: 0 3px; }
   .host-chat-panel { min-height: 0; overflow: hidden; }
   .host-chat-header { min-height: 65px; padding: 10px 13px; }
