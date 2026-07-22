@@ -15,6 +15,8 @@ import {
   Vote,
 } from "lucide-react";
 import { getPlayerVisibleRoleId, getRole } from "../data";
+import { DemonBluffMessage } from "../DemonBluffMessage";
+import { parseDemonBluffMessage } from "../demonBluffs";
 import { PlayerPrivateChats } from "../PlayerPrivateChats";
 import {
   getPlayerMessageDisplayBody,
@@ -160,13 +162,20 @@ function HostChatSimulation({
       [
         ...nightMessages
           .filter((message) => message.player_id === player.id)
-          .map((message) => ({
-            id: message.id,
-            direction: "incoming" as const,
-            round: message.round,
-            createdAt: message.created_at,
-            body: getPlayerNightMessageDisplayBody(message.body, message.role_id),
-          })),
+          .map((message) => {
+            const demonBluffRoleIds = parseDemonBluffMessage(message.body);
+            return {
+              id: message.id,
+              direction: "incoming" as const,
+              round: message.round,
+              createdAt: message.created_at,
+              body: getPlayerNightMessageDisplayBody(
+                message.body,
+                message.role_id,
+              ),
+              demonBluffRoleIds,
+            };
+          }),
         ...playerMessages
           .filter((message) => message.player_id === player.id)
           .map((message) => ({
@@ -175,6 +184,7 @@ function HostChatSimulation({
             round: message.round,
             createdAt: message.created_at,
             body: getPlayerMessageDisplayBody(message.body),
+            demonBluffRoleIds: null,
           })),
       ].sort(
         (left, right) =>
@@ -239,7 +249,11 @@ function HostChatSimulation({
                 <small>
                   {message.direction === "incoming" ? "上帝" : "我"} · 第 {message.round} 回合 · {formatTime(message.createdAt)}
                 </small>
-                <p>{message.body}</p>
+                {message.demonBluffRoleIds ? (
+                  <DemonBluffMessage roleIds={message.demonBluffRoleIds} />
+                ) : (
+                  <p>{message.body}</p>
+                )}
               </div>
             </article>
           ))
