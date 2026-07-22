@@ -144,6 +144,41 @@ export const getScriptRoles = (scriptId: string) => {
 
 const actsAfterDeathRoleIds = new Set(["ravenkeeper", "moonchild", "mayor"]);
 
+const troubleBrewingFirstNightRoleIds = [
+  "poisoner",
+  "washerwoman",
+  "librarian",
+  "investigator",
+  "chef",
+  "empath",
+  "fortune-teller",
+  "butler",
+  "spy",
+] as const;
+
+const troubleBrewingOtherNightRoleIds = [
+  "poisoner",
+  "monk",
+  "scarlet-woman",
+  "imp",
+  "ravenkeeper",
+  "empath",
+  "fortune-teller",
+  "butler",
+  "undertaker",
+  "spy",
+] as const;
+
+const createNightOrderMap = (roleIds: readonly string[]): Map<string, number> =>
+  new Map(roleIds.map((roleId, index) => [roleId, index + 1]));
+
+const troubleBrewingFirstNightOrder = createNightOrderMap(
+  troubleBrewingFirstNightRoleIds,
+);
+const troubleBrewingOtherNightOrder = createNightOrderMap(
+  troubleBrewingOtherNightRoleIds,
+);
+
 export const getNightActions = (
   players: {
     id?: string;
@@ -159,6 +194,12 @@ export const getNightActions = (
   const scriptRoleIds = new Set(
     getScriptRoles(scriptId).map((role) => role.id),
   );
+  const troubleBrewingOrder =
+    scriptId === "trouble-brewing"
+      ? firstNight
+        ? troubleBrewingFirstNightOrder
+        : troubleBrewingOtherNightOrder
+      : null;
   const getActionRole = (player: { roleId: string; drunkRoleId?: string }) =>
     getRole(getPlayerVisibleRoleId(player.roleId, player.drunkRoleId));
   return players
@@ -176,17 +217,22 @@ export const getNightActions = (
       return actionRoles.flatMap((role) => {
         if (!scriptRoleIds.has(role.id)) return [];
         if (role.id === "juggler" && !firstNight && round !== 2) return [];
-        const order = firstNight
-          ? role.firstNightOrder
-          : role.otherNightOrder;
-        if (order <= 0) {
-          return [];
-        }
+        const isTroubleBrewingDemonInfo = Boolean(
+          troubleBrewingOrder && firstNight && role.id === "imp",
+        );
+        const order = troubleBrewingOrder
+          ? isTroubleBrewingDemonInfo
+            ? 0
+            : troubleBrewingOrder.get(role.id) ?? 0
+          : firstNight
+            ? role.firstNightOrder
+            : role.otherNightOrder;
+        if (!isTroubleBrewingDemonInfo && order <= 0) return [];
         const canAct = player.alive || actsAfterDeathRoleIds.has(role.id);
         return [{
           kind: "role" as const,
-          id: role.id,
-          name: role.name,
+          id: isTroubleBrewingDemonInfo ? "demon-info" : role.id,
+          name: isTroubleBrewingDemonInfo ? "恶魔信息" : role.name,
           order,
           role,
           actualRole,
