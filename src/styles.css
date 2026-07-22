@@ -675,6 +675,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .host-private-chat-message-copy > small { display: inline-flex; align-items: center; gap: 4px; color: var(--dim); font-size: 8px; }
 .host-private-chat-no-conversation { min-height: 520px; }
 .day-workspace { display: flex; flex-direction: column; gap: 10px; }
+.day-stage-toolbar { margin-bottom: 0; }
 .day-workspace-toolbar { min-height: 58px; padding: 9px 12px; border: 1px solid var(--line); background: #18181b; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .day-workspace-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .day-workspace-title > svg { flex: 0 0 auto; color: var(--gold); }

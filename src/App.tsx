@@ -593,6 +593,72 @@ const getPreviousGameStage = (
   return { phase: "白天", round: round - 1 };
 };
 
+function GameStageToolbar({
+  state,
+  onUpdate,
+  className = "",
+}: {
+  state: GameState;
+  onUpdate: (patch: Partial<GameState>) => void;
+  className?: string;
+}) {
+  const currentStageLabel = getGameStageLabel(state.phase, state.round);
+  const previousStage = getPreviousGameStage(state.phase, state.round);
+  const previousStageLabel = previousStage
+    ? getGameStageLabel(previousStage.phase, previousStage.round)
+    : null;
+  const nextStage = getNextGameStage(state.phase, state.round);
+  const nextStageLabel = getGameStageLabel(nextStage.phase, nextStage.round);
+  const StageIcon = state.phase === "白天" ? Sun : MoonStar;
+
+  return (
+    <div className={`night-stage-toolbar ${className}`.trim()}>
+      <div>
+        <p className="eyebrow">GAME STAGE</p>
+        <h2>当前回合</h2>
+      </div>
+      <div className="stage-control" aria-label="回合阶段切换">
+        <button
+          className="stage-step-button"
+          onClick={() => {
+            if (previousStage) {
+              onUpdate({ ...previousStage, nightIndex: 0 });
+            }
+          }}
+          disabled={!previousStage}
+          title={
+            previousStageLabel
+              ? `返回${previousStageLabel}`
+              : "已经是最早阶段"
+          }
+          aria-label={
+            previousStageLabel
+              ? `返回${previousStageLabel}`
+              : "已经是最早阶段"
+          }
+        >
+          <ChevronLeft size={17} />
+        </button>
+        <div className={`stage-current phase-${state.phase}`}>
+          <StageIcon size={16} />
+          <span>
+            <small>当前阶段</small>
+            <b>{currentStageLabel}</b>
+          </span>
+        </div>
+        <button
+          className="stage-step-button"
+          onClick={() => onUpdate({ ...nextStage, nightIndex: 0 })}
+          title={`进入${nextStageLabel}`}
+          aria-label={`进入${nextStageLabel}`}
+        >
+          <ChevronRight size={17} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const sampleRoles = [
   "washerwoman",
   "empath",
@@ -1562,6 +1628,11 @@ function GrimoireApp() {
 
         {activeTab === "day" ? (
           <div className="day-workspace">
+            <GameStageToolbar
+              className="day-stage-toolbar"
+              state={state}
+              onUpdate={update}
+            />
             <div className="day-workspace-toolbar">
               <div className="day-workspace-title">
                 <Sun size={18} />
@@ -2741,13 +2812,6 @@ function NightPanel({
   const lastAutomaticSkillKeyRef = useRef("");
   const sending = sendingMode !== null;
   const currentStageLabel = getGameStageLabel(state.phase, state.round);
-  const previousStage = getPreviousGameStage(state.phase, state.round);
-  const previousStageLabel = previousStage
-    ? getGameStageLabel(previousStage.phase, previousStage.round)
-    : null;
-  const nextStage = getNextGameStage(state.phase, state.round);
-  const nextStageLabel = getGameStageLabel(nextStage.phase, nextStage.round);
-  const StageIcon = state.phase === "白天" ? Sun : MoonStar;
   const nightStatusByPlayerId = useMemo(
     () =>
       getNightStatusMarksForPlayers(
@@ -3584,50 +3648,7 @@ function NightPanel({
     <div className="night-layout">
       <section className="night-main">
         <section className="night-action-section">
-          <div className="night-stage-toolbar">
-            <div>
-              <p className="eyebrow">GAME STAGE</p>
-              <h2>当前回合</h2>
-            </div>
-            <div className="stage-control" aria-label="回合阶段切换">
-              <button
-                className="stage-step-button"
-                onClick={() => {
-                  if (previousStage) {
-                    onUpdate({ ...previousStage, nightIndex: 0 });
-                  }
-                }}
-                disabled={!previousStage}
-                title={
-                  previousStageLabel
-                    ? `返回${previousStageLabel}`
-                    : "已经是最早阶段"
-                }
-                aria-label={
-                  previousStageLabel
-                    ? `返回${previousStageLabel}`
-                    : "已经是最早阶段"
-                }
-              >
-                <ChevronLeft size={17} />
-              </button>
-              <div className={`stage-current phase-${state.phase}`}>
-                <StageIcon size={16} />
-                <span>
-                  <small>当前阶段</small>
-                  <b>{currentStageLabel}</b>
-                </span>
-              </div>
-              <button
-                className="stage-step-button"
-                onClick={() => onUpdate({ ...nextStage, nightIndex: 0 })}
-                title={`进入${nextStageLabel}`}
-                aria-label={`进入${nextStageLabel}`}
-              >
-                <ChevronRight size={17} />
-              </button>
-            </div>
-          </div>
+          <GameStageToolbar state={state} onUpdate={onUpdate} />
           <div className="panel-heading night-action-heading">
             <div>
               <p className="eyebrow">NIGHT ORDER · {getGameStageLabel(state.phase, state.round)}</p>
