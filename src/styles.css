@@ -222,7 +222,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .table-player-name { grid-column: 2; grid-row: 1; align-self: end; font-size: 12px; font-weight: 800; line-height: 1.2; }
 .table-role-name { grid-column: 2; grid-row: 2; align-self: start; min-width: 0; margin-top: 4px; display: flex; align-items: center; gap: 3px; color: var(--muted); font-size: 10px; line-height: 1.2; }
 .table-role-name-text { flex: 0 1 auto; }
-.table-card-notes { grid-column: 1 / -1; grid-row: 3; min-width: 0; padding-top: 4px; border-top: 1px solid rgba(141,170,195,.2); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 4px; color: var(--blue); font-size: 8px; line-height: 1.15; white-space: normal; }
+.table-card-notes { grid-column: 1 / -1; grid-row: 3; min-width: 0; padding-top: 4px; border-top: 1px solid rgba(141,170,195,.2); display: grid; grid-template-columns: minmax(0, 1fr); gap: 3px; color: var(--blue); font-size: 8px; line-height: 1.15; white-space: normal; }
 .table-card-note { min-width: 0; min-height: 18px; padding-left: 3px; border-left: 1px solid rgba(141,170,195,.25); display: block; }
 .table-card-note > strong { display: block; margin-bottom: 2px; color: var(--gold); font-size: 7px; line-height: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table-card-note > span { display: block; color: var(--blue); line-height: 1.2; overflow-wrap: anywhere; }

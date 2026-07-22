@@ -2109,7 +2109,7 @@ function GrimoirePanel({
                     roleSkillTimeline.length +
                     (redHerring ? 1 : 0) +
                     (roleState ? 1 : 0);
-                  const cardNoteRows = Math.max(1, Math.ceil(cardNoteCount / 2));
+                  const cardNoteRows = Math.max(1, cardNoteCount);
                   const cardStyle = {
                     left: `${left}%`,
                     top: `${top}%`,
