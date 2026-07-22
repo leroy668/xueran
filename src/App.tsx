@@ -2113,7 +2113,7 @@ function GrimoirePanel({
                   const cardStyle = {
                     left: `${left}%`,
                     top: `${top}%`,
-                    "--card-notes-extra-height": `${Math.max(0, cardNoteRows - 1) * 22}px`,
+                    "--card-notes-extra-height": `${Math.max(0, cardNoteRows - 1) * 14}px`,
                   } as CSSProperties;
 
                   return (
