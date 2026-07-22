@@ -36,6 +36,7 @@ import {
   Users,
 } from "lucide-react";
 import { AdminRooms } from "./AdminRooms";
+import { assessChambermaidWake } from "./chambermaid";
 import { CompactSelect } from "./CompactSelect";
 import {
   getNightActions,
@@ -3637,6 +3638,26 @@ function NightPanel({
     const player = state.players.find((item) => item.id === playerId);
     return player ? formatSeat(player.seat) : "未知座位";
   };
+  const hasChambermaidAbilityActivity = (
+    playerId: string,
+    roleId: string,
+    matchesRound: (round: number) => boolean,
+  ) =>
+    nightMessages.some(
+      (message) =>
+        message.player_id === playerId &&
+        message.role_id === roleId &&
+        matchesRound(message.round) &&
+        (Boolean(getRoleSkillMessage(message.body)) ||
+          (roleId === "godfather" &&
+            message.body === triggeredAbilityNotices.godfather)),
+    ) ||
+    playerMessages.some((message) => {
+      if (message.player_id !== playerId || !matchesRound(message.round)) {
+        return false;
+      }
+      return parsePlayerSkillChoiceMessage(message.body)?.roleId === roleId;
+    });
   const selectedAbilityIssueLabels = (() => {
     if (!selectedPlayer) return [];
     const issues: string[] = [];
@@ -4364,6 +4385,101 @@ function NightPanel({
     );
   };
 
+  const sendChambermaidResult = async (reportedCount: number) => {
+    if (!pairTargetsReady) return;
+    const targets = [skillTargets.first, skillTargets.second]
+      .map((playerId) =>
+        state.players.find((player) => player.id === playerId),
+      )
+      .filter((player): player is Player => Boolean(player));
+    if (targets.length !== 2) return;
+
+    const assessments = targets.map((player) => {
+      const philosopherAbilityRoleId = getPhilosopherAbilityRoleId(player);
+      const abilityRoleId = philosopherAbilityRoleId || player.roleId;
+      const hasCurrentRoundActivity = hasChambermaidAbilityActivity(
+        player.id,
+        abilityRoleId,
+        (round) => round === state.round,
+      );
+      const hasPreviousActivity = hasChambermaidAbilityActivity(
+        player.id,
+        abilityRoleId,
+        (round) => round < state.round,
+      );
+      const philosopherUsedThisRound =
+        player.roleId === "philosopher" &&
+        hasChambermaidAbilityActivity(
+          player.id,
+          "philosopher",
+          (round) => round === state.round,
+        );
+      const assessment = assessChambermaidWake({
+        trueRoleId: player.roleId,
+        abilityRoleId,
+        alive: player.alive,
+        round: state.round,
+        hasCurrentRoundActivity,
+        hasPreviousActivity,
+        philosopherUsedThisRound,
+      });
+      const shownRoleId = player.drunkRoleId;
+      const roleLabel = philosopherAbilityRoleId
+        ? `哲学家→${getRole(philosopherAbilityRoleId).name}`
+        : (player.roleId === "drunk" || player.roleId === "marionette") &&
+            shownRoleId
+          ? `${getRole(player.roleId).name}（展示${getRole(shownRoleId).name}）`
+          : getRole(player.roleId).name;
+      return { player, roleLabel, assessment };
+    });
+
+    const definiteWakeCount = assessments.filter(
+      ({ assessment }) => assessment.status === "woke",
+    ).length;
+    const conditionalAssessments = assessments.filter(
+      ({ assessment }) => assessment.status === "conditional",
+    );
+    const maximumWakeCount =
+      definiteWakeCount + conditionalAssessments.length;
+    const sentMatchesBaseline =
+      reportedCount >= definiteWakeCount && reportedCount <= maximumWakeCount;
+    const detail = assessments
+      .map(({ player, roleLabel, assessment }) => {
+        const statusLabel =
+          assessment.status === "woke"
+            ? "计入"
+            : assessment.status === "conditional"
+              ? "条件计入"
+              : "不计";
+        return `${formatSeat(player.seat)} ${roleLabel}：${statusLabel}（${assessment.reason}）`;
+      })
+      .join("；");
+    const baseline =
+      definiteWakeCount === maximumWakeCount
+        ? `按当前夜晚角色规则应为 ${definiteWakeCount} 人。${detail}`
+        : `确定 ${definiteWakeCount} 人，另有 ${conditionalAssessments.length} 名条件角色，合理范围为 ${definiteWakeCount}–${maximumWakeCount} 人。${detail}`;
+    const first = getNightSeatLabel(skillTargets.first);
+    const second = getNightSeatLabel(skillTargets.second);
+
+    if (!(await confirmSkillResult({
+      title: "确认发送侍女查验结果？",
+      sendLines: [
+        `查验目标：${first}、${second}`,
+        `发送结果：${reportedCount} 人因自身能力醒来`,
+      ],
+      sentMatchesBaseline,
+      baseline,
+      caveats: conditionalAssessments.map(
+        ({ player, assessment }) =>
+          `${formatSeat(player.seat)}：${assessment.reason}，需以上帝本晚实际是否唤醒为准`,
+      ),
+    }))) return;
+
+    void submitSkill(
+      `你选择的${first}和${second}中，有 ${reportedCount} 人因自身能力醒来`,
+    );
+  };
+
   const sendJugglerResult = async (count: number) => {
     if (!hasJugglerSubmission) {
       if (
@@ -5055,7 +5171,7 @@ function NightPanel({
                     <CompactSelect value={skillTargets.first} onChange={(event) => setSkillTargets((current) => ({...current, first: event.target.value}))}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id} disabled={player.id === skillTargets.second}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect>
                     <CompactSelect value={skillTargets.second} onChange={(event) => setSkillTargets((current) => ({...current, second: event.target.value}))}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id} disabled={player.id === skillTargets.first}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect>
                   </div>
-                  <div className="night-skill-result-grid">{[0,1,2].map((count) => <button className="secondary-button" key={count} disabled={!canUseSkill || !pairTargetsReady} onClick={() => void submitSkill(`你选择的${getNightSeatLabel(skillTargets.first)}和${getNightSeatLabel(skillTargets.second)}中，有 ${count} 人因自身能力醒来`)}>{count}<small>人醒来</small></button>)}</div>
+                  <div className="night-skill-result-grid">{[0,1,2].map((count) => <button className="secondary-button" key={count} disabled={!canUseSkill || !pairTargetsReady} onClick={() => void sendChambermaidResult(count)}>{count}<small>人醒来</small></button>)}</div>
                 </div>
               ) : null}
               {currentRole.id === "philosopher" ? (
