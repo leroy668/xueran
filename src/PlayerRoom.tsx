@@ -1054,6 +1054,9 @@ function PlayerSkillChoicePanel({
     !deathLocked &&
     !hostTriggerLocked &&
     !oneUseLocked;
+  const needsImpSuccessor =
+    roleId === "imp" && firstPlayerId === currentPlayerId;
+  const needsSecondPlayer = spec.kind === "pair" || needsImpSuccessor;
 
   useEffect(() => {
     const candidateIds = new Set(candidates.map((player) => player.id));
@@ -1063,20 +1066,38 @@ function PlayerSkillChoicePanel({
         : candidateIds.has(firstPlayerId)
           ? firstPlayerId
           : candidates[0]?.id ?? "";
+    const nextNeedsImpSuccessor =
+      roleId === "imp" && nextFirst === currentPlayerId;
     const nextSecond =
-      spec.kind === "pair"
+      spec.kind === "pair" || nextNeedsImpSuccessor
         ? latestChoice?.playerIds[1] &&
           candidateIds.has(latestChoice.playerIds[1]) &&
+          (!nextNeedsImpSuccessor ||
+            latestChoice.playerIds[1] !== currentPlayerId) &&
           latestChoice.playerIds[1] !== nextFirst
           ? latestChoice.playerIds[1]
-          : candidateIds.has(secondPlayerId) && secondPlayerId !== nextFirst
+          : candidateIds.has(secondPlayerId) &&
+              (!nextNeedsImpSuccessor ||
+                secondPlayerId !== currentPlayerId) &&
+              secondPlayerId !== nextFirst
             ? secondPlayerId
-            : candidates.find((player) => player.id !== nextFirst)?.id ?? ""
+            : candidates.find(
+                (player) =>
+                  player.id !== nextFirst &&
+                  (!nextNeedsImpSuccessor || player.id !== currentPlayerId),
+              )?.id ?? ""
         : "";
     if (nextFirst !== firstPlayerId) setFirstPlayerId(nextFirst);
     if (nextSecond !== secondPlayerId) setSecondPlayerId(nextSecond);
-  }, [candidates, firstPlayerId, latestChoice?.playerIds, secondPlayerId, spec.kind]);
-
+  }, [
+    candidates,
+    currentPlayerId,
+    firstPlayerId,
+    latestChoice?.playerIds,
+    roleId,
+    secondPlayerId,
+    spec.kind,
+  ]);
   useEffect(() => {
     const preferredRoleId = latestChoice?.roleIdChoice;
     if (preferredRoleId && selectableRoles.some((role) => role.id === preferredRoleId)) {
@@ -1096,7 +1117,7 @@ function PlayerSkillChoicePanel({
   const submitChoice = async () => {
     const needsTarget = spec.kind !== "role";
     const needsRole = spec.kind === "role" || spec.kind === "single-role";
-    const playerIds = spec.kind === "pair"
+    const playerIds = needsSecondPlayer
       ? [firstPlayerId, secondPlayerId]
       : needsTarget
         ? [firstPlayerId]
@@ -1105,12 +1126,17 @@ function PlayerSkillChoicePanel({
       !available ||
       (needsTarget && !firstPlayerId) ||
       (needsRole && !roleChoiceId) ||
-      (spec.kind === "pair" && (!secondPlayerId || firstPlayerId === secondPlayerId)) ||
+      (needsSecondPlayer &&
+        (!secondPlayerId ||
+          firstPlayerId === secondPlayerId ||
+          (needsImpSuccessor && secondPlayerId === currentPlayerId))) ||
       sending
     ) return;
     const roleLabel = selectableRoles.find((role) => role.id === roleChoiceId)?.name ?? "未知角色";
     const summaryParts = [
-      ...playerIds.map(getPlayerLabel),
+      ...(needsImpSuccessor
+        ? [`${getPlayerLabel(firstPlayerId)}（自杀）`, `传给${getPlayerLabel(secondPlayerId)}`]
+        : playerIds.map(getPlayerLabel)),
       ...(needsRole ? [roleLabel] : []),
     ];
     const summary = spec.summaryPrefix + "：" + summaryParts.join(" · ");
@@ -1153,24 +1179,36 @@ function PlayerSkillChoicePanel({
         {latestChoice ? <span className="player-skill-submitted">已提交</span> : null}
       </div>
       {available ? (
-        <div className={("player-skill-targets " + (spec.kind === "single" || spec.kind === "role" ? "single" : "")).trim()}>
+        <div className={("player-skill-targets " + (spec.kind === "role" || (spec.kind === "single" && !needsImpSuccessor) ? "single" : "")).trim()}>
           {spec.kind !== "role" ? <CompactSelect value={firstPlayerId} disabled={sending} ariaLabel={spec.title + "目标"} onValueChange={setFirstPlayerId}>
             {candidates.map((player) => (
               <option
                 value={player.id}
                 key={player.id}
                 disabled={
-                  spec.kind === "pair" && player.id === secondPlayerId
+                  needsSecondPlayer && player.id === secondPlayerId
                 }
               >
                 {formatSeat(player.seat)} · {player.name || "玩家"}
               </option>
             ))}
           </CompactSelect> : null}
-          {spec.kind === "pair" ? (
-            <CompactSelect value={secondPlayerId} disabled={sending} ariaLabel={spec.title + "第二目标"} onValueChange={setSecondPlayerId}>
+          {needsSecondPlayer ? (
+            <CompactSelect
+              value={secondPlayerId}
+              disabled={sending}
+              ariaLabel={needsImpSuccessor ? "选择恶魔继承玩家" : spec.title + "第二目标"}
+              onValueChange={setSecondPlayerId}
+            >
               {candidates.map((player) => (
-                <option value={player.id} key={player.id} disabled={player.id === firstPlayerId}>
+                <option
+                  value={player.id}
+                  key={player.id}
+                  disabled={
+                    player.id === firstPlayerId ||
+                    (needsImpSuccessor && player.id === currentPlayerId)
+                  }
+                >
                   {formatSeat(player.seat)} · {player.name || "玩家"}
                 </option>
               ))}
@@ -1181,7 +1219,7 @@ function PlayerSkillChoicePanel({
               {selectableRoles.map((role) => <option value={role.id} key={role.id}>{role.name} · {role.team}</option>)}
             </CompactSelect>
           ) : null}
-          <button className="primary-button" disabled={sending || (spec.kind !== "role" && !firstPlayerId) || ((spec.kind === "role" || spec.kind === "single-role") && !roleChoiceId) || (spec.kind === "pair" && (!secondPlayerId || firstPlayerId === secondPlayerId))} onClick={() => void submitChoice()}>
+          <button className="primary-button" disabled={sending || (spec.kind !== "role" && !firstPlayerId) || ((spec.kind === "role" || spec.kind === "single-role") && !roleChoiceId) || (needsSecondPlayer && (!secondPlayerId || firstPlayerId === secondPlayerId || (needsImpSuccessor && secondPlayerId === currentPlayerId)))} onClick={() => void submitChoice()}>
             <Send size={15} />{sending ? "提交中" : latestChoice ? "更新选择" : spec.submitLabel}
           </button>
         </div>

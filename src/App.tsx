@@ -450,6 +450,9 @@ const getSeatCardChoicePreview = (roleId: string, summary: string) => {
       : "未记录";
     return `查${targets}·待回复`;
   }
+  if (roleId === "imp" && summary.includes("自杀")) {
+    return seats[1] ? `自杀→${seats[1]}号` : "自杀·待传承";
+  }
   if (roleId === "philosopher") return selectedRole || "已选择能力";
   if (roleId === "gambler") {
     return `${target}·${selectedRole || "已猜角色"}`;
@@ -2813,9 +2816,12 @@ function NightPanel({
   const [librarianNoOutsider, setLibrarianNoOutsider] = useState(false);
   const [chefResult, setChefResult] = useState(0);
   const [sendError, setSendError] = useState("");
+  const [impSuccessorPlayerId, setImpSuccessorPlayerId] = useState("");
+  const [sendingBluffs, setSendingBluffs] = useState(false);
+  const [demonBluffRoleIds, setDemonBluffRoleIds] = useState<string[]>([]);
   const timelineRef = useRef<HTMLDivElement>(null);
   const lastAutomaticSkillKeyRef = useRef("");
-  const sending = sendingMode !== null;
+  const sending = sendingMode !== null || sendingBluffs;
   const currentStageLabel = getGameStageLabel(state.phase, state.round);
   const nightStatusByPlayerId = useMemo(
     () =>
@@ -2856,6 +2862,66 @@ function NightPanel({
   const selectedRoomPlayer = selectedPlayer
     ? roomPlayersById.get(selectedPlayer.id)
     : undefined;
+  const impSuccessorCandidates = useMemo(
+    () =>
+      state.players.filter(
+        (player) => player.alive && player.id !== selectedPlayer?.id,
+      ),
+    [selectedPlayer?.id, state.players],
+  );
+  const availableDemonBluffRoles = useMemo(() => {
+    const assignedRoleIds = new Set(
+      state.players.map((player) => player.roleId),
+    );
+    return getScriptRoles(state.scriptId).filter(
+      (role) =>
+        (role.team === "镇民" || role.team === "外来者") &&
+        !assignedRoleIds.has(role.id),
+    );
+  }, [state.players, state.scriptId]);
+  const assignedRoleSignature = useMemo(
+    () =>
+      [...state.players]
+        .sort((left, right) => left.seat - right.seat)
+        .map((player) => `${player.seat}:${player.roleId}`)
+        .join("|"),
+    [state.players],
+  );
+  const demonBluffStorageKey = room
+    ? `xueran-demon-bluffs-${room.id}`
+    : "";
+  const demonBluffsAvailable =
+    currentRole?.id === "imp" && state.round <= 1 && Boolean(selectedPlayer);
+  const chooseRandomBluffs = useCallback(
+    (excludedSignature = "") => {
+      const shuffled = [...availableDemonBluffRoles].sort(
+        () => Math.random() - 0.5,
+      );
+      let nextRoleIds = shuffled.slice(0, 3).map((role) => role.id);
+      if (
+        availableDemonBluffRoles.length > 3 &&
+        getDemonBluffSignature(nextRoleIds) === excludedSignature
+      ) {
+        nextRoleIds = [
+          ...nextRoleIds.slice(0, 2),
+          shuffled.find((role) => !nextRoleIds.includes(role.id))!.id,
+        ];
+      }
+      return nextRoleIds;
+    },
+    [availableDemonBluffRoles],
+  );
+  const persistDemonBluffs = useCallback(
+    (roleIds: string[]) => {
+      setDemonBluffRoleIds(roleIds);
+      if (!demonBluffStorageKey) return;
+      localStorage.setItem(
+        demonBluffStorageKey,
+        JSON.stringify({ assignedRoleSignature, roleIds }),
+      );
+    },
+    [assignedRoleSignature, demonBluffStorageKey],
+  );
   const currentSkillDefinition = currentRole
     ? getTroubleBrewingSkill(currentRole.id)
     : null;
@@ -2875,6 +2941,90 @@ function NightPanel({
     }
     setSendError("");
   }, [currentAction?.playerId, rolePlayers, targetPlayerId]);
+
+  useEffect(() => {
+    if (
+      !demonBluffsAvailable ||
+      availableDemonBluffRoles.length < 3
+    ) {
+      setDemonBluffRoleIds([]);
+      return;
+    }
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(demonBluffStorageKey) ?? "null",
+      ) as { assignedRoleSignature?: string; roleIds?: unknown } | null;
+      const savedRoleIds = Array.isArray(saved?.roleIds)
+        ? saved.roleIds.filter(
+            (roleId): roleId is string => typeof roleId === "string",
+          )
+        : [];
+      const availableRoleIds = new Set(
+        availableDemonBluffRoles.map((role) => role.id),
+      );
+      if (
+        saved?.assignedRoleSignature === assignedRoleSignature &&
+        savedRoleIds.length === 3 &&
+        new Set(savedRoleIds).size === 3 &&
+        savedRoleIds.every((roleId) => availableRoleIds.has(roleId))
+      ) {
+        setDemonBluffRoleIds(savedRoleIds);
+        return;
+      }
+    } catch {
+      // Invalid local drafts are replaced below.
+    }
+    persistDemonBluffs(chooseRandomBluffs());
+  }, [
+    assignedRoleSignature,
+    availableDemonBluffRoles,
+    chooseRandomBluffs,
+    demonBluffStorageKey,
+    demonBluffsAvailable,
+    persistDemonBluffs,
+  ]);
+
+  const sentDemonBluffSignatures = useMemo(
+    () =>
+      new Set(
+        nightMessages
+          .filter(
+            (message) =>
+              Boolean(selectedPlayer) && message.player_id === selectedPlayer?.id,
+          )
+          .map((message) => parseDemonBluffMessage(message.body))
+          .filter((roleIds): roleIds is string[] => Boolean(roleIds))
+          .map(getDemonBluffSignature),
+      ),
+    [nightMessages, selectedPlayer],
+  );
+  const currentDemonBluffSignature =
+    demonBluffRoleIds.length === 3
+      ? getDemonBluffSignature(demonBluffRoleIds)
+      : "";
+  const demonBluffsAlreadySent =
+    Boolean(currentDemonBluffSignature) &&
+    sentDemonBluffSignatures.has(currentDemonBluffSignature);
+
+  const replaceDemonBluff = (index: number, nextRoleId?: string) => {
+    const otherRoleIds = demonBluffRoleIds.filter(
+      (_, roleIndex) => roleIndex !== index,
+    );
+    const candidates = availableDemonBluffRoles.filter(
+      (role) =>
+        !otherRoleIds.includes(role.id) &&
+        (nextRoleId || role.id !== demonBluffRoleIds[index]),
+    );
+    const replacement =
+      nextRoleId ??
+      candidates[Math.floor(Math.random() * candidates.length)]?.id;
+    if (!replacement || otherRoleIds.includes(replacement)) return;
+    persistDemonBluffs(
+      demonBluffRoleIds.map((roleId, roleIndex) =>
+        roleIndex === index ? replacement : roleId,
+      ),
+    );
+  };
 
   const redHerringCandidates = useMemo(
     () =>
@@ -3093,6 +3243,36 @@ function NightPanel({
     latestPlayerSkillChoice?.playerIds,
     singleSkillTargetId,
     singleTargetCandidates,
+  ]);
+
+  useEffect(() => {
+    const needsSuccessor =
+      currentRole?.id === "imp" &&
+      Boolean(selectedPlayer) &&
+      singleSkillTargetId === selectedPlayer?.id;
+    if (!needsSuccessor) {
+      if (impSuccessorPlayerId) setImpSuccessorPlayerId("");
+      return;
+    }
+    const candidateIds = new Set(
+      impSuccessorCandidates.map((player) => player.id),
+    );
+    const preferredSuccessor = latestPlayerSkillChoice?.playerIds[1];
+    const nextSuccessor = preferredSuccessor && candidateIds.has(preferredSuccessor)
+      ? preferredSuccessor
+      : candidateIds.has(impSuccessorPlayerId)
+        ? impSuccessorPlayerId
+        : impSuccessorCandidates[0]?.id ?? "";
+    if (nextSuccessor !== impSuccessorPlayerId) {
+      setImpSuccessorPlayerId(nextSuccessor);
+    }
+  }, [
+    currentRole?.id,
+    impSuccessorCandidates,
+    impSuccessorPlayerId,
+    latestPlayerSkillChoice?.playerIds,
+    selectedPlayer,
+    singleSkillTargetId,
   ]);
 
   useEffect(() => {
@@ -3457,6 +3637,36 @@ function NightPanel({
   const canResolveRoleReveal =
     currentRole?.id !== "ravenkeeper" || Boolean(latestPlayerSkillChoice);
 
+  const sendDemonBluffs = async () => {
+    if (
+      !demonBluffsAvailable ||
+      demonBluffRoleIds.length !== 3 ||
+      demonBluffsAlreadySent ||
+      !selectedPlayer ||
+      !selectedRoomPlayer?.is_claimed ||
+      !canUseSkill
+    ) {
+      return;
+    }
+    setSendingBluffs(true);
+    setSendError("");
+    try {
+      await onSendMessage({
+        playerId: selectedPlayer.id,
+        roleId: "imp",
+        body: buildDemonBluffMessage(demonBluffRoleIds),
+      });
+    } catch {
+      setSendError(
+        selectedRoomPlayer?.is_claimed
+          ? "不在场身份发送失败，请稍后重试"
+          : "小恶魔尚未入座，暂时无法接收身份",
+      );
+    } finally {
+      setSendingBluffs(false);
+    }
+  };
+
   const submitMessage = async () => {
     const body = messageBody.trim();
     if (!currentRole || !selectedPlayer || !body || !canSend) return;
@@ -3484,7 +3694,9 @@ function NightPanel({
   };
 
   const submitSkill = async (body: string) => {
-    if (!currentRole || !selectedPlayer || !body.trim() || !canUseSkill) return;
+    if (!currentRole || !selectedPlayer || !body.trim() || !canUseSkill) {
+      return false;
+    }
     setSendingMode("skill");
     setSendError("");
     try {
@@ -3493,6 +3705,7 @@ function NightPanel({
         roleId: currentRole.id,
         body: buildRoleSkillMessage(body),
       });
+      return true;
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "";
       setSendError(
@@ -3502,6 +3715,7 @@ function NightPanel({
             ? "夜间消息数据库尚未配置"
             : "技能信息发送失败，请稍后重试",
       );
+      return false;
     } finally {
       setSendingMode(null);
     }
@@ -3636,7 +3850,7 @@ function NightPanel({
     void submitSkill(`本晚两名存活邻座中有 ${count} 名邪恶玩家`);
   };
 
-  const sendSingleTargetSkill = () => {
+  const sendSingleTargetSkill = async () => {
     if (!currentRole || !singleSkillTargetId) return;
     if (
       currentRole.id === "godfather" &&
@@ -3646,6 +3860,23 @@ function NightPanel({
     }
     const targetLabel = getNightSeatLabel(singleSkillTargetId);
     const targetIsSelf = singleSkillTargetId === selectedPlayer?.id;
+    const impSuccessor =
+      currentRole.id === "imp" && targetIsSelf
+        ? impSuccessorCandidates.find(
+            (player) => player.id === impSuccessorPlayerId,
+          )
+        : undefined;
+    if (currentRole.id === "imp" && targetIsSelf && !impSuccessor) return;
+    if (
+      currentRole.id === "imp" &&
+      targetIsSelf &&
+      impSuccessor &&
+      !window.confirm(
+        `确认小恶魔自杀，并将小恶魔身份传给${getNightSeatLabel(impSuccessor.id)}？`,
+      )
+    ) {
+      return;
+    }
     const body =
       currentRole.id === "monk"
         ? "本晚保护目标：" + targetLabel
@@ -3654,7 +3885,11 @@ function NightPanel({
           : currentRole.id === "poisoner"
             ? "本晚中毒目标：" + targetLabel
             : currentRole.id === "imp"
-              ? "本晚攻击目标：" + targetLabel + (targetIsSelf ? "（自杀，检查恶魔传承）" : "")
+              ? "本晚攻击目标：" +
+                targetLabel +
+                (impSuccessor
+                  ? `（自杀，恶魔传给${getNightSeatLabel(impSuccessor.id)}）`
+                  : "")
               : currentRole.id === "pukka"
                 ? "本晚新中毒目标：" + targetLabel + "；结算上一名中毒者死亡并恢复健康"
                 : currentRole.id === "vigormortis"
@@ -3670,7 +3905,24 @@ function NightPanel({
               : currentRole.id === "slayer"
                 ? "本局射击目标：" + targetLabel
                 : "本轮选择目标：" + targetLabel;
-    void submitSkill(body);
+    const sent = await submitSkill(body);
+    if (!sent || currentRole.id !== "imp" || !targetIsSelf || !impSuccessor) {
+      return;
+    }
+    onUpdate({
+      players: state.players.map((player) => {
+        if (player.id === selectedPlayer?.id) return { ...player, alive: false };
+        if (player.id === impSuccessor.id) {
+          return {
+            ...player,
+            roleId: "imp",
+            drunkRoleId: "",
+            identityMessage: "你已继承小恶魔身份。",
+          };
+        }
+        return player;
+      }),
+    });
   };
 
   const sendNightwatchmanNotice = async () => {
@@ -4384,10 +4636,38 @@ function NightPanel({
                   </div>
                 </div>
               ) : null}
+              {currentRole.id === "imp" && state.round <= 1 ? (
+                <div className="night-skill-panel demon-bluff-draft">
+                  <div className="demon-bluff-draft-heading">
+                    <div><strong>小恶魔不在场身份</strong><small>首夜选择并发送三张不在场身份</small></div>
+                    <button className="icon-button" title="整组重选" aria-label="整组重选不在场身份" disabled={sendingBluffs || availableDemonBluffRoles.length < 3} onClick={() => persistDemonBluffs(chooseRandomBluffs(currentDemonBluffSignature))}><Dices size={16} /></button>
+                  </div>
+                  {demonBluffRoleIds.length === 3 ? (
+                    <div className="demon-bluff-draft-roles">
+                      {demonBluffRoleIds.map((roleId, index) => {
+                        const role = getRole(roleId);
+                        return (
+                          <div className="demon-bluff-draft-role" key={`${index}-${roleId}`}>
+                            <span className="demon-bluff-draft-icon"><RoleIcon roleId={roleId} size={20} /></span>
+                            <CompactSelect value={roleId} disabled={sendingBluffs} aria-label={`第 ${index + 1} 个不在场身份`} onChange={(event) => replaceDemonBluff(index, event.target.value)}>
+                              {availableDemonBluffRoles.map((option) => <option value={option.id} key={option.id} disabled={option.id !== roleId && demonBluffRoleIds.includes(option.id)}>{option.name} · {option.team}</option>)}
+                            </CompactSelect>
+                            <button className="icon-button" title="更换这个身份" aria-label={`更换${role.name}`} disabled={sendingBluffs} onClick={() => replaceDemonBluff(index)}><RotateCcw size={15} /></button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : <div className="inline-error">当前剧本中不足三张可用的不在场善良身份</div>}
+                  <button className="primary-button demon-bluff-send" disabled={demonBluffsAlreadySent || sendingBluffs || !canUseSkill || demonBluffRoleIds.length !== 3} onClick={() => void sendDemonBluffs()}>
+                    {demonBluffsAlreadySent ? <Check size={15} /> : <Send size={15} />}
+                    {demonBluffsAlreadySent ? "本组已发送" : sendingBluffs ? "发送中" : selectedRoomPlayer?.is_claimed ? "发送这三个身份" : "小恶魔入座后可发送"}
+                  </button>
+                </div>
+              ) : null}
               {currentRole.id === "monk" ||
               currentRole.id === "butler" ||
               currentRole.id === "poisoner" ||
-              currentRole.id === "imp" ? (
+              (currentRole.id === "imp" && state.round > 1) ? (
                 <div className="night-skill-panel">
                   <div className="night-skill-panel-heading">
                     <div className="night-skill-heading-title">
@@ -4400,11 +4680,19 @@ function NightPanel({
                   ) : (
                     <div className="night-player-choice waiting"><Target size={14} /><span>玩家尚未提交，可由上帝代选</span></div>
                   )}
+                  {currentRole.id === "imp" && singleSkillTargetId === selectedPlayer?.id ? (
+                    <label className="night-skill-role-field">
+                      <span>恶魔继承玩家</span>
+                      <CompactSelect value={impSuccessorPlayerId} disabled={sending} aria-label="选择恶魔继承玩家" onChange={(event) => setImpSuccessorPlayerId(event.target.value)}>
+                        {impSuccessorCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}
+                      </CompactSelect>
+                    </label>
+                  ) : null}
                   <div className="night-skill-single-row">
                     <CompactSelect value={singleSkillTargetId} disabled={sending} onChange={(event) => setSingleSkillTargetId(event.target.value)} aria-label={currentRole.name + "目标"}>
                       {singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}
                     </CompactSelect>
-                    <button className="primary-button" disabled={!canUseSkill || !singleSkillTargetId} onClick={sendSingleTargetSkill}>
+                    <button className="primary-button" disabled={!canUseSkill || !singleSkillTargetId || (currentRole.id === "imp" && singleSkillTargetId === selectedPlayer?.id && !impSuccessorPlayerId)} onClick={() => void sendSingleTargetSkill()}>
                       <Send size={15} />{sendingMode === "skill" ? "发送中" : "确认并发送"}
                     </button>
                   </div>
@@ -4811,9 +5099,7 @@ function HostMessagesPanel({
   const [selectedConversationId, setSelectedConversationId] = useState("");
   const [messageBody, setMessageBody] = useState("");
   const [sending, setSending] = useState(false);
-  const [sendingBluffs, setSendingBluffs] = useState(false);
   const [sendError, setSendError] = useState("");
-  const [demonBluffRoleIds, setDemonBluffRoleIds] = useState<string[]>([]);
   const timelineRef = useRef<HTMLDivElement>(null);
   const roomPlayersById = useMemo(
     () => new Map(roomPlayers.map((player) => [player.id, player])),
@@ -4829,117 +5115,8 @@ function HostMessagesPanel({
         })),
     [roomPlayersById, state.players],
   );
-  const impEntry = availablePlayers.find(
-    ({ player }) => player.roleId === "imp",
-  );
-  const impPlayer = impEntry?.player;
-  const impRoomPlayer = impEntry?.roomPlayer;
-  const demonBluffsAvailable = Boolean(impPlayer);
-  const availableDemonBluffRoles = useMemo(() => {
-    const assignedRoleIds = new Set(
-      state.players.map((player) => player.roleId),
-    );
-    return getScriptRoles(state.scriptId).filter(
-      (role) =>
-        (role.team === "镇民" || role.team === "外来者") &&
-        !assignedRoleIds.has(role.id),
-    );
-  }, [state.players, state.scriptId]);
-  const assignedRoleSignature = useMemo(
-    () =>
-      [...state.players]
-        .sort((left, right) => left.seat - right.seat)
-        .map((player) => `${player.seat}:${player.roleId}`)
-        .join("|"),
-    [state.players],
-  );
-  const demonBluffStorageKey = room
-    ? `xueran-demon-bluffs-${room.id}`
-    : "";
   const selectedPlayerId = selectedConversationId;
 
-  const chooseRandomBluffs = useCallback(
-    (excludedSignature = "") => {
-      const shuffled = [...availableDemonBluffRoles].sort(
-        () => Math.random() - 0.5,
-      );
-      let nextRoleIds = shuffled.slice(0, 3).map((role) => role.id);
-      if (
-        availableDemonBluffRoles.length > 3 &&
-        getDemonBluffSignature(nextRoleIds) === excludedSignature
-      ) {
-        nextRoleIds = [
-          ...nextRoleIds.slice(0, 2),
-          shuffled.find((role) => !nextRoleIds.includes(role.id))!.id,
-        ];
-      }
-      return nextRoleIds;
-    },
-    [availableDemonBluffRoles],
-  );
-
-  const persistDemonBluffs = useCallback(
-    (roleIds: string[]) => {
-      setDemonBluffRoleIds(roleIds);
-      if (!demonBluffStorageKey) return;
-      localStorage.setItem(
-        demonBluffStorageKey,
-        JSON.stringify({
-          assignedRoleSignature,
-          roleIds,
-        }),
-      );
-    },
-    [assignedRoleSignature, demonBluffStorageKey],
-  );
-
-  useEffect(() => {
-    if (
-      !demonBluffsAvailable ||
-      !demonBluffStorageKey ||
-      availableDemonBluffRoles.length < 3
-    ) {
-      setDemonBluffRoleIds([]);
-      return;
-    }
-
-    try {
-      const saved = JSON.parse(
-        localStorage.getItem(demonBluffStorageKey) ?? "null",
-      ) as {
-        assignedRoleSignature?: string;
-        roleIds?: unknown;
-      } | null;
-      const savedRoleIds = Array.isArray(saved?.roleIds)
-        ? saved.roleIds.filter(
-            (roleId): roleId is string => typeof roleId === "string",
-          )
-        : [];
-      const availableRoleIds = new Set(
-        availableDemonBluffRoles.map((role) => role.id),
-      );
-      if (
-        saved?.assignedRoleSignature === assignedRoleSignature &&
-        savedRoleIds.length === 3 &&
-        new Set(savedRoleIds).size === 3 &&
-        savedRoleIds.every((roleId) => availableRoleIds.has(roleId))
-      ) {
-        setDemonBluffRoleIds(savedRoleIds);
-        return;
-      }
-    } catch {
-      // Invalid local drafts are replaced below.
-    }
-
-    persistDemonBluffs(chooseRandomBluffs());
-  }, [
-    assignedRoleSignature,
-    availableDemonBluffRoles,
-    chooseRandomBluffs,
-    demonBluffStorageKey,
-    demonBluffsAvailable,
-    persistDemonBluffs,
-  ]);
 
   useEffect(() => {
     if (
@@ -5153,76 +5330,6 @@ function HostMessagesPanel({
     }
   };
 
-  const sentDemonBluffSignatures = useMemo(
-    () =>
-      new Set(
-        nightMessages
-          .filter(
-            (message) =>
-              Boolean(impPlayer) && message.player_id === impPlayer?.id,
-          )
-          .map((message) => parseDemonBluffMessage(message.body))
-          .filter((roleIds): roleIds is string[] => Boolean(roleIds))
-          .map(getDemonBluffSignature),
-      ),
-    [impPlayer, nightMessages],
-  );
-  const currentDemonBluffSignature =
-    demonBluffRoleIds.length === 3
-      ? getDemonBluffSignature(demonBluffRoleIds)
-      : "";
-  const demonBluffsAlreadySent =
-    Boolean(currentDemonBluffSignature) &&
-    sentDemonBluffSignatures.has(currentDemonBluffSignature);
-
-  const replaceDemonBluff = (index: number, nextRoleId?: string) => {
-    const otherRoleIds = demonBluffRoleIds.filter(
-      (_, roleIndex) => roleIndex !== index,
-    );
-    const candidates = availableDemonBluffRoles.filter(
-      (role) =>
-        !otherRoleIds.includes(role.id) &&
-        (nextRoleId || role.id !== demonBluffRoleIds[index]),
-    );
-    const replacement =
-      nextRoleId ??
-      candidates[Math.floor(Math.random() * candidates.length)]?.id;
-    if (!replacement || otherRoleIds.includes(replacement)) return;
-    persistDemonBluffs(
-      demonBluffRoleIds.map((roleId, roleIndex) =>
-        roleIndex === index ? replacement : roleId,
-      ),
-    );
-  };
-
-  const sendDemonBluffs = async () => {
-    if (
-      demonBluffRoleIds.length !== 3 ||
-      demonBluffsAlreadySent ||
-      sendingBluffs ||
-      !impPlayer ||
-      !impRoomPlayer?.is_claimed
-    ) {
-      return;
-    }
-    setSendingBluffs(true);
-    setSendError("");
-    try {
-      await onSendMessage({
-        playerId: impPlayer.id,
-        roleId: "imp",
-        body: buildDemonBluffMessage(demonBluffRoleIds),
-      });
-    } catch {
-      setSendError(
-        impRoomPlayer?.is_claimed
-          ? "不在场身份发送失败，请稍后重试"
-          : "小恶魔尚未入座，暂时无法接收身份",
-      );
-    } finally {
-      setSendingBluffs(false);
-    }
-  };
 
   if (!room) {
     return (
@@ -5302,94 +5409,6 @@ function HostMessagesPanel({
               </div>
             </header>
 
-            {selectedPlayer.roleId === "imp" &&
-            demonBluffRoleIds.length === 3 ? (
-              <section className="demon-bluff-draft">
-                <div className="demon-bluff-draft-heading">
-                  <div>
-                    <strong>小恶魔不在场身份</strong>
-                    <small>仅发送给当前小恶魔玩家</small>
-                  </div>
-                  <button
-                    className="icon-button"
-                    title="整组重选"
-                    aria-label="整组重选伪装身份"
-                    onClick={() =>
-                      persistDemonBluffs(
-                        chooseRandomBluffs(currentDemonBluffSignature),
-                      )
-                    }
-                  >
-                    <Dices size={16} />
-                  </button>
-                </div>
-                <div className="demon-bluff-draft-roles">
-                  {demonBluffRoleIds.map((roleId, index) => {
-                    const role = getRole(roleId);
-                    return (
-                      <div
-                        className="demon-bluff-draft-role"
-                        key={`${index}-${roleId}`}
-                      >
-                        <span className="demon-bluff-draft-icon">
-                          <RoleIcon roleId={roleId} size={20} />
-                        </span>
-                        <CompactSelect
-                          value={roleId}
-                          aria-label={`第 ${index + 1} 个伪装身份`}
-                          onChange={(event) =>
-                            replaceDemonBluff(index, event.target.value)
-                          }
-                        >
-                          {availableDemonBluffRoles.map((option) => (
-                            <option
-                              value={option.id}
-                              key={option.id}
-                              disabled={
-                                option.id !== roleId &&
-                                demonBluffRoleIds.includes(option.id)
-                              }
-                            >
-                              {option.name} · {option.team}
-                            </option>
-                          ))}
-                        </CompactSelect>
-                        <button
-                          className="icon-button"
-                          title="更换这个身份"
-                          aria-label={`更换${role.name}`}
-                          onClick={() => replaceDemonBluff(index)}
-                        >
-                          <RotateCcw size={15} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-                <button
-                  className="primary-button demon-bluff-send"
-                  disabled={
-                    demonBluffsAlreadySent ||
-                    sendingBluffs ||
-                    !selectedRoomPlayer?.is_claimed
-                  }
-                  onClick={() => void sendDemonBluffs()}
-                >
-                  {demonBluffsAlreadySent ? (
-                    <Check size={15} />
-                  ) : (
-                    <Send size={15} />
-                  )}
-                  {demonBluffsAlreadySent
-                    ? "本组已发送"
-                    : sendingBluffs
-                      ? "发送中"
-                      : selectedRoomPlayer?.is_claimed
-                        ? "发送这三个身份"
-                        : "小恶魔入座后可发送"}
-                </button>
-              </section>
-            ) : null}
 
             {timeline.length ? (
               <div className="host-chat-timeline" ref={timelineRef}>

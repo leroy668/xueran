@@ -113,7 +113,7 @@ export const roles: RoleDefinition[] = [
   { id: "spy", name: "间谍", team: "爪牙", icon: "谍", short: "每晚查看魔典，且可能被当作善良角色检测", firstNightOrder: 73, otherNightOrder: 90, reminder: "向间谍展示完整魔典；其可能被视为善良、镇民或外来者。" },
   { id: "godfather", name: "教父", team: "爪牙", icon: "父", short: "首夜得知在场外来者；若白天有外来者死亡，当晚选择一名玩家死亡", firstNightOrder: 38, otherNightOrder: 57, reminder: "首夜展示在场外来者；若今天有外来者死亡，教父选择一名玩家死亡。[-1或+1外来者]" },
   { id: "marionette", name: "提线木偶", team: "爪牙", icon: "偶", short: "以为自己是善良角色，但其实不是；恶魔知道你且你与恶魔邻座", firstNightOrder: 27, otherNightOrder: 0, reminder: "让提线木偶看到一个善良身份；首夜告知恶魔谁是提线木偶。" },
-  { id: "imp", name: "小恶魔", team: "恶魔", icon: "魔", short: "每个夜晚*选择一名玩家死亡；选择自己时可将恶魔传给爪牙", firstNightOrder: 0, otherNightOrder: 41, reminder: "恶魔选择一名玩家攻击；若选择自己，传递恶魔角色。" },
+  { id: "imp", name: "小恶魔", team: "恶魔", icon: "魔", short: "首夜得知三张不在场身份；之后每晚选择一名玩家死亡，选择自己时指定玩家继承小恶魔", firstNightOrder: 42, otherNightOrder: 41, reminder: "首夜发送三张不在场身份；之后选择攻击目标，若选择自己，同时指定继承玩家。" },
   { id: "pukka", name: "普卡", team: "恶魔", icon: "普", short: "每晚选择一名玩家中毒；上个被你中毒的玩家死亡并恢复健康", firstNightOrder: 48, otherNightOrder: 43, reminder: "普卡选择一名玩家中毒；此前中毒的玩家死亡并恢复健康。" },
   { id: "vigormortis", name: "亡骨魔", team: "恶魔", icon: "骨", short: "每个夜晚*选择一名玩家死亡；被你杀死的爪牙保留能力并使邻近镇民中毒", firstNightOrder: 0, otherNightOrder: 50, reminder: "亡骨魔选择一名玩家死亡；若是爪牙，保留其能力并使一名邻近镇民中毒。[-1外来者]" },
   { id: "nodashii", name: "诺-达鲷", team: "恶魔", icon: "鲷", short: "每个夜晚*选择一名玩家死亡；与你邻近的两名镇民中毒", firstNightOrder: 0, otherNightOrder: 47, reminder: "诺-达鲷选择一名玩家死亡，并确认其两名镇民邻座处于中毒状态。" },

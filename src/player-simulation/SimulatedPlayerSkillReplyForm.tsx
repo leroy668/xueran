@@ -296,18 +296,30 @@ export function SimulatedPlayerSkillReplyForm({
     getSimulationPlayerOption(player, false),
   );
 
+  const needsImpSuccessor =
+    selectedRole?.id === "imp" && firstTargetId === playerId;
+  const needsSecondTarget = choiceSpec?.kind === "pair" || needsImpSuccessor;
+
   useEffect(() => {
     const playerIds = new Set(targetPlayers.map((player) => player.id));
     const nextFirst = playerIds.has(firstTargetId)
       ? firstTargetId
       : targetPlayers[0]?.id ?? "";
     const nextSecond =
-      playerIds.has(secondTargetId) && secondTargetId !== nextFirst
-        ? secondTargetId
-        : targetPlayers.find((player) => player.id !== nextFirst)?.id ?? "";
+      needsSecondTarget
+        ? playerIds.has(secondTargetId) &&
+          secondTargetId !== nextFirst &&
+          (!needsImpSuccessor || secondTargetId !== playerId)
+          ? secondTargetId
+          : targetPlayers.find(
+              (player) =>
+                player.id !== nextFirst &&
+                (!needsImpSuccessor || player.id !== playerId),
+            )?.id ?? ""
+        : "";
     if (nextFirst !== firstTargetId) setFirstTargetId(nextFirst);
     if (nextSecond !== secondTargetId) setSecondTargetId(nextSecond);
-  }, [firstTargetId, secondTargetId, targetPlayers]);
+  }, [firstTargetId, needsImpSuccessor, needsSecondTarget, playerId, secondTargetId, targetPlayers]);
 
   useEffect(() => {
     if (!roleChoices.some((role) => role.id === roleChoiceId)) {
@@ -417,7 +429,7 @@ export function SimulatedPlayerSkillReplyForm({
     const needsTarget = choiceSpec?.kind !== "role";
     const needsRole =
       choiceSpec?.kind === "role" || choiceSpec?.kind === "single-role";
-    const playerIds = choiceSpec?.kind === "pair"
+    const playerIds = needsSecondTarget
       ? [firstTargetId, secondTargetId]
       : needsTarget
         ? [firstTargetId]
@@ -429,8 +441,10 @@ export function SimulatedPlayerSkillReplyForm({
       !playerId ||
       (needsTarget && !firstTargetId) ||
       (needsRole && !roleChoiceId) ||
-      (choiceSpec.kind === "pair" &&
-        (!secondTargetId || firstTargetId === secondTargetId)) ||
+      (needsSecondTarget &&
+        (!secondTargetId ||
+          firstTargetId === secondTargetId ||
+          (needsImpSuccessor && secondTargetId === playerId))) ||
       sending
     ) {
       return;
@@ -445,7 +459,9 @@ export function SimulatedPlayerSkillReplyForm({
           playerIds,
           roleIdChoice: needsRole ? roleChoiceId : undefined,
           summary: `${choiceSpec.summaryPrefix}：${[
-            ...playerIds.map(getSeatLabel),
+            ...(needsImpSuccessor
+              ? [`${getSeatLabel(firstTargetId)}（自杀）`, `传给${getSeatLabel(secondTargetId)}`]
+              : playerIds.map(getSeatLabel)),
             ...(needsRole
               ? [getRole(roleChoiceId).name]
               : []),
@@ -533,7 +549,7 @@ export function SimulatedPlayerSkillReplyForm({
                   value={firstTargetId}
                   options={targetPlayerOptions}
                   disabledIds={
-                    choiceSpec?.kind === "pair" ? [secondTargetId] : []
+                    needsSecondTarget ? [secondTargetId] : []
                   }
                   disabled={busy || sending}
                   open={openPlayerPicker === "first"}
@@ -548,12 +564,12 @@ export function SimulatedPlayerSkillReplyForm({
                   }}
                 />
               ) : null}
-              {choiceSpec?.kind === "pair" ? (
+              {needsSecondTarget ? (
                 <SimulationPlayerPicker
-                  label="第二目标"
+                  label={needsImpSuccessor ? "恶魔继承玩家" : "第二目标"}
                   value={secondTargetId}
                   options={targetPlayerOptions}
-                  disabledIds={[firstTargetId]}
+                  disabledIds={needsImpSuccessor ? [firstTargetId, playerId] : [firstTargetId]}
                   disabled={busy || sending}
                   open={openPlayerPicker === "second"}
                   onToggle={() =>
@@ -592,8 +608,10 @@ export function SimulatedPlayerSkillReplyForm({
                   ((choiceSpec?.kind === "role" ||
                     choiceSpec?.kind === "single-role") &&
                     !roleChoiceId) ||
-                  (choiceSpec?.kind === "pair" &&
-                    (!secondTargetId || firstTargetId === secondTargetId))
+                  (needsSecondTarget &&
+                    (!secondTargetId ||
+                      firstTargetId === secondTargetId ||
+                      (needsImpSuccessor && secondTargetId === playerId)))
                 }
                 onClick={() => void submit()}
                 aria-label={choiceSpec?.submitLabel ?? "提交模拟玩家技能回复"}

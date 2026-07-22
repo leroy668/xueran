@@ -86,8 +86,8 @@ const skills: TroubleBrewingSkill[] = [
   { roleId: "baron", phase: "设置", interaction: "确认角色分配已经增加两名外来者", hostHint: "男爵没有主动行动，但必须在开局人数配置中应用 +2 外来者。", trackerOptions: ["已应用 +2 外来者", "需要检查人数配置"] },
   { roleId: "spy", phase: "夜晚", interaction: "上帝一键向间谍发送当前完整魔典快照及本晚行动信息", hostHint: "展示后仍可在其他能力中把间谍视为善良、镇民或外来者。" },
   {
-    roleId: "imp", phase: "夜晚", interaction: "玩家选择攻击目标，上帝确认；自杀时提醒恶魔传承", hostHint: "首夜不能攻击；选择自己时，一名存活爪牙会成为小恶魔。",
-    playerChoice: { kind: "single", title: "选择攻击目标", help: "选择一名玩家；选择自己时可能把恶魔身份传给爪牙", submitLabel: "提交攻击", summaryPrefix: "小恶魔攻击", phase: "night", allowFirstNight: false, excludeSelf: false, aliveOnly: true },
+    roleId: "imp", phase: "夜晚", interaction: "首夜接收不在场身份；之后选择攻击目标，自杀时同时选择继承玩家", hostHint: "首夜不能攻击；选择自己时，玩家必须同时指定一名其他存活玩家继承小恶魔。",
+    playerChoice: { kind: "single", title: "选择攻击目标", help: "选择自己时会继续要求选择一名玩家继承小恶魔", submitLabel: "提交攻击", summaryPrefix: "小恶魔攻击", phase: "night", allowFirstNight: false, excludeSelf: false, aliveOnly: true },
   },
   { roleId: "grandmother", phase: "首夜", interaction: "上帝选择一名善良玩家作为孙辈并发送其角色；后续记录孙辈是否被恶魔杀死", hostHint: "孙辈被恶魔杀死时，祖母也会死亡。", trackerOptions: ["孙辈存活", "孙辈非恶魔死亡", "孙辈被恶魔杀死 · 祖母死亡"] },
   {
