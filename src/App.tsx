@@ -2797,6 +2797,18 @@ function PlayerEditor({
   );
 }
 
+type SkillResultConfirmation = {
+  title: string;
+  recipient: string;
+  sendLines: string[];
+  judgement: string;
+  baseline: string;
+  issueLines: string[];
+  caveatLines: string[];
+  mismatch: boolean;
+  resolve: (confirmed: boolean) => void;
+};
+
 function NightPanel({
   state,
   nightActions,
@@ -2852,6 +2864,8 @@ function NightPanel({
   const [impSuccessorPlayerId, setImpSuccessorPlayerId] = useState("");
   const [sendingBluffs, setSendingBluffs] = useState(false);
   const [demonBluffRoleIds, setDemonBluffRoleIds] = useState<string[]>([]);
+  const [skillResultConfirmation, setSkillResultConfirmation] =
+    useState<SkillResultConfirmation | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const lastAutomaticSkillKeyRef = useRef("");
   const sending = sendingMode !== null || sendingBluffs;
@@ -3573,21 +3587,26 @@ function NightPanel({
     const caveatLines = caveats.length
       ? ["规则例外：" + caveats.join("；")]
       : [];
-    return window.confirm(
-      [
+    return new Promise<boolean>((resolve) => {
+      setSkillResultConfirmation({
         title,
-        "",
-        `接收玩家：${recipient}`,
-        ...sendLines,
-        "",
+        recipient,
+        sendLines,
         judgement,
-        `实际基准：${baseline}`,
-        ...issueLines,
-        ...caveatLines,
-        "",
-        "仍要发送吗？",
-      ].join("\n"),
-    );
+        baseline,
+        issueLines,
+        caveatLines,
+        mismatch:
+          selectedAbilityIssueLabels.length === 0 && !sentMatchesBaseline,
+        resolve,
+      });
+    });
+  };
+  const closeSkillResultConfirmation = (confirmed: boolean) => {
+    if (!skillResultConfirmation) return;
+    const { resolve } = skillResultConfirmation;
+    setSkillResultConfirmation(null);
+    resolve(confirmed);
   };
   const conversation = useMemo(
     () =>
@@ -3787,7 +3806,7 @@ function NightPanel({
     Boolean(skillTargets.first) &&
     Boolean(skillTargets.second) &&
     skillTargets.first !== skillTargets.second;
-  const sendPairRoleSkill = () => {
+  const sendPairRoleSkill = async () => {
     if (
       !currentRole ||
       (currentRole.id === "librarian" && librarianNoOutsider
@@ -3840,22 +3859,22 @@ function NightPanel({
         ]
       : [];
     if (
-      !confirmSkillResult({
+      !(await confirmSkillResult({
         title: `确认发送${currentRole.name}信息？`,
         sendLines: [`发送内容：${body}`],
         sentMatchesBaseline,
         baseline,
         caveats,
-      })
+      }))
     ) return;
     void submitSkill(body);
   };
 
-  const sendChefResult = () => {
+  const sendChefResult = async () => {
     const registrationRoles = state.players.filter((player) =>
       ["recluse", "spy"].includes(player.roleId),
     );
-    if (!confirmSkillResult({
+    if (!(await confirmSkillResult({
       title: "确认发送厨师结果？",
       sendLines: [`发送结果：${chefResult} 对`],
       sentMatchesBaseline: chefResult === calculatedChefResult,
@@ -3863,15 +3882,15 @@ function NightPanel({
       caveats: registrationRoles.length
         ? [`${registrationRoles.map((player) => `${formatSeat(player.seat)} ${getRole(player.roleId).name}`).join("、")}可能改变登记结果`]
         : [],
-    })) return;
+    }))) return;
     void submitSkill(`相邻邪恶玩家共有 ${chefResult} 对`);
   };
 
-  const sendEmpathResult = (count: number) => {
+  const sendEmpathResult = async (count: number) => {
     const registrationRoles = empathNeighbors.filter((player) =>
       ["recluse", "spy"].includes(player.roleId),
     );
-    if (!confirmSkillResult({
+    if (!(await confirmSkillResult({
       title: "确认发送共情者结果？",
       sendLines: [`发送结果：${count} 名邪恶玩家`],
       sentMatchesBaseline: count === calculatedEmpathResult,
@@ -3879,7 +3898,7 @@ function NightPanel({
       caveats: registrationRoles.length
         ? [`${registrationRoles.map((player) => getRole(player.roleId).name).join("、")}可能改变善恶登记`]
         : [],
-    })) return;
+    }))) return;
     void submitSkill(`本晚两名存活邻座中有 ${count} 名邪恶玩家`);
   };
 
@@ -4006,7 +4025,7 @@ function NightPanel({
     );
   };
 
-  const sendRoleRevealSkill = () => {
+  const sendRoleRevealSkill = async () => {
     if (
       !currentRole ||
       !singleSkillTargetId ||
@@ -4025,7 +4044,7 @@ function NightPanel({
     const caveats = target && ["recluse", "spy"].includes(target.roleId)
       ? [`${actualRole.name}可能登记为其他阵营或角色`]
       : [];
-    if (!confirmSkillResult({
+    if (!(await confirmSkillResult({
       title: `确认发送${currentRole.name}角色信息？`,
       sendLines: [`查验目标：${targetLabel}`, `发送角色：${shownRole.name}`],
       sentMatchesBaseline: Boolean(target) && target?.roleId === revealedSkillRoleId,
@@ -4033,7 +4052,7 @@ function NightPanel({
         ? `${targetLabel}的真实身份是${actualRole.name}`
         : "未找到查验目标",
       caveats,
-    })) return;
+    }))) return;
     void submitSkill(body);
   };
 
@@ -4094,7 +4113,7 @@ function NightPanel({
     void submitSkill(`当前魔典：${snapshot}\n\n${actionSummary}`);
   };
 
-  const sendScarletWomanResult = (triggered: boolean) => {
+  const sendScarletWomanResult = async (triggered: boolean) => {
     const aliveCount = state.players.filter((player) => player.alive).length;
     const deadDemons = state.players.filter(
       (player) =>
@@ -4104,7 +4123,7 @@ function NightPanel({
       (player) => !player.alive && player.roleId === "recluse",
     );
     const baselineTriggered = aliveCount >= 5 && deadDemons.length > 0;
-    if (!confirmSkillResult({
+    if (!(await confirmSkillResult({
       title: "确认发送红唇女郎继承结果？",
       sendLines: [
         `发送结果：${triggered ? "已继承小恶魔能力" : "本晚未触发恶魔继承"}`,
@@ -4124,13 +4143,13 @@ function NightPanel({
               .join("、")}是陌客，可能被登记为恶魔并影响继承判定`,
           ]
         : [],
-    })) return;
+    }))) return;
     void submitSkill(
       triggered ? "已继承小恶魔能力" : "本晚未触发恶魔继承",
     );
   };
 
-  const sendGrandmotherInfo = () => {
+  const sendGrandmotherInfo = async () => {
     if (!singleSkillTargetId || !revealedSkillRoleId) return;
     const target = state.players.find(
       (player) => player.id === singleSkillTargetId,
@@ -4138,7 +4157,7 @@ function NightPanel({
     const targetLabel = getNightSeatLabel(singleSkillTargetId);
     const shownRole = getRole(revealedSkillRoleId);
     const actualRole = getRole(target?.roleId ?? "");
-    if (!confirmSkillResult({
+    if (!(await confirmSkillResult({
       title: "确认发送祖母首夜信息？",
       sendLines: [
         `孙辈玩家：${targetLabel}`,
@@ -4151,11 +4170,11 @@ function NightPanel({
       caveats: target?.roleId === "spy"
         ? ["间谍可能被登记为善良角色及相应角色"]
         : [],
-    })) return;
+    }))) return;
     void submitSkill(`你的孙辈是${targetLabel}，角色是${shownRole.name}`);
   };
 
-  const sendFortuneTellerResult = (hasDemon: boolean) => {
+  const sendFortuneTellerResult = async (hasDemon: boolean) => {
     if (!pairTargetsReady) return;
     const first = getNightSeatLabel(skillTargets.first);
     const second = getNightSeatLabel(skillTargets.second);
@@ -4179,7 +4198,7 @@ function NightPanel({
     const recluseTargets = !baselineHasDemon
       ? targets.filter((player) => player.roleId === "recluse")
       : [];
-    if (!confirmSkillResult({
+    if (!(await confirmSkillResult({
       title: "确认发送占卜结果？",
       sendLines: [
         `查验目标：${first}、${second}`,
@@ -4192,18 +4211,18 @@ function NightPanel({
       caveats: recluseTargets.length
         ? [`${recluseTargets.map((player) => formatSeat(player.seat)).join("、")}是陌客，可被登记为恶魔`]
         : [],
-    })) return;
+    }))) return;
 
     void submitSkill(
       `本晚查验${first}和${second}：${result}`,
     );
   };
 
-  const sendOracleResult = (count: number) => {
+  const sendOracleResult = async (count: number) => {
     const registrationRoles = state.players.filter(
       (player) => !player.alive && ["recluse", "spy"].includes(player.roleId),
     );
-    if (!confirmSkillResult({
+    if (!(await confirmSkillResult({
       title: "确认发送神谕者结果？",
       sendLines: [`发送结果：${count} 名邪恶玩家`],
       sentMatchesBaseline: count === calculatedOracleResult,
@@ -4211,11 +4230,11 @@ function NightPanel({
       caveats: registrationRoles.length
         ? [`死亡玩家中的${registrationRoles.map((player) => `${formatSeat(player.seat)} ${getRole(player.roleId).name}`).join("、")}可能改变善恶登记`]
         : [],
-    })) return;
+    }))) return;
     void submitSkill(`死亡玩家中有 ${count} 名邪恶玩家`);
   };
 
-  const sendGamblerResult = (reportedCorrect: boolean) => {
+  const sendGamblerResult = async (reportedCorrect: boolean) => {
     const target = state.players.find(
       (player) => player.id === latestPlayerSkillChoice?.playerIds[0],
     );
@@ -4227,7 +4246,7 @@ function NightPanel({
       target && latestPlayerSkillChoice?.roleIdChoice === target.roleId,
     );
     const targetLabel = target ? formatSeat(target.seat) : "未知目标";
-    if (!confirmSkillResult({
+    if (!(await confirmSkillResult({
       title: "确认发送赌徒判定？",
       sendLines: [
         `玩家猜测：${targetLabel}是${guessedRole.name}`,
@@ -4240,13 +4259,13 @@ function NightPanel({
       caveats: target && ["recluse", "spy"].includes(target.roleId)
         ? [`${actualRole.name}可能登记为其他角色`]
         : [],
-    })) return;
+    }))) return;
     void submitSkill(
       `${latestPlayerSkillChoice?.summary ?? "本晚猜测"}：${reportedCorrect ? "正确，赌徒存活" : "错误，赌徒死亡"}`,
     );
   };
 
-  const sendAlignmentResult = (reportedGood: boolean) => {
+  const sendAlignmentResult = async (reportedGood: boolean) => {
     if (!currentRole || (currentRole.id !== "moonchild" && currentRole.id !== "klutz")) return;
     const target = state.players.find(
       (player) => player.id === latestPlayerSkillChoice?.playerIds[0],
@@ -4263,7 +4282,7 @@ function NightPanel({
       : reportedGood
         ? "目标为善良，游戏继续"
         : "目标为邪恶，你的阵营落败";
-    if (!confirmSkillResult({
+    if (!(await confirmSkillResult({
       title: `确认发送${currentRole.name}判定？`,
       sendLines: [`选择目标：${targetLabel}`, `发送结果：${outcome}`],
       sentMatchesBaseline: reportedGood === baselineGood,
@@ -4273,7 +4292,7 @@ function NightPanel({
       caveats: target && ["recluse", "spy"].includes(target.roleId)
         ? [`${actualRole.name}可能改变善恶登记`]
         : [],
-    })) return;
+    }))) return;
     void submitSkill(`${latestPlayerSkillChoice?.summary ?? "选择目标"}：${outcome}`);
   };
 
@@ -5104,6 +5123,87 @@ function NightPanel({
           </>
         ) : null}
       </section>
+      {skillResultConfirmation ? (
+        <div
+          className="skill-confirm-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeSkillResultConfirmation(false);
+            }
+          }}
+        >
+          <section
+            className="skill-confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="skill-confirm-title"
+          >
+            <header className="skill-confirm-header">
+              <span
+                className={`skill-confirm-icon${
+                  skillResultConfirmation.mismatch ? " mismatch" : ""
+                }`}
+                aria-hidden="true"
+              >
+                <AlertTriangle size={21} />
+              </span>
+              <div>
+                <p className="eyebrow">SKILL RESULT CHECK</p>
+                <h3 id="skill-confirm-title">
+                  {skillResultConfirmation.title}
+                </h3>
+              </div>
+            </header>
+            <div className="skill-confirm-content">
+              <p className="skill-confirm-recipient">
+                接收玩家：<strong>{skillResultConfirmation.recipient}</strong>
+              </p>
+              <div className="skill-confirm-send-lines">
+                {skillResultConfirmation.sendLines.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+              <div
+                className={`skill-confirm-judgement${
+                  skillResultConfirmation.mismatch ? " mismatch" : ""
+                }`}
+              >
+                <AlertTriangle size={18} aria-hidden="true" />
+                <div>
+                  <strong>{skillResultConfirmation.judgement}</strong>
+                  <span>实际基准：{skillResultConfirmation.baseline}</span>
+                </div>
+              </div>
+              {skillResultConfirmation.issueLines.map((line) => (
+                <p className="skill-confirm-note" key={line}>
+                  {line}
+                </p>
+              ))}
+              {skillResultConfirmation.caveatLines.map((line) => (
+                <p className="skill-confirm-note caveat" key={line}>
+                  {line}
+                </p>
+              ))}
+              <p className="skill-confirm-question">仍要发送吗？</p>
+            </div>
+            <footer className="skill-confirm-actions">
+              <button
+                className="secondary-button"
+                onClick={() => closeSkillResultConfirmation(false)}
+              >
+                取消
+              </button>
+              <button
+                className="primary-button"
+                onClick={() => closeSkillResultConfirmation(true)}
+              >
+                仍要发送
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
