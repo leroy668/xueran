@@ -497,6 +497,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-role-truth { flex: 0 0 auto; padding: 2px 5px; border: 1px solid rgba(215,97,86,.45); background: rgba(215,97,86,.1); color: #e8aaa4; font-size: 9px; font-weight: 700; line-height: 1.2; }
 .night-status-marks { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .night-status-mark { flex: 0 0 auto; padding: 1px 5px; border-radius: 999px; border: 1px solid transparent; font-size: 9px; font-weight: 700; line-height: 1.35; letter-spacing: .02em; }
+.night-status-mark.kind-attacked { border-color: rgba(231,105,85,.62); background: rgba(231,105,85,.18); color: #f0a096; }
 .night-status-mark.kind-dead { border-color: rgba(201,82,74,.5); background: rgba(201,82,74,.14); color: #ec8b85; }
 .night-status-mark.kind-poisoned { border-color: rgba(154,120,214,.55); background: rgba(154,120,214,.16); color: #c8b0ef; }
 .night-status-mark.kind-drunk { border-color: rgba(141,170,195,.5); background: rgba(141,170,195,.14); color: #b7cfe0; }

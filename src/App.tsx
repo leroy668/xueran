@@ -241,7 +241,7 @@ const getPlayerRoleState = (player: Player, roleId = player.roleId) =>
 type NightStatusMark = {
   key: string;
   label: string;
-  kind: "dead" | "poisoned" | "drunk" | "protected";
+  kind: "attacked" | "dead" | "poisoned" | "drunk" | "protected";
 };
 
 const nightStatusSeatPattern = /(\d+)\s*号/g;
@@ -316,6 +316,11 @@ const getNightStatusMarksForPlayers = (
     // 进入下一晚后旧毒自动失效，直到本晚重新下毒。
     if (message.round !== round) continue;
     const body = getRoleSkillMessage(message.body) ?? message.body;
+    const attackedTarget = body.match(
+      /本晚(?:攻击|复仇)目标[：:]\s*(\d+)\s*号/,
+    );
+    if (attackedTarget) markSeats([Number(attackedTarget[1])], "attacked");
+
     if (
       latestPoisonSeats === null &&
       (message.role_id === "poisoner" ||
@@ -350,10 +355,11 @@ const getNightStatusMarksForPlayers = (
     NightStatusMark["kind"],
     { label: string; order: number }
   > = {
-    dead: { label: "死亡", order: 0 },
-    poisoned: { label: "中毒", order: 1 },
-    drunk: { label: "醉酒", order: 2 },
-    protected: { label: "保护", order: 3 },
+    attacked: { label: "被攻击", order: 0 },
+    dead: { label: "死亡", order: 1 },
+    poisoned: { label: "中毒", order: 2 },
+    drunk: { label: "醉酒", order: 3 },
+    protected: { label: "保护", order: 4 },
   };
 
   for (const player of players) {
