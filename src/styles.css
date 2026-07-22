@@ -1246,10 +1246,10 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .host-conversation-heading h2 { font-size: 13px; }
   .host-conversation-heading > strong { min-width: 21px; height: 21px; padding: 0 4px; }
   .host-player-tabs { min-height: 0; max-height: none; flex: 1 1 auto; display: block; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; }
-  .host-player-tabs button { width: 100%; min-width: 0; min-height: 48px; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 4px; padding: 5px 6px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .host-player-tabs button { width: 100%; min-width: 0; min-height: 40px; grid-template-columns: minmax(0, 1fr) auto; gap: 0 4px; padding: 3px 5px; border-right: 0; border-bottom: 1px solid var(--line); }
   .host-player-tabs button.active { box-shadow: inset 3px 0 var(--red); }
-  .host-player-seat { font-size: 9px; }
-  .host-player-summary strong { font-size: 10px; }
+  .host-player-seat { font-size: 9px; line-height: 1.15; }
+  .host-player-summary strong { font-size: 10px; line-height: 1.15; }
   .host-player-summary small { display: none; }
   .host-player-count { min-width: 18px; height: 18px; padding: 0 3px; }
   .host-chat-panel { min-height: 0; overflow: hidden; }
