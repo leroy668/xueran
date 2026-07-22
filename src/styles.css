@@ -482,13 +482,12 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .night-skill-button { min-width: 112px; color: var(--gold); border-color: rgba(194,151,86,.48); }
 .night-send-button { min-width: 92px; }
 .night-list { border-top: 1px solid var(--line); }
-.night-row { width: 100%; display: grid; grid-template-columns: 32px 31px minmax(90px, 1fr) 55px 50px; align-items: center; gap: 8px; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--muted); padding: 12px 5px; }
+.night-row { width: 100%; display: grid; grid-template-columns: 31px minmax(90px, 1fr) 55px 50px; align-items: center; gap: 8px; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--muted); padding: 12px 5px; }
 .night-row:hover, .night-row.active { background: #25252a; color: var(--ink); }
 .night-row.is-dead { opacity: .78; }
 .night-row:disabled { cursor: default; }
 .night-row:disabled:hover { background: transparent; color: var(--muted); }
 .night-row.is-poisoned .mini-role-icon { box-shadow: inset 0 0 0 1px rgba(154, 120, 214, .55); }
-.night-index { color: var(--dim); font-size: 11px; }
 .mini-role-icon { width: 27px; height: 27px; display: grid; place-items: center; border-left: 2px solid var(--gold); background: #2a2a2e; font-family: Georgia, serif; font-size: 11px; }
 .night-role-name { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 5px 6px; font-size: 13px; font-weight: 700; }
 .night-role-title { min-width: 0; display: inline-flex; align-items: baseline; gap: 5px; max-width: 100%; }
@@ -1126,7 +1125,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
   .night-chat-composer-footer { align-items: center; gap: 8px; }
   .night-chat-actions { gap: 6px; }
   .night-skill-button, .night-send-button { min-width: 0; min-height: 34px; padding: 0 9px; font-size: 11px; }
-  .night-row { grid-template-columns: 28px 29px minmax(0, 1fr) 42px; }
+  .night-row { grid-template-columns: 29px minmax(0, 1fr) 42px; }
   .night-role-team { display: none; }
   .night-status-mark { font-size: 8px; padding: 1px 4px; }
   .on-air { text-align: right; }

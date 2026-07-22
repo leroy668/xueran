@@ -4022,9 +4022,6 @@ function NightPanel({
                     disabled={!action.canAct}
                     onClick={() => onSelectNight(index)}
                   >
-                    <span className="night-index">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
                     <span
                       className={`mini-role-icon ${teamLabels[action.role.team]}`}
                     >
