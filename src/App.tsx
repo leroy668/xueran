@@ -233,10 +233,25 @@ const setFortuneTellerRedHerring = (
 
 const roleStateNotePrefix = "system:role-state:";
 
+const isPlayerRoleStateNote = (note: PlayerNoteEntry, roleId: string) => {
+  const roleNoteId = roleStateNotePrefix + roleId;
+  return note.id === roleNoteId || note.id.startsWith(`${roleNoteId}:`);
+};
+
+const getPlayerRoleStateHistory = (
+  player: Player,
+  roleId = player.roleId,
+) =>
+  parsePlayerNotes(player.notes)
+    .filter((note) => isPlayerRoleStateNote(note, roleId))
+    .sort((left, right) => {
+      const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0;
+      const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0;
+      return leftTime - rightTime;
+    });
+
 const getPlayerRoleState = (player: Player, roleId = player.roleId) =>
-  parsePlayerNotes(player.notes).find(
-    (note) => note.id === roleStateNotePrefix + roleId,
-  ) ?? null;
+  getPlayerRoleStateHistory(player, roleId).at(-1) ?? null;
 
 type NightStatusMark = {
   key: string;
@@ -298,6 +313,13 @@ const getNightStatusMarksForPlayers = (
       // 系统角色状态追踪（如士兵“中毒或醉酒 · 能力失效”）会直接写在本人 notes 上，应识别；
       // 已勾销备注不参与展示。
       if (note.resolved) continue;
+      if (
+        note.id.startsWith(roleStateNotePrefix) &&
+        note.stage &&
+        note.stage !== getGameStageLabel("夜晚", round)
+      ) {
+        continue;
+      }
       collectNightStatusFromText(note.body, marks);
     }
   }
@@ -2104,11 +2126,14 @@ function GrimoirePanel({
                     )
                     .join("\n\n");
                   const redHerring = isFortuneTellerRedHerring(player);
-                  const roleState = getPlayerRoleState(player, role.id);
+                  const roleStateHistory = getPlayerRoleStateHistory(
+                    player,
+                    role.id,
+                  );
                   const cardNoteCount =
                     roleSkillTimeline.length +
                     (redHerring ? 1 : 0) +
-                    (roleState ? 1 : 0);
+                    roleStateHistory.length;
                   const cardNoteRows = Math.max(1, cardNoteCount);
                   const cardStyle = {
                     left: `${left}%`,
@@ -2132,7 +2157,7 @@ function GrimoirePanel({
                       style={cardStyle}
                       key={player.id}
                       onClick={() => setSelectedPlayerId(player.id)}
-                      aria-label={`${formatSeat(player.seat)}，${getDisplayName(player)}，${role.name}，${player.alive ? "存活" : "死亡"}${redHerring ? `，${fortuneTellerRedHerringNoteBody}` : ""}${roleState ? `，角色状态：${roleState.body}` : ""}${infoPreview ? `，已传达信息：${infoPreview}` : ""}`}
+                      aria-label={`${formatSeat(player.seat)}，${getDisplayName(player)}，${role.name}，${player.alive ? "存活" : "死亡"}${redHerring ? `，${fortuneTellerRedHerringNoteBody}` : ""}${roleStateHistory.length ? `，角色状态：${roleStateHistory.map((entry) => `${entry.stage ?? "阶段未记录"} ${entry.body}`).join("；")}` : ""}${infoPreview ? `，已传达信息：${infoPreview}` : ""}`}
                       aria-pressed={isSelected}
                     >
                       <span className="table-role-icon">
@@ -2166,15 +2191,16 @@ function GrimoirePanel({
                               <span>占卜师宿敌</span>
                             </span>
                           ) : null}
-                          {roleState ? (
+                          {roleStateHistory.map((entry) => (
                             <span
                               className="table-card-note is-role-state"
-                              title={(roleState.stage ?? "阶段未记录") + " · " + roleState.body}
+                              key={entry.id}
+                              title={(entry.stage ?? "阶段未记录") + " · " + entry.body}
                             >
-                              <strong>{roleState.stage ?? "角色状态"}</strong>
-                              <span>{roleState.body}</span>
+                              <strong>{entry.stage ?? "角色状态"}</strong>
+                              <span>{entry.body}</span>
                             </span>
-                          ) : null}
+                          ))}
                           {latestSkill || latestChoice
                             ? roleSkillTimeline.map((entry) => (
                                 <span
@@ -2409,8 +2435,14 @@ function PlayerEditor({
     });
   };
   const updateRoleState = (body: string) => {
-    const noteId = roleStateNotePrefix + role.id;
-    const nextSystemNotes = systemNoteEntries.filter((note) => note.id !== noteId);
+    const noteId = `${roleStateNotePrefix}${role.id}:${stageLabel}`;
+    const nextSystemNotes = systemNoteEntries.filter(
+      (note) =>
+        !(
+          isPlayerRoleStateNote(note, role.id) &&
+          note.stage === stageLabel
+        ),
+    );
     onUpdate(player.id, {
       notes: serializePlayerNotes([
         { id: noteId, body, createdAt: new Date().toISOString(), stage: stageLabel },
