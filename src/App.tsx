@@ -2096,9 +2096,6 @@ function GrimoirePanel({
                       aria-label={`${formatSeat(player.seat)}，${getDisplayName(player)}，${role.name}，${player.alive ? "存活" : "死亡"}${infoPreview ? `，已传达信息：${infoPreview}` : ""}`}
                       aria-pressed={isSelected}
                     >
-                      <span className="table-seat-number">
-                        {formatSeat(player.seat)}
-                      </span>
                       <span className="table-role-icon">
                         <RoleIcon
                           roleId={role.id}
@@ -2114,6 +2111,9 @@ function GrimoirePanel({
                           player.drunkRoleId
                             ? ` / ${getRole(player.drunkRoleId).name}`
                             : ""}
+                        </span>
+                        <span className="table-seat-number">
+                          {formatSeat(player.seat)}
                         </span>
                         {redHerring ? (
                           <span
