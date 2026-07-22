@@ -68,6 +68,27 @@ export function PlayerPrivateChats({
         .sort((left, right) => left.seat - right.seat),
     [players],
   );
+  const playerById = useMemo(
+    () => new Map(players.map((player) => [player.id, player])),
+    [players],
+  );
+  const publicThreads = useMemo(
+    () =>
+      [...threads].sort((left, right) => {
+        if (left.round !== right.round) return right.round - left.round;
+        return right.updated_at.localeCompare(left.updated_at);
+      }),
+    [threads],
+  );
+  const myThreads = useMemo(
+    () =>
+      threads.filter(
+        (thread) =>
+          thread.player_a_id === currentPlayerId ||
+          thread.player_b_id === currentPlayerId,
+      ),
+    [currentPlayerId, threads],
+  );
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -76,12 +97,12 @@ export function PlayerPrivateChats({
 
   const latestThreadByPlayer = useMemo(() => {
     const result = new Map<string, DayPrivateThread>();
-    threads.forEach((thread) => {
+    myThreads.forEach((thread) => {
       const playerId = otherPlayerId(thread, currentPlayerId);
       if (!result.has(playerId)) result.set(playerId, thread);
     });
     return result;
-  }, [currentPlayerId, threads]);
+  }, [currentPlayerId, myThreads]);
 
   const latestMessageByPlayer = useMemo(() => {
     const result = new Map<string, DayPrivateMessage>();
@@ -173,8 +194,38 @@ export function PlayerPrivateChats({
         </div>
         <p className="private-chat-privacy-note">
           <ShieldCheck size={14} />
-          全体玩家只能看到次数与估算时长，私聊对象和内容仅会话双方与上帝可见。
+          全体玩家可查看谁与谁发生了私聊及公开统计，私聊内容仍仅会话双方与上帝可见。
         </p>
+        <div className="private-chat-pair-overview">
+          <div className="private-chat-pair-overview-heading">
+            <strong>私聊双方</strong>
+            <span>{publicThreads.length} 组会话</span>
+          </div>
+          {publicThreads.length ? (
+            <div className="private-chat-pair-list">
+              {publicThreads.map((thread) => {
+                const playerA = playerById.get(thread.player_a_id);
+                const playerB = playerById.get(thread.player_b_id);
+                return (
+                  <article className="private-chat-pair-row" key={thread.id}>
+                    <div className="private-chat-pair-player">
+                      <b>{playerA?.seat ?? "?"}</b>
+                      <span>{playerA?.name || "未知玩家"}</span>
+                    </div>
+                    <em>↔</em>
+                    <div className="private-chat-pair-player">
+                      <b>{playerB?.seat ?? "?"}</b>
+                      <span>{playerB?.name || "未知玩家"}</span>
+                    </div>
+                    <small>第 {thread.round} 天</small>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="private-chat-pair-empty">本局暂未发生私聊</div>
+          )}
+        </div>
         <div className="private-chat-stat-list">
           {occupiedPlayers.map((player) => {
             const stat = statByPlayer.get(player.id);
