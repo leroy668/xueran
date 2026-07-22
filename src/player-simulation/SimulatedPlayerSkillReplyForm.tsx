@@ -339,23 +339,26 @@ export function SimulatedPlayerSkillReplyForm({
   const firstNightLocked = Boolean(
     choiceSpec && phase === "夜晚" && round <= 1 && !choiceSpec.allowFirstNight,
   );
-  const deathLocked = Boolean(
-    choiceSpec?.onlyWhenDead && selectedGamePlayer?.alive !== false,
-  );
   const triggerNotice = selectedRole
     ? triggeredAbilityNotices[
         selectedRole.id as keyof typeof triggeredAbilityNotices
       ]
     : undefined;
-  const hostTriggerLocked = Boolean(
+  const triggerNoticeReceived = Boolean(
     triggerNotice &&
-      !nightMessages.some(
+      nightMessages.some(
         (message) =>
           message.player_id === playerId &&
           message.round === round &&
           message.body === triggerNotice,
       ),
   );
+  const deathLocked = Boolean(
+    choiceSpec?.onlyWhenDead &&
+      selectedGamePlayer?.alive !== false &&
+      !triggerNoticeReceived,
+  );
+  const hostTriggerLocked = Boolean(triggerNotice && !triggerNoticeReceived);
   const oneUseLocked = Boolean(
     Boolean(choiceSpec?.oneUse) &&
       playerMessages

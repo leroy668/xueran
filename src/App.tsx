@@ -267,8 +267,10 @@ const getNightStatusMarksForPlayers = (
 ) => {
   const byPlayerId = new Map<string, NightStatusMark[]>();
   const bySeat = new Map<number, Player>();
+  const playersById = new Map<string, Player>();
   for (const player of players) {
     bySeat.set(player.seat, player);
+    playersById.set(player.id, player);
   }
 
   const markSets = new Map<string, Set<NightStatusMark["kind"]>>();
@@ -312,6 +314,13 @@ const getNightStatusMarksForPlayers = (
   let latestProtectSeats: number[] | null = null;
 
   for (const message of skillMessages) {
+    const actingPlayer = playersById.get(message.player_id);
+    if (
+      actingPlayer &&
+      (actingPlayer.roleId === "drunk" || actingPlayer.roleId === "marionette")
+    ) {
+      continue;
+    }
     // 毒/保护默认只认本回合技能记录：首夜/当晚下毒后的白天仍生效，
     // 进入下一晚后旧毒自动失效，直到本晚重新下毒。
     if (message.round !== round) continue;
@@ -1361,9 +1370,28 @@ function GrimoireApp() {
 
   const handleSetPlayerAlive = async (playerId: string, alive: boolean) => {
     const player = state.players.find((item) => item.id === playerId);
-    if (!player) return;
-    updatePlayer(playerId, { alive });
-    if (alive || !room) return;
+    if (!player) return false;
+
+    const nextState: GameState = {
+      ...state,
+      players: state.players.map((item) =>
+        item.id === playerId ? { ...item, alive } : item,
+      ),
+      updatedAt: new Date().toISOString(),
+    };
+    setState(nextState);
+
+    if (!room) return true;
+    try {
+      await syncRoom(room.id, nextState);
+      setSyncStatus("synced");
+    } catch {
+      setSyncStatus("error");
+      setToast(`未能同步${formatSeat(player.seat)}的生死状态，请重试`);
+      return false;
+    }
+
+    if (alive) return true;
 
     const visibleRoleId = getPlayerVisibleRoleId(
       player.roleId,
@@ -1376,7 +1404,7 @@ function GrimoireApp() {
       !roomPlayer?.is_claimed ||
       (visibleRoleId === "ravenkeeper" && state.phase !== "夜晚")
     ) {
-      return;
+      return true;
     }
 
     try {
@@ -1385,8 +1413,10 @@ function GrimoireApp() {
         roleId: visibleRoleId,
         body: notice,
       });
+      return true;
     } catch {
       setToast(`已将${formatSeat(player.seat)}标记为死亡，但触发通知发送失败`);
+      return false;
     }
   };
 
@@ -1616,6 +1646,7 @@ function GrimoireApp() {
             unreadPlayerMessages={unreadPlayerMessages}
             onUpdate={update}
             onChangeNight={changeNight}
+            onSetPlayerAlive={handleSetPlayerAlive}
             onSelectNight={(index) => update({ nightIndex: index })}
             onReadPlayerMessages={markPlayerMessagesRead}
             onSendMessage={handleSendNightMessage}
@@ -2777,6 +2808,7 @@ function NightPanel({
   playerMessages,
   unreadPlayerMessages,
   onUpdate,
+  onSetPlayerAlive,
   onChangeNight,
   onSelectNight,
   onReadPlayerMessages,
@@ -2792,6 +2824,7 @@ function NightPanel({
   playerMessages: PlayerMessage[];
   unreadPlayerMessages: PlayerMessage[];
   onUpdate: (patch: Partial<GameState>) => void;
+  onSetPlayerAlive: (playerId: string, alive: boolean) => Promise<boolean>;
   onChangeNight: (offset: number) => void;
   onSelectNight: (index: number) => void;
   onReadPlayerMessages: (playerId: string) => void;
@@ -3906,7 +3939,13 @@ function NightPanel({
                 ? "本局射击目标：" + targetLabel
                 : "本轮选择目标：" + targetLabel;
     const sent = await submitSkill(body);
-    if (!sent || currentRole.id !== "imp" || !targetIsSelf || !impSuccessor) {
+    if (
+      !sent ||
+      selectedPlayerHasNoShownAbility ||
+      currentRole.id !== "imp" ||
+      !targetIsSelf ||
+      !impSuccessor
+    ) {
       return;
     }
     onUpdate({
@@ -4003,13 +4042,9 @@ function NightPanel({
       return;
     }
     if (selectedPlayer.alive) {
-      onUpdate({
-        players: state.players.map((player) =>
-          player.id === selectedPlayer.id
-            ? { ...player, alive: false }
-            : player,
-        ),
-      });
+      const notified = await onSetPlayerAlive(selectedPlayer.id, false);
+      if (!notified) setSendError("死亡状态或通知发送失败，请稍后重试");
+      return;
     }
     await submitSkillToPlayer(
       selectedPlayer.id,

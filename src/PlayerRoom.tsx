@@ -1034,20 +1034,23 @@ function PlayerSkillChoicePanel({
   const [sendError, setSendError] = useState("");
   const phaseAllowed = spec.phase === "night" ? phase === "夜晚" : phase === "白天";
   const firstNightLocked = phase === "夜晚" && round <= 1 && !spec.allowFirstNight;
-  const deathLocked = Boolean(spec.onlyWhenDead && selfPlayer?.alive !== false);
   const triggerNotice =
     triggeredAbilityNotices[
       roleId as keyof typeof triggeredAbilityNotices
     ];
-  const hostTriggerLocked = Boolean(
+  const triggerNoticeReceived = Boolean(
     triggerNotice &&
-      !hostMessages.some(
+      hostMessages.some(
         (message) =>
           message.player_id === currentPlayerId &&
           message.round === round &&
           message.body === triggerNotice,
       ),
   );
+  const deathLocked = Boolean(
+    spec.onlyWhenDead && selfPlayer?.alive !== false && !triggerNoticeReceived,
+  );
+  const hostTriggerLocked = Boolean(triggerNotice && !triggerNoticeReceived);
   const available =
     phaseAllowed &&
     !firstNightLocked &&
