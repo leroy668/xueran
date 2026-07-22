@@ -324,6 +324,12 @@ export function PlayerPrivateChats({
                         <article
                           className={`private-chat-message ${outgoing ? "outgoing" : "incoming"}`}
                         >
+                          <span
+                            className="private-chat-message-avatar"
+                            aria-hidden="true"
+                          >
+                            {outgoing ? "我" : selectedPlayer.seat}
+                          </span>
                           <div className="private-chat-message-copy">
                             <div className="private-chat-message-meta">
                               <span>{outgoing ? "我" : selectedPlayer.name}</span>
