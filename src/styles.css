@@ -817,6 +817,9 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .vote-count strong { color: var(--ink); font-family: Georgia, serif; font-size: 22px; line-height: 1; }
 .vote-count span { font-size: 9px; }
 .vote-count.reached strong { color: var(--green); }
+.vote-count.private { min-height: 22px; align-items: center; color: var(--gold); }
+.vote-count.private svg { flex: 0 0 auto; }
+.vote-count.private span { font-weight: 700; }
 .nomination-status { padding: 3px 6px; border: 1px solid var(--line); color: var(--dim); font-size: 8px; font-weight: 800; }
 .nomination-status.open { border-color: rgba(194,151,86,.4); color: var(--gold); }
 .nomination-status.executed { border-color: rgba(201,82,74,.5); color: #ec8b85; }

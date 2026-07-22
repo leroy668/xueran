@@ -106,15 +106,18 @@ function NominationCard({
   votes,
   currentRequiredVotes,
   showVoters = true,
+  hideLiveVotes = false,
 }: {
   nomination: Nomination;
   players: PublicRoomPlayer[];
   votes: DayVote[];
   currentRequiredVotes: number;
   showVoters?: boolean;
+  hideLiveVotes?: boolean;
 }) {
   const nominationVotes = getNominationVotes(votes, nomination.id);
   const required = nomination.required_votes ?? currentRequiredVotes;
+  const liveVotesHidden = hideLiveVotes && nomination.status === "open";
   return (
     <article className={`nomination-card ${nomination.status}`}>
       <div className="nomination-route">
@@ -126,15 +129,22 @@ function NominationCard({
         <strong>{getPlayerLabel(players, nomination.nominee_player_id)}</strong>
       </div>
       <div className="nomination-tally">
-        <VoteCount
-          count={
-            nomination.status === "open"
-              ? nominationVotes.length
-              : nomination.vote_count
-          }
-          required={required}
-          open={nomination.status === "open"}
-        />
+        {liveVotesHidden ? (
+          <div className="vote-count private">
+            <LockKeyhole size={13} />
+            <span>计票结束后公开</span>
+          </div>
+        ) : (
+          <VoteCount
+            count={
+              nomination.status === "open"
+                ? nominationVotes.length
+                : nomination.vote_count
+            }
+            required={required}
+            open={nomination.status === "open"}
+          />
+        )}
         <span className={`nomination-status ${nomination.status}`}>
           {nomination.status === "open"
             ? "投票中"
@@ -143,7 +153,7 @@ function NominationCard({
               : "计票结束"}
         </span>
       </div>
-      {showVoters ? (
+      {showVoters && !liveVotesHidden ? (
         <div className="nomination-voters">
           {nominationVotes.length ? (
             nominationVotes.map((vote) => {
@@ -335,6 +345,7 @@ export function PlayerVotingPanel({
                 players={players}
                 votes={votes}
                 currentRequiredVotes={currentRequiredVotes}
+                hideLiveVotes
               />
               <button
                 className="primary-button player-cast-vote"
