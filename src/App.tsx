@@ -377,6 +377,37 @@ const getNightStatusMarksForPlayers = (
   return byPlayerId;
 };
 
+const getSpyNightActionLines = (
+  players: Player[],
+  nightMessages: NightMessage[],
+  round: number,
+) => {
+  const playersById = new Map(players.map((player) => [player.id, player]));
+
+  return [...nightMessages]
+    .filter((message) => message.round === round && message.role_id !== "spy")
+    .map((message) => ({
+      message,
+      body: getRoleSkillMessage(message.body),
+    }))
+    .filter(
+      (
+        entry,
+      ): entry is { message: NightMessage; body: string } =>
+        entry.body !== null && !entry.body.startsWith("当前魔典："),
+    )
+    .sort(
+      (left, right) =>
+        new Date(left.message.created_at).getTime() -
+        new Date(right.message.created_at).getTime(),
+    )
+    .map(({ message, body }) => {
+      const player = playersById.get(message.player_id);
+      const seat = player ? formatSeat(player.seat) : "未知座位";
+      return `${seat} ${getRole(message.role_id).name}：${body}`;
+    });
+};
+
 const chineseNumber = (value: number) => {
   const digits = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
   if (value < 10) return digits[Math.max(0, value)];
@@ -3510,10 +3541,19 @@ function NightPanel({
       .sort((left, right) => left.seat - right.seat)
       .map((player) => {
         const disguise = player.drunkRoleId ? " / 展示" + getRole(player.drunkRoleId).name : "";
-        return formatSeat(player.seat) + " " + getRole(player.roleId).name + disguise + " " + (player.alive ? "存活" : "死亡");
+        const deathMark = player.alive ? "" : " 死亡";
+        return formatSeat(player.seat) + " " + getRole(player.roleId).name + disguise + deathMark;
       })
       .join("；");
-    void submitSkill("当前魔典：" + snapshot);
+    const actionLines = getSpyNightActionLines(
+      state.players,
+      nightMessages,
+      state.round,
+    );
+    const actionSummary = actionLines.length
+      ? `本晚行动：\n${actionLines.map((line) => `- ${line}`).join("\n")}`
+      : "本晚行动：暂无已记录行动";
+    void submitSkill(`当前魔典：${snapshot}\n\n${actionSummary}`);
   };
 
   const sendFortuneTellerResult = (hasDemon: boolean) => {
@@ -4059,8 +4099,8 @@ function NightPanel({
               ) : null}
               {currentRole.id === "spy" ? (
                 <div className="night-skill-panel compact">
-                  <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><BookOpen size={14} />间谍查看魔典</span><small>发送当前所有座位、真实角色与生死状态</small></div></div>
-                  <button className="primary-button night-skill-submit" disabled={!canUseSkill} onClick={sendSpyGrimoire}><Send size={15} />{sendingMode === "skill" ? "发送中" : "发送当前魔典"}</button>
+                  <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><BookOpen size={14} />间谍查看魔典</span><small>发送当前所有座位、真实角色、死亡状态与本晚行动</small></div></div>
+                  <button className="primary-button night-skill-submit" disabled={!canUseSkill} onClick={sendSpyGrimoire}><Send size={15} />{sendingMode === "skill" ? "发送中" : "发送魔典与行动"}</button>
                 </div>
               ) : null}
               {currentRole.id === "scarlet-woman" ? (

@@ -84,7 +84,7 @@ const skills: TroubleBrewingSkill[] = [
   },
   { roleId: "scarlet-woman", phase: "被动", interaction: "记录恶魔死亡时是否满足继承条件", hostHint: "恶魔死亡且仍有至少五名玩家存活时，红唇女郎成为该恶魔。", trackerOptions: ["等待触发", "条件不足 · 未继承", "已继承小恶魔"] },
   { roleId: "baron", phase: "设置", interaction: "确认角色分配已经增加两名外来者", hostHint: "男爵没有主动行动，但必须在开局人数配置中应用 +2 外来者。", trackerOptions: ["已应用 +2 外来者", "需要检查人数配置"] },
-  { roleId: "spy", phase: "夜晚", interaction: "上帝一键向间谍发送当前完整魔典快照", hostHint: "展示后仍可在其他能力中把间谍视为善良、镇民或外来者。" },
+  { roleId: "spy", phase: "夜晚", interaction: "上帝一键向间谍发送当前完整魔典快照及本晚行动信息", hostHint: "展示后仍可在其他能力中把间谍视为善良、镇民或外来者。" },
   {
     roleId: "imp", phase: "夜晚", interaction: "玩家选择攻击目标，上帝确认；自杀时提醒恶魔传承", hostHint: "首夜不能攻击；选择自己时，一名存活爪牙会成为小恶魔。",
     playerChoice: { kind: "single", title: "选择攻击目标", help: "选择一名玩家；选择自己时可能把恶魔身份传给爪牙", submitLabel: "提交攻击", summaryPrefix: "小恶魔攻击", phase: "night", allowFirstNight: false, excludeSelf: false, aliveOnly: true },
