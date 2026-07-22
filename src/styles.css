@@ -240,7 +240,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .table-fortune-status.negative .table-fortune-result strong { color: #a8cfaa; }
 .table-fortune-status.pending .table-fortune-result strong { color: var(--gold); }
 .table-fortune-result b { min-width: 18px; height: 13px; padding: 0 2px; display: grid; place-items: center; border: 1px solid rgba(141,170,195,.3); color: var(--blue); font-size: 6px; line-height: 1; white-space: nowrap; }
-.table-dead-mark { position: absolute; left: 5px; right: 5px; top: 50%; height: 1px; background: var(--red); transform: rotate(-18deg); opacity: .85; }
+.table-dead-mark { width: 100%; height: 2px; grid-column: 1 / -1; grid-row: 1 / 3; align-self: center; justify-self: stretch; z-index: 3; background: #741f27; box-shadow: 0 0 2px rgba(116,31,39,.72); opacity: .96; pointer-events: none; }
 .table-seat.dense { width: 72px; height: 54px; grid-template-columns: 25px minmax(0, 1fr); grid-template-rows: 1fr 1fr; column-gap: 4px; padding: 7px 4px 5px; }
 .table-seat.dense.has-card-notes { height: calc(78px + var(--card-notes-extra-height, 0px)); grid-template-rows: 1fr 1fr auto; }
 .table-seat.dense .table-seat-number { padding: 0 2px; font-size: 7px; }
