@@ -596,6 +596,9 @@ const getSeatCardSkillStageLabel = (roleId: string, round: number) =>
       ? "首"
       : `${round - 1}晚`;
 
+const getSeatCardNoteStageLabel = (stage: string | undefined, fallback: string) =>
+  stage === "首夜" ? "首" : (stage ?? fallback);
+
 const getFortuneTellerResult = (body: string) => {
   if (
     body.includes("没有恶魔") ||
@@ -2197,7 +2200,9 @@ function GrimoirePanel({
                               key={entry.id}
                               title={(entry.stage ?? "阶段未记录") + " · " + entry.body}
                             >
-                              <strong>{entry.stage ?? "角色状态"}</strong>
+                              <strong>
+                                {getSeatCardNoteStageLabel(entry.stage, "角色状态")}
+                              </strong>
                               <span>{entry.body}</span>
                             </span>
                           ))}
