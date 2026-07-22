@@ -92,8 +92,8 @@ export const roles: RoleDefinition[] = [
   { id: "ravenkeeper", name: "守鸦人", team: "镇民", icon: "鸦", short: "若在夜晚死亡，选择一名玩家并得知他的角色", firstNightOrder: 0, otherNightOrder: 74, reminder: "若守鸦人当晚死亡，让其选择一名玩家并展示角色。" },
   { id: "virgin", name: "处女", team: "镇民", icon: "处", short: "首次被镇民提名时，该镇民可能立即被处决", firstNightOrder: 0, otherNightOrder: 0, reminder: "若首次提名处女的是镇民，立即处决该镇民并结束白天。" },
   { id: "slayer", name: "杀手", team: "镇民", icon: "杀", short: "每局一次公开选择一名玩家，若其是恶魔则死亡", firstNightOrder: 0, otherNightOrder: 0, reminder: "杀手使用能力后记录已使用；命中恶魔时恶魔死亡。" },
-  { id: "soldier", name: "士兵", team: "镇民", icon: "兵", short: "免疫恶魔的负面能力", firstNightOrder: 0, otherNightOrder: 0, reminder: "恶魔选择士兵时，标记攻击无效。" },
-  { id: "mayor", name: "镇长", team: "镇民", icon: "镇", short: "三人存活且白天无人被处决时善良获胜；恶魔攻击可能转移", firstNightOrder: 0, otherNightOrder: 0, reminder: "若只剩三名存活且无僧侣保护，可考虑转移攻击。" },
+  { id: "soldier", name: "士兵", team: "镇民", icon: "兵", short: "免疫恶魔的负面能力", firstNightOrder: 50, otherNightOrder: 52, reminder: "恶魔选择士兵时，标记攻击无效。" },
+  { id: "mayor", name: "镇长", team: "镇民", icon: "镇", short: "三人存活且白天无人被处决时善良获胜；恶魔攻击可能转移", firstNightOrder: 51, otherNightOrder: 73, reminder: "若镇长在夜晚将要死亡，可改为另一名玩家死亡；三人终局胜利在白天结算。" },
   { id: "grandmother", name: "祖母", team: "镇民", icon: "祖", short: "首夜得知一名善良玩家及其角色；若恶魔杀死他，你也死亡", firstNightOrder: 60, otherNightOrder: 72, reminder: "首夜展示孙辈及其角色；若孙辈被恶魔杀死，祖母同时死亡。" },
   { id: "gambler", name: "赌徒", team: "镇民", icon: "赌", short: "每个夜晚*选择一名玩家并猜测其角色，猜错则死亡", firstNightOrder: 0, otherNightOrder: 23, reminder: "赌徒选择玩家和角色；若猜测错误，赌徒死亡。" },
   { id: "chambermaid", name: "侍女", team: "镇民", icon: "侍", short: "每晚选择两名其他存活玩家，得知其中有多少人因自身能力醒来", firstNightOrder: 77, otherNightOrder: 93, reminder: "侍女选择两名其他存活玩家，告知因自身能力醒来的人数。" },
@@ -116,7 +116,7 @@ export const roles: RoleDefinition[] = [
   { id: "imp", name: "小恶魔", team: "恶魔", icon: "魔", short: "首夜得知三张不在场身份；之后每晚选择一名玩家死亡，选择自己时指定玩家继承小恶魔", firstNightOrder: 42, otherNightOrder: 41, reminder: "首夜发送三张不在场身份；之后选择攻击目标，若选择自己，同时指定继承玩家。" },
   { id: "pukka", name: "普卡", team: "恶魔", icon: "普", short: "每晚选择一名玩家中毒；上个被你中毒的玩家死亡并恢复健康", firstNightOrder: 48, otherNightOrder: 43, reminder: "普卡选择一名玩家中毒；此前中毒的玩家死亡并恢复健康。" },
   { id: "vigormortis", name: "亡骨魔", team: "恶魔", icon: "骨", short: "每个夜晚*选择一名玩家死亡；被你杀死的爪牙保留能力并使邻近镇民中毒", firstNightOrder: 0, otherNightOrder: 50, reminder: "亡骨魔选择一名玩家死亡；若是爪牙，保留其能力并使一名邻近镇民中毒。[-1外来者]" },
-  { id: "nodashii", name: "诺-达鲷", team: "恶魔", icon: "鲷", short: "每个夜晚*选择一名玩家死亡；与你邻近的两名镇民中毒", firstNightOrder: 0, otherNightOrder: 47, reminder: "诺-达鲷选择一名玩家死亡，并确认其两名镇民邻座处于中毒状态。" },
+  { id: "nodashii", name: "诺-达鲷", team: "恶魔", icon: "鲷", short: "每个夜晚*选择一名玩家死亡；与你邻近的两名镇民中毒", firstNightOrder: 49, otherNightOrder: 47, reminder: "首夜确认两名邻近镇民中毒；之后选择一名玩家死亡，并再次确认邻近镇民的中毒状态。" },
 ];
 
 export const roleMap = new Map(roles.map((role) => [role.id, role]));
@@ -142,7 +142,7 @@ export const getScriptRoles = (scriptId: string) => {
   return roles.filter((role) => roleIds.has(role.id));
 };
 
-const actsAfterDeathRoleIds = new Set(["ravenkeeper", "moonchild"]);
+const actsAfterDeathRoleIds = new Set(["ravenkeeper", "moonchild", "mayor"]);
 
 export const getNightActions = (
   players: {
