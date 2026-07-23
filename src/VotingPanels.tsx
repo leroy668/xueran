@@ -19,6 +19,8 @@ import {
 } from "./room";
 import { CompactSelect } from "./CompactSelect";
 import { formatSeat } from "./seat";
+import { getRole } from "./data";
+import { parsePlayerNotes } from "./playerNotes";
 import type { Phase, Player } from "./types";
 
 const getPlayer = (players: PublicRoomPlayer[], playerId: string) =>
@@ -477,6 +479,46 @@ export function HostVotingPanel({
   const predictedPlayer = leader
     ? getPlayer(players, leader.nominee_player_id)
     : null;
+  const gamePlayerById = new Map(gamePlayers.map((player) => [player.id, player]));
+  const openNominator = openNomination
+    ? gamePlayerById.get(openNomination.nominator_player_id)
+    : null;
+  const openNominee = openNomination
+    ? gamePlayerById.get(openNomination.nominee_player_id)
+    : null;
+  const virginState = openNominee?.roleId === "virgin"
+    ? parsePlayerNotes(openNominee.notes).find((note) =>
+        note.id.startsWith("system:role-state:virgin"),
+      )
+    : null;
+  const virginWasPreviouslyNominated = Boolean(
+    openNominee?.roleId === "virgin" &&
+      nominations.some(
+        (nomination) =>
+          nomination.nominee_player_id === openNominee.id &&
+          nomination.id !== openNomination?.id,
+      ),
+  );
+  const virginCanTrigger = Boolean(
+    openNominee?.roleId === "virgin" &&
+      !virginState &&
+      !virginWasPreviouslyNominated &&
+      openNominator &&
+      (getRole(openNominator.roleId).team === "镇民" || openNominator.roleId === "spy"),
+  );
+  const executedGamePlayer = resolution?.executed_player_id
+    ? gamePlayerById.get(resolution.executed_player_id)
+    : null;
+  const saintExecuted = executedGamePlayer?.roleId === "saint";
+  const mayorPlayers = gamePlayers.filter(
+    (player) => player.alive && player.roleId === "mayor",
+  );
+  const mayorWinAvailable = Boolean(
+    resolution &&
+      !resolution.executed_player_id &&
+      aliveCount === 3 &&
+      mayorPlayers.length,
+  );
 
   return (
     <section className="host-voting-page">
@@ -529,6 +571,17 @@ export function HostVotingPanel({
                 votes={votes}
                 currentRequiredVotes={currentRequiredVotes}
               />
+              {openNominee?.roleId === "virgin" ? (
+                <div className="voting-inline-notice">
+                  {virginState
+                    ? `处女能力已有记录：${virginState.body}`
+                    : virginWasPreviouslyNominated
+                      ? "处女此前已经被提名过，本次不能再次触发能力"
+                    : virginCanTrigger
+                      ? `首次提名者${formatSeat(openNominator?.seat)}可登记为镇民：应立即处决提名者并结束白天`
+                      : `首次提名者${formatSeat(openNominator?.seat)}不是镇民：处女不触发，但能力仍会失去`}
+                </div>
+              ) : null}
               <button
                 className="primary-button host-close-vote"
                 disabled={busy}
@@ -563,6 +616,14 @@ export function HostVotingPanel({
           )}
         </>
       )}
+
+      {resolution && (saintExecuted || mayorWinAvailable) ? (
+        <div className="voting-inline-notice">
+          {saintExecuted
+            ? `圣徒${formatSeat(executedGamePlayer?.seat)}被处决：其阵营立即落败`
+            : `仅 3 名玩家存活且今天无人被处决：存活镇长${formatSeat(mayorPlayers[0]?.seat)}可令其阵营获胜`}
+        </div>
+      ) : null}
 
       {completedNominations.length ? (
         <section className="nomination-history host">

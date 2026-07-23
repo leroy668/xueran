@@ -1,5 +1,24 @@
 import { getPhilosopherAbilityState } from "./philosopher";
+import { parsePlayerNotes } from "./playerNotes";
 import type { RoleDefinition } from "./types";
+
+export const vigormortisRetainedAbilityNoteId =
+  "system:vigormortis-retained-ability";
+export const grandmotherGrandchildNotePrefix =
+  "system:grandmother-grandchild:";
+
+export const hasVigormortisRetainedAbility = (notes = "") =>
+  parsePlayerNotes(notes).some(
+    (note) =>
+      note.id === vigormortisRetainedAbilityNoteId && !note.resolved,
+  );
+
+export const getGrandmotherGrandchildPlayerId = (notes = "") => {
+  const marker = parsePlayerNotes(notes).find((note) =>
+    note.id.startsWith(grandmotherGrandchildNotePrefix),
+  );
+  return marker?.id.slice(grandmotherGrandchildNotePrefix.length) ?? "";
+};
 
 const troubleBrewingRoleIds = [
   "washerwoman",
@@ -94,7 +113,7 @@ export const roles: RoleDefinition[] = [
   { id: "virgin", name: "处女", team: "镇民", icon: "处", short: "首次被镇民提名时，该镇民可能立即被处决", firstNightOrder: 0, otherNightOrder: 0, reminder: "若首次提名处女的是镇民，立即处决该镇民并结束白天。" },
   { id: "slayer", name: "杀手", team: "镇民", icon: "杀", short: "每局一次公开选择一名玩家，若其是恶魔则死亡", firstNightOrder: 0, otherNightOrder: 0, reminder: "杀手使用能力后记录已使用；命中恶魔时恶魔死亡。" },
   { id: "soldier", name: "士兵", team: "镇民", icon: "兵", short: "免疫恶魔的负面能力", firstNightOrder: 50, otherNightOrder: 52, reminder: "恶魔选择士兵时，标记攻击无效。" },
-  { id: "mayor", name: "镇长", team: "镇民", icon: "镇", short: "三人存活且白天无人被处决时善良获胜；恶魔攻击可能转移", firstNightOrder: 51, otherNightOrder: 73, reminder: "若镇长在夜晚将要死亡，可改为另一名玩家死亡；三人终局胜利在白天结算。" },
+  { id: "mayor", name: "镇长", team: "镇民", icon: "镇", short: "三人存活且白天无人被处决时善良获胜；夜晚死亡可能转移", firstNightOrder: 0, otherNightOrder: 73, reminder: "若镇长在夜晚将要死亡，可改为另一名玩家死亡；三人终局胜利在白天结算。" },
   { id: "grandmother", name: "祖母", team: "镇民", icon: "祖", short: "首夜得知一名善良玩家及其角色；若恶魔杀死他，你也死亡", firstNightOrder: 60, otherNightOrder: 72, reminder: "首夜展示孙辈及其角色；若孙辈被恶魔杀死，祖母同时死亡。" },
   { id: "gambler", name: "赌徒", team: "镇民", icon: "赌", short: "每个夜晚*选择一名玩家并猜测其角色，猜错则死亡", firstNightOrder: 0, otherNightOrder: 23, reminder: "赌徒选择玩家和角色；若猜测错误，赌徒死亡。" },
   { id: "chambermaid", name: "侍女", team: "镇民", icon: "侍", short: "每晚选择两名其他存活玩家，得知其中有多少人因自身能力醒来", firstNightOrder: 77, otherNightOrder: 93, reminder: "侍女选择两名其他存活玩家，告知因自身能力醒来的人数。" },
@@ -113,7 +132,7 @@ export const roles: RoleDefinition[] = [
   { id: "baron", name: "男爵", team: "爪牙", icon: "爵", short: "剧本中增加两名外来者", firstNightOrder: 0, otherNightOrder: 0, reminder: "确认本局外来者数量因为男爵增加。" },
   { id: "spy", name: "间谍", team: "爪牙", icon: "谍", short: "每晚查看魔典，且可能被当作善良角色检测", firstNightOrder: 73, otherNightOrder: 90, reminder: "向间谍展示完整魔典；其可能被视为善良、镇民或外来者。" },
   { id: "godfather", name: "教父", team: "爪牙", icon: "父", short: "首夜得知在场外来者；若白天有外来者死亡，当晚选择一名玩家死亡", firstNightOrder: 38, otherNightOrder: 57, reminder: "首夜展示在场外来者；若今天有外来者死亡，教父选择一名玩家死亡。[-1或+1外来者]" },
-  { id: "marionette", name: "提线木偶", team: "爪牙", icon: "偶", short: "以为自己是善良角色，但其实不是；恶魔知道你且你与恶魔邻座", firstNightOrder: 27, otherNightOrder: 0, reminder: "让提线木偶看到一个善良身份；首夜告知恶魔谁是提线木偶。" },
+  { id: "marionette", name: "提线木偶", team: "爪牙", icon: "偶", short: "以为自己是善良角色，但其实不是；恶魔知道你且你与恶魔邻座", firstNightOrder: 27, otherNightOrder: 0, reminder: "让提线木偶看到一个不在场的善良身份；首夜告知恶魔谁是提线木偶。" },
   { id: "imp", name: "小恶魔", team: "恶魔", icon: "魔", short: "首夜得知三张不在场身份；之后每晚选择一名玩家死亡，选择自己时指定玩家继承小恶魔", firstNightOrder: 42, otherNightOrder: 41, reminder: "首夜发送三张不在场身份；之后选择攻击目标，若选择自己，同时指定继承玩家。" },
   { id: "pukka", name: "普卡", team: "恶魔", icon: "普", short: "每晚选择一名玩家中毒；上个被你中毒的玩家死亡并恢复健康", firstNightOrder: 48, otherNightOrder: 43, reminder: "普卡选择一名玩家中毒；此前中毒的玩家死亡并恢复健康。" },
   { id: "vigormortis", name: "亡骨魔", team: "恶魔", icon: "骨", short: "每个夜晚*选择一名玩家死亡；被你杀死的爪牙保留能力并使邻近镇民中毒", firstNightOrder: 0, otherNightOrder: 50, reminder: "亡骨魔选择一名玩家死亡；若是爪牙，保留其能力并使一名邻近镇民中毒。[-1外来者]" },
@@ -143,7 +162,7 @@ export const getScriptRoles = (scriptId: string) => {
   return roles.filter((role) => roleIds.has(role.id));
 };
 
-const actsAfterDeathRoleIds = new Set(["ravenkeeper", "moonchild", "mayor"]);
+const actsAfterDeathRoleIds = new Set(["ravenkeeper", "moonchild"]);
 
 const troubleBrewingFirstNightRoleIds = [
   "poisoner",
@@ -207,6 +226,11 @@ export const getNightActions = (
   firstNight: boolean,
   scriptId: string,
   round = firstNight ? 1 : 2,
+  context: {
+    executedPlayerId?: string | null;
+    activeDeathTriggeredPlayerIds?: ReadonlySet<string>;
+    demonKilledPlayerIds?: ReadonlySet<string>;
+  } = {},
 ) => {
   const scriptRoleIds = new Set(
     getScriptRoles(scriptId).map((role) => role.id),
@@ -219,6 +243,14 @@ export const getNightActions = (
       : null;
   const getActionRole = (player: { roleId: string; drunkRoleId?: string }) =>
     getRole(getPlayerVisibleRoleId(player.roleId, player.drunkRoleId));
+  const firstMinionPlayerId = [...players]
+    .sort((left, right) => (left.seat ?? 0) - (right.seat ?? 0))
+    .find(
+      (player) =>
+        player.roleId !== "marionette" &&
+        getRole(player.roleId).team === "爪牙",
+    )?.id;
+  const sharesEvilTeamInfo = firstNight && players.length >= 7;
   return players
     .flatMap((player) => {
       const philosopherAbility = player.notes
@@ -242,33 +274,86 @@ export const getNightActions = (
       return actionRoles.flatMap((role) => {
         if (!scriptRoleIds.has(role.id)) return [];
         if (role.id === "juggler" && !firstNight && round !== 2) return [];
-        const isTroubleBrewingDemonInfo = Boolean(
-          troubleBrewingOrder && firstNight && role.id === "imp",
+        if (role.id === "undertaker" && !context.executedPlayerId) return [];
+        if (
+          role.id === "grandmother" &&
+          !firstNight &&
+          !context.demonKilledPlayerIds?.has(
+            getGrandmotherGrandchildPlayerId(player.notes),
+          )
+        ) return [];
+        if (role.id === "scarlet-woman" && !firstNight) {
+          const hasDeadDemon = players.some(
+            (candidate) =>
+              !candidate.alive && getRole(candidate.roleId).team === "恶魔",
+          );
+          const hasLivingDemon = players.some(
+            (candidate) =>
+              candidate.alive && getRole(candidate.roleId).team === "恶魔",
+          );
+          const livingPlayerCount = players.filter(
+            (candidate) => candidate.alive,
+          ).length;
+          // The dead Demon was the fifth living player immediately before dying.
+          if (!hasDeadDemon || hasLivingDemon || livingPlayerCount < 4) return [];
+        }
+        if (
+          actsAfterDeathRoleIds.has(role.id) &&
+          !context.activeDeathTriggeredPlayerIds?.has(player.id ?? "")
+        ) return [];
+        const acquiredThisNight =
+          philosopherAbility?.note.stage === getNightStageLabel(round);
+        const isMinionInfo = Boolean(
+          sharesEvilTeamInfo &&
+          player.id === firstMinionPlayerId &&
+          role.id === player.roleId,
         );
-        const normalOrder = troubleBrewingOrder
-          ? isTroubleBrewingDemonInfo
-            ? 0
-            : troubleBrewingOrder.get(role.id) ?? 0
+        const isTroubleBrewingDemonInfo = Boolean(
+          sharesEvilTeamInfo && troubleBrewingOrder && role.id === "imp",
+        );
+        const isGenericDemonInfo = Boolean(
+          sharesEvilTeamInfo && !troubleBrewingOrder && role.team === "恶魔",
+        );
+        const configuredOrder = troubleBrewingOrder
+          ? troubleBrewingOrder.get(role.id) ?? 0
           : firstNight
             ? role.firstNightOrder
             : role.otherNightOrder;
-        if (!isTroubleBrewingDemonInfo && normalOrder <= 0) return [];
+        const normalOrder =
+          !firstNight &&
+          acquiredThisNight &&
+          configuredOrder <= 0 &&
+          role.firstNightOrder > 0
+            ? role.firstNightOrder
+            : configuredOrder;
         const philosopherOrder = troubleBrewingOrder
           ? troubleBrewingOrder.get("philosopher") ?? 0
           : firstNight
             ? getRole("philosopher").firstNightOrder
             : getRole("philosopher").otherNightOrder;
         const order =
-          philosopherAbility?.note.stage === getNightStageLabel(round) &&
-          normalOrder <= philosopherOrder
+          acquiredThisNight && normalOrder <= philosopherOrder
             ? philosopherOrder + 0.01
             : normalOrder;
-        const canAct = player.alive || actsAfterDeathRoleIds.has(role.id);
-        return [{
+        const retainsVigormortisAbility = Boolean(
+          !player.alive &&
+          actualRole.team === "爪牙" &&
+          hasVigormortisRetainedAbility(player.notes),
+        );
+        const canAct =
+          player.alive ||
+          actsAfterDeathRoleIds.has(role.id) ||
+          retainsVigormortisAbility;
+        const makeAction = (
+          id: string,
+          name: string,
+          actionOrder: number,
+          actionCanAct = canAct,
+        ) => ({
           kind: "role" as const,
-          id: isTroubleBrewingDemonInfo ? "demon-info" : role.id,
-          name: isTroubleBrewingDemonInfo ? "恶魔信息" : role.name,
-          order,
+          id,
+          name,
+          order: actionOrder,
           role,
           actualRole,
           isDisguised: role.id !== actualRole.id,
@@ -276,8 +361,32 @@ export const getNightActions = (
           playerId: player.id,
           seat: player.seat,
           alive: player.alive,
-          canAct,
-        }];
+          canAct: actionCanAct,
+        });
+        const actions = [];
+        if (isMinionInfo) {
+          actions.push(
+            makeAction(
+              "minion-info",
+              "爪牙信息",
+              troubleBrewingOrder ? -1 : 20,
+              player.alive,
+            ),
+          );
+        }
+        if (isTroubleBrewingDemonInfo) {
+          actions.push(makeAction("demon-info", "恶魔信息", 0));
+        } else if (isGenericDemonInfo) {
+          actions.push(makeAction("demon-info", "恶魔信息", 25, player.alive));
+        }
+        if (
+          normalOrder > 0 &&
+          !isTroubleBrewingDemonInfo &&
+          !(firstNight && role.id === "imp")
+        ) {
+          actions.push(makeAction(role.id, role.name, order));
+        }
+        return actions;
       });
     })
     .sort(

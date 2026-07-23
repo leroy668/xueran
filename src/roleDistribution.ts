@@ -132,19 +132,26 @@ export const distributeRoles = (
   }
 
   const assignedRoleIds = new Set(roleIds);
-  const disguiseCandidates = shuffle(
+  const drunkDisguiseCandidates = shuffle(
     rolePool.filter(
       (role) => role.team === "镇民" && !assignedRoleIds.has(role.id),
     ),
     random,
   );
   const drunkRoleId = roleIds.includes("drunk")
-    ? disguiseCandidates[0]?.id ?? ""
+    ? drunkDisguiseCandidates[0]?.id ?? ""
     : "";
+  const marionetteDisguiseCandidates = shuffle(
+    rolePool.filter(
+      (role) =>
+        (role.team === "镇民" || role.team === "外来者") &&
+        !assignedRoleIds.has(role.id) &&
+        role.id !== drunkRoleId,
+    ),
+    random,
+  );
   const marionetteRoleId = roleIds.includes("marionette")
-    ? disguiseCandidates.find((role) => role.id !== drunkRoleId)?.id ??
-      disguiseCandidates[0]?.id ??
-      ""
+    ? marionetteDisguiseCandidates[0]?.id ?? ""
     : "";
 
   return {

@@ -103,7 +103,7 @@ export const reconcilePhilosopherDrunkenness = (
       (entry): entry is {
         player: Player;
         ability: NonNullable<ReturnType<typeof getPhilosopherAbilityState>>;
-      } => Boolean(entry.ability),
+      } => Boolean(entry.ability) && entry.player.alive,
     );
 
   return players.map((player) => {
