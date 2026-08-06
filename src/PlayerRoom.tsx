@@ -337,11 +337,27 @@ export function PlayerRoom({ roomCode }: { roomCode: string }) {
 
   if (identity) {
     const player = players.find((item) => item.id === identity.player_id);
+    const philosopherAbilityRoleId = identity.role_id === "philosopher"
+      ? [...nightMessages]
+          .sort(
+            (left, right) =>
+              new Date(right.created_at).getTime() -
+              new Date(left.created_at).getTime(),
+          )
+          .map((message) =>
+            parsePhilosopherAbilityMessage(
+              message.body,
+              getScriptRoles(room.script_id),
+            ),
+          )
+          .find(Boolean) ?? ""
+      : "";
+    const effectiveRoleId = philosopherAbilityRoleId || identity.role_id;
     const payload: IdentityPayload = {
       version: 1,
       playerName: player?.name.trim() || formatSeat(player?.seat),
       seat: player?.seat ?? 0,
-      roleId: identity.role_id,
+      roleId: effectiveRoleId,
       message: identity.identity_message,
     };
     return (
@@ -631,8 +647,8 @@ function ClaimedIdentity({
                         key={item.id}
                         target="_blank"
                         rel="noreferrer"
-                        title={`查看${item.name}的详细说明`}
-                        aria-label={`查看${item.name}的详细说明`}
+                        title={`在中文钟楼百科中查看${item.name}`}
+                        aria-label={`在中文钟楼百科中查看${item.name}`}
                       >
                         <span className="player-script-role-icon">
                           <RoleIcon roleId={item.id} size={22} />
@@ -676,6 +692,8 @@ function ClaimedIdentity({
           nominations={nominations}
           votes={votes}
           resolutions={dayResolutions}
+          roleId={identity.roleId}
+          playerMessages={playerMessages}
           onRefresh={onRefresh}
         />
       ) : null}
@@ -1111,16 +1129,16 @@ function PlayerJugglerSkillPanel({
   );
   const available = phaseAllowed && !firstDayLocked && !oneUseLocked;
   const addGuess = () => {
-    if (guesses.length >= 5 || !players.length || !roleOptions.length) return;
-    const usedPlayerIds = new Set(guesses.map((guess) => guess.playerId));
-    const playerId =
-      players.find((player) => !usedPlayerIds.has(player.id))?.id ??
-      players[0].id;
+    if (
+      guesses.length >= 5 ||
+      !players.length ||
+      !roleOptions.length
+    ) return;
     setGuesses((current) => [
       ...current,
       {
         key: nextGuessKey.current++,
-        playerId,
+        playerId: players[0].id,
         roleId: roleOptions[0].id,
       },
     ]);
@@ -1160,7 +1178,7 @@ function PlayerJugglerSkillPanel({
       : "杂耍猜测：本日不做猜测";
     if (
       !window.confirm(
-        `确认提交以下首日公开猜测？\n\n${
+        `确认你已在公开讨论中逐项说出以下猜测？\n\n${
           detail.join("\n") || "本日不做猜测"
         }`,
       )
@@ -1241,7 +1259,10 @@ function PlayerJugglerSkillPanel({
                     }
                   >
                     {players.map((player) => (
-                      <option value={player.id} key={player.id}>
+                      <option
+                        value={player.id}
+                        key={player.id}
+                      >
                         {formatSeat(player.seat)} · {player.name || "玩家"}
                       </option>
                     ))}
@@ -1350,7 +1371,7 @@ function PlayerSkillChoicePanel({
   )?.choice;
   const oneUseLocked =
     Boolean(spec.oneUse) &&
-    roleChoices.some((entry) => entry.message.round !== round);
+    roleChoices.length > 0;
   const selfPlayer = players.find((player) => player.id === currentPlayerId);
   const candidates = players.filter((player) => {
     if (spec.excludeSelf && player.id === currentPlayerId) return false;
@@ -1398,9 +1419,7 @@ function PlayerSkillChoicePanel({
     !deathLocked &&
     !hostTriggerLocked &&
     !oneUseLocked;
-  const needsImpSuccessor =
-    roleId === "imp" && firstPlayerId === currentPlayerId;
-  const needsSecondPlayer = spec.kind === "pair" || needsImpSuccessor;
+  const needsSecondPlayer = spec.kind === "pair";
 
   useEffect(() => {
     const candidateIds = new Set(candidates.map((player) => player.id));
@@ -1410,32 +1429,23 @@ function PlayerSkillChoicePanel({
         : candidateIds.has(firstPlayerId)
           ? firstPlayerId
           : candidates[0]?.id ?? "";
-    const nextNeedsImpSuccessor =
-      roleId === "imp" && nextFirst === currentPlayerId;
     const nextSecond =
-      spec.kind === "pair" || nextNeedsImpSuccessor
+      spec.kind === "pair"
         ? latestChoice?.playerIds[1] &&
           candidateIds.has(latestChoice.playerIds[1]) &&
-          (!nextNeedsImpSuccessor ||
-            latestChoice.playerIds[1] !== currentPlayerId) &&
           latestChoice.playerIds[1] !== nextFirst
           ? latestChoice.playerIds[1]
           : candidateIds.has(secondPlayerId) &&
-              (!nextNeedsImpSuccessor ||
-                secondPlayerId !== currentPlayerId) &&
               secondPlayerId !== nextFirst
             ? secondPlayerId
             : candidates.find(
-                (player) =>
-                  player.id !== nextFirst &&
-                  (!nextNeedsImpSuccessor || player.id !== currentPlayerId),
+                (player) => player.id !== nextFirst,
               )?.id ?? ""
         : "";
     if (nextFirst !== firstPlayerId) setFirstPlayerId(nextFirst);
     if (nextSecond !== secondPlayerId) setSecondPlayerId(nextSecond);
   }, [
     candidates,
-    currentPlayerId,
     firstPlayerId,
     latestChoice?.playerIds,
     roleId,
@@ -1471,20 +1481,23 @@ function PlayerSkillChoicePanel({
       (needsTarget && !firstPlayerId) ||
       (needsRole && !roleChoiceId) ||
       (needsSecondPlayer &&
-        (!secondPlayerId ||
-          firstPlayerId === secondPlayerId ||
-          (needsImpSuccessor && secondPlayerId === currentPlayerId))) ||
+        (!secondPlayerId || firstPlayerId === secondPlayerId)) ||
       sending
     ) return;
     const roleLabel = selectableRoles.find((role) => role.id === roleChoiceId)?.name ?? "未知角色";
     const summaryParts = [
-      ...(needsImpSuccessor
-        ? [`${getPlayerLabel(firstPlayerId)}（自杀）`, `传给${getPlayerLabel(secondPlayerId)}`]
-        : playerIds.map(getPlayerLabel)),
+      ...playerIds.map((playerId) =>
+        roleId === "imp" && playerId === currentPlayerId
+          ? `${getPlayerLabel(playerId)}（自杀）`
+          : getPlayerLabel(playerId),
+      ),
       ...(needsRole ? [roleLabel] : []),
     ];
     const summary = spec.summaryPrefix + "：" + summaryParts.join(" · ");
-    if (!window.confirm("确认" + summary + "？")) return;
+    const confirmation = spec.publicDeclaration
+      ? `确认你已在公开讨论中宣布以下选择？\n\n${summary}`
+      : `确认${summary}？`;
+    if (!window.confirm(confirmation)) return;
     setSending(true);
     setSendError("");
     try {
@@ -1523,7 +1536,7 @@ function PlayerSkillChoicePanel({
         {latestChoice ? <span className="player-skill-submitted">已提交</span> : null}
       </div>
       {available ? (
-        <div className={("player-skill-targets " + (spec.kind === "role" || (spec.kind === "single" && !needsImpSuccessor) ? "single" : "")).trim()}>
+        <div className={("player-skill-targets " + (spec.kind === "role" || spec.kind === "single" ? "single" : "")).trim()}>
           {spec.kind !== "role" ? <CompactSelect value={firstPlayerId} disabled={sending} ariaLabel={spec.title + "目标"} onValueChange={setFirstPlayerId}>
             {candidates.map((player) => (
               <option
@@ -1541,7 +1554,7 @@ function PlayerSkillChoicePanel({
             <CompactSelect
               value={secondPlayerId}
               disabled={sending}
-              ariaLabel={needsImpSuccessor ? "选择恶魔继承玩家" : spec.title + "第二目标"}
+              ariaLabel={spec.title + "第二目标"}
               onValueChange={setSecondPlayerId}
             >
               {candidates.map((player) => (
@@ -1549,8 +1562,7 @@ function PlayerSkillChoicePanel({
                   value={player.id}
                   key={player.id}
                   disabled={
-                    player.id === firstPlayerId ||
-                    (needsImpSuccessor && player.id === currentPlayerId)
+                    player.id === firstPlayerId
                   }
                 >
                   {formatSeat(player.seat)} · {player.name || "玩家"}
@@ -1563,7 +1575,7 @@ function PlayerSkillChoicePanel({
               {selectableRoles.map((role) => <option value={role.id} key={role.id}>{role.name} · {role.team}</option>)}
             </CompactSelect>
           ) : null}
-          <button className="primary-button" disabled={sending || (spec.kind !== "role" && !firstPlayerId) || ((spec.kind === "role" || spec.kind === "single-role") && !roleChoiceId) || (needsSecondPlayer && (!secondPlayerId || firstPlayerId === secondPlayerId || (needsImpSuccessor && secondPlayerId === currentPlayerId)))} onClick={() => void submitChoice()}>
+          <button className="primary-button" disabled={sending || (spec.kind !== "role" && !firstPlayerId) || ((spec.kind === "role" || spec.kind === "single-role") && !roleChoiceId) || (needsSecondPlayer && (!secondPlayerId || firstPlayerId === secondPlayerId))} onClick={() => void submitChoice()}>
             <Send size={15} />{sending ? "提交中" : latestChoice ? "更新选择" : spec.submitLabel}
           </button>
         </div>

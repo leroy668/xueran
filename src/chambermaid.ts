@@ -50,6 +50,9 @@ const otherNightWakeRoleIds = new Set([
 const conditionalOtherNightRoles = new Map([
   ["undertaker", "仅在当天有人被处决时因自身能力醒来"],
   ["godfather", "仅在白天有外来者死亡时因自身能力醒来"],
+  ["scarlet-woman", "仅在恶魔死亡且满足继承条件时因自身能力醒来"],
+  ["ravenkeeper", "仅在本夜死亡并发动能力时因自身能力醒来"],
+  ["grandmother", "仅在孙辈被恶魔杀死并触发同死时因自身能力醒来"],
 ]);
 
 export const assessChambermaidWake = ({
@@ -65,13 +68,6 @@ export const assessChambermaidWake = ({
     return {
       status: "asleep",
       reason: "当前已死亡，不是侍女可选择的存活目标",
-    };
-  }
-
-  if (trueRoleId === "drunk" || trueRoleId === "marionette") {
-    return {
-      status: "asleep",
-      reason: "展示身份不是真实能力，不计为因自身能力醒来",
     };
   }
 

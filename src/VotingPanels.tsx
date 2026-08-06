@@ -20,6 +20,8 @@ import {
 import { CompactSelect } from "./CompactSelect";
 import { formatSeat } from "./seat";
 import { getRole } from "./data";
+import { getPhilosopherAbilityRoleId } from "./philosopher";
+import { parsePlayerSkillChoiceMessage } from "./playerSkillChoices";
 import { parsePlayerNotes } from "./playerNotes";
 import type { Phase, Player } from "./types";
 
@@ -189,6 +191,8 @@ export function PlayerVotingPanel({
   nominations,
   votes,
   resolutions,
+  roleId,
+  playerMessages,
   onRefresh,
 }: {
   roomId: string;
@@ -199,6 +203,8 @@ export function PlayerVotingPanel({
   nominations: Nomination[];
   votes: DayVote[];
   resolutions: DayResolution[];
+  roleId: string;
+  playerMessages: { body: string; player_id: string; round: number; created_at: string }[];
   onRefresh: () => Promise<void>;
 }) {
   const dayRound = phase === "夜晚" ? Math.max(1, round - 1) : round;
@@ -240,6 +246,29 @@ export function PlayerVotingPanel({
     (vote) =>
       vote.voter_player_id === currentPlayerId && !vote.voter_was_alive,
   );
+  const butlerMasterId = roleId === "butler"
+    ? [...playerMessages]
+        .filter(
+          (message) =>
+            message.player_id === currentPlayerId && message.round === dayRound,
+        )
+        .sort(
+          (left, right) =>
+            new Date(right.created_at).getTime() -
+            new Date(left.created_at).getTime(),
+        )
+        .map((message) => parsePlayerSkillChoiceMessage(message.body))
+        .find((choice) => choice?.roleId === "butler")?.playerIds[0] ?? ""
+    : "";
+  const butlerMasterHasVoted = Boolean(
+    !openNomination ||
+      (butlerMasterId &&
+        votes.some(
+          (vote) =>
+            vote.nomination_id === openNomination.id &&
+            vote.voter_player_id === butlerMasterId,
+        )),
+  );
   const canNominate = Boolean(
     phase === "白天" &&
       currentPlayer?.alive &&
@@ -253,6 +282,7 @@ export function PlayerVotingPanel({
       openNomination &&
       !resolution &&
       !myOpenVote &&
+      (roleId !== "butler" || butlerMasterHasVoted) &&
       (currentPlayer?.alive || !deadVoteSpent),
   );
 
@@ -357,6 +387,8 @@ export function PlayerVotingPanel({
                 {myOpenVote ? <Check size={16} /> : <Hand size={16} />}
                 {myOpenVote
                   ? "已经投票"
+                  : roleId === "butler" && !butlerMasterHasVoted
+                    ? "等待主人投票"
                   : !currentPlayer?.alive && deadVoteSpent
                     ? "死亡票已经使用"
                     : "支持处决"}
@@ -444,6 +476,7 @@ export function HostVotingPanel({
   votes,
   resolutions,
   busy,
+  abilityDisabledPlayerIds,
   onCloseNomination,
   onFinalizeExecution,
 }: {
@@ -456,6 +489,7 @@ export function HostVotingPanel({
   votes: DayVote[];
   resolutions: DayResolution[];
   busy: boolean;
+  abilityDisabledPlayerIds: ReadonlySet<string>;
   onCloseNomination: (nominationId: string) => Promise<void>;
   onFinalizeExecution: () => Promise<void>;
 }) {
@@ -486,13 +520,17 @@ export function HostVotingPanel({
   const openNominee = openNomination
     ? gamePlayerById.get(openNomination.nominee_player_id)
     : null;
-  const virginState = openNominee?.roleId === "virgin"
+  const openNomineeAbilityRoleId = openNominee
+    ? getPhilosopherAbilityRoleId(openNominee) || openNominee.roleId
+    : "";
+  const virginState = openNomineeAbilityRoleId === "virgin" && openNominee
     ? parsePlayerNotes(openNominee.notes).find((note) =>
         note.id.startsWith("system:role-state:virgin"),
       )
     : null;
   const virginWasPreviouslyNominated = Boolean(
-    openNominee?.roleId === "virgin" &&
+    openNomineeAbilityRoleId === "virgin" &&
+      openNominee &&
       nominations.some(
         (nomination) =>
           nomination.nominee_player_id === openNominee.id &&
@@ -500,18 +538,29 @@ export function HostVotingPanel({
       ),
   );
   const virginCanTrigger = Boolean(
-    openNominee?.roleId === "virgin" &&
+    openNomineeAbilityRoleId === "virgin" &&
       !virginState &&
       !virginWasPreviouslyNominated &&
+      openNominee &&
+      openNominee.alive &&
+      !abilityDisabledPlayerIds.has(openNominee.id) &&
       openNominator &&
       (getRole(openNominator.roleId).team === "镇民" || openNominator.roleId === "spy"),
   );
   const executedGamePlayer = resolution?.executed_player_id
     ? gamePlayerById.get(resolution.executed_player_id)
     : null;
-  const saintExecuted = executedGamePlayer?.roleId === "saint";
+  const saintExecuted = Boolean(
+    executedGamePlayer &&
+      resolution?.executed_player_was_alive !== false &&
+      (getPhilosopherAbilityRoleId(executedGamePlayer) || executedGamePlayer.roleId) === "saint" &&
+      !abilityDisabledPlayerIds.has(executedGamePlayer.id),
+  );
   const mayorPlayers = gamePlayers.filter(
-    (player) => player.alive && player.roleId === "mayor",
+    (player) =>
+      player.alive &&
+      (getPhilosopherAbilityRoleId(player) || player.roleId) === "mayor" &&
+      !abilityDisabledPlayerIds.has(player.id),
   );
   const mayorWinAvailable = Boolean(
     resolution &&
@@ -571,9 +620,13 @@ export function HostVotingPanel({
                 votes={votes}
                 currentRequiredVotes={currentRequiredVotes}
               />
-              {openNominee?.roleId === "virgin" ? (
+              {openNomineeAbilityRoleId === "virgin" ? (
                 <div className="voting-inline-notice">
-                  {virginState
+                  {openNominee && !openNominee.alive
+                    ? "处女已经死亡并失去能力，本次提名不会触发"
+                    : openNominee && abilityDisabledPlayerIds.has(openNominee.id)
+                    ? "处女能力当前中毒或醉酒，本次提名不会触发能力"
+                    : virginState
                     ? `处女能力已有记录：${virginState.body}`
                     : virginWasPreviouslyNominated
                       ? "处女此前已经被提名过，本次不能再次触发能力"

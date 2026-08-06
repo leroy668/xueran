@@ -62,6 +62,9 @@ export const distributeRoles = (
   const demonIds = pickRoleIds(rolePool, "恶魔", baseCounts.恶魔, random);
   const setupNotes: string[] = [];
   let outsiderAdjustment = 0;
+  const outsiderPoolSize = rolePool.filter(
+    (role) => role.team === "外来者",
+  ).length;
 
   const hasBaron = minionIds.includes("baron");
   if (hasBaron) {
@@ -76,23 +79,18 @@ export const distributeRoles = (
 
   if (minionIds.includes("godfather")) {
     const currentOutsiders = baseCounts.外来者 + outsiderAdjustment;
+    const allowedAdjustments = [
+      ...(currentOutsiders > 0 ? [-1] : []),
+      ...(currentOutsiders < outsiderPoolSize ? [1] : []),
+    ];
     const godfatherAdjustment =
-      currentOutsiders <= 0
-        ? 1
-        : currentOutsiders >= 2
-          ? -1
-          : random() < 0.5
-            ? -1
-            : 1;
+      allowedAdjustments[Math.floor(random() * allowedAdjustments.length)] ?? 0;
     outsiderAdjustment += godfatherAdjustment;
     setupNotes.push(
       `教父${godfatherAdjustment > 0 ? "+1" : "-1"}外来者`,
     );
   }
 
-  const outsiderPoolSize = rolePool.filter(
-    (role) => role.team === "外来者",
-  ).length;
   const outsiderCount = Math.min(
     outsiderPoolSize,
     Math.max(0, baseCounts.外来者 + outsiderAdjustment),
@@ -144,7 +142,7 @@ export const distributeRoles = (
   const marionetteDisguiseCandidates = shuffle(
     rolePool.filter(
       (role) =>
-        (role.team === "镇民" || role.team === "外来者") &&
+        role.team === "镇民" &&
         !assignedRoleIds.has(role.id) &&
         role.id !== drunkRoleId,
     ),

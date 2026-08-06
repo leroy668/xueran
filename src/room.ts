@@ -133,6 +133,7 @@ export type DayResolution = {
   room_id: string;
   round: number;
   executed_player_id: string | null;
+  executed_player_was_alive?: boolean | null;
   resolved_at: string;
 };
 
@@ -140,6 +141,7 @@ export type ExecutionResult = {
   room_id: string;
   round: number;
   executed_player_id: string | null;
+  executed_player_was_alive?: boolean | null;
   vote_count?: number | null;
   required_votes?: number | null;
   already_resolved: boolean;

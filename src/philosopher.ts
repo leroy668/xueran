@@ -3,23 +3,35 @@ import { getRoleSkillMessage } from "./roleSkillMessages";
 import type { Player } from "./types";
 
 const philosopherAbilityNotePrefix = "system:philosopher-ability:";
+const philosopherFailedAbilityNotePrefix =
+  "system:philosopher-failed-ability:";
 const philosopherDrunkNotePrefix = "system:philosopher-drunk:";
 
 export const getPhilosopherAbilityState = (
   player: Pick<Player, "roleId" | "notes">,
 ) => {
   if (player.roleId !== "philosopher") return null;
-  const note = parsePlayerNotes(player.notes).find((entry) =>
-    entry.id.startsWith(philosopherAbilityNotePrefix),
+  const note = parsePlayerNotes(player.notes).find(
+    (entry) =>
+      entry.id.startsWith(philosopherAbilityNotePrefix) ||
+      entry.id.startsWith(philosopherFailedAbilityNotePrefix),
   );
   if (!note) return null;
-  const roleId = note.id.slice(philosopherAbilityNotePrefix.length);
-  return roleId ? { roleId, note } : null;
+  const hasAbilityEffect = note.id.startsWith(philosopherAbilityNotePrefix);
+  const roleId = note.id.slice(
+    hasAbilityEffect
+      ? philosopherAbilityNotePrefix.length
+      : philosopherFailedAbilityNotePrefix.length,
+  );
+  return roleId ? { roleId, note, hasAbilityEffect } : null;
 };
 
 export const getPhilosopherAbilityRoleId = (
   player: Pick<Player, "roleId" | "notes">,
-) => getPhilosopherAbilityState(player)?.roleId ?? "";
+) => {
+  const ability = getPhilosopherAbilityState(player);
+  return ability?.hasAbilityEffect ? ability.roleId : "";
+};
 
 export const getPhilosopherDrunkNotes = (player: Pick<Player, "notes">) =>
   parsePlayerNotes(player.notes).filter(
@@ -33,23 +45,27 @@ export const setPhilosopherAbility = ({
   roleId,
   roleName,
   stage,
+  hasAbilityEffect = true,
 }: {
   players: Player[];
   philosopherPlayerId: string;
   roleId: string;
   roleName: string;
   stage: string;
+  hasAbilityEffect?: boolean;
 }) => {
   const now = new Date().toISOString();
   const drunkNoteId = `${philosopherDrunkNotePrefix}${philosopherPlayerId}`;
   return players.map((player) => {
     const notes = parsePlayerNotes(player.notes);
     const existingAbility = notes.find((entry) =>
-      entry.id.startsWith(philosopherAbilityNotePrefix),
+      entry.id.startsWith(philosopherAbilityNotePrefix) ||
+      entry.id.startsWith(philosopherFailedAbilityNotePrefix),
     );
     const remainingNotes = notes.filter(
       (entry) =>
         !entry.id.startsWith(philosopherAbilityNotePrefix) &&
+        !entry.id.startsWith(philosopherFailedAbilityNotePrefix) &&
         entry.id !== drunkNoteId,
     );
 
@@ -58,8 +74,10 @@ export const setPhilosopherAbility = ({
         ...player,
         notes: serializePlayerNotes([
           {
-            id: `${philosopherAbilityNotePrefix}${roleId}`,
-            body: `哲学家已获得${roleName}的能力`,
+            id: `${hasAbilityEffect ? philosopherAbilityNotePrefix : philosopherFailedAbilityNotePrefix}${roleId}`,
+            body: hasAbilityEffect
+              ? `哲学家已获得${roleName}的能力`
+              : `哲学家已选择${roleName}，但能力未生效`,
             createdAt: existingAbility?.createdAt ?? now,
             stage,
           },
@@ -68,7 +86,7 @@ export const setPhilosopherAbility = ({
       };
     }
 
-    if (player.roleId === roleId) {
+    if (hasAbilityEffect && player.roleId === roleId) {
       return {
         ...player,
         notes: serializePlayerNotes([
@@ -103,7 +121,10 @@ export const reconcilePhilosopherDrunkenness = (
       (entry): entry is {
         player: Player;
         ability: NonNullable<ReturnType<typeof getPhilosopherAbilityState>>;
-      } => Boolean(entry.ability) && entry.player.alive,
+      } =>
+        entry.ability !== null &&
+        entry.ability.hasAbilityEffect &&
+        entry.player.alive,
     );
 
   return players.map((player) => {
@@ -145,7 +166,8 @@ export const clearPhilosopherAbility = (
       parsePlayerNotes(player.notes).filter(
         (entry) =>
           (player.id !== philosopherPlayerId ||
-            !entry.id.startsWith(philosopherAbilityNotePrefix)) &&
+            (!entry.id.startsWith(philosopherAbilityNotePrefix) &&
+              !entry.id.startsWith(philosopherFailedAbilityNotePrefix))) &&
           entry.id !== drunkNoteId,
       ),
     ),
@@ -154,6 +176,9 @@ export const clearPhilosopherAbility = (
 
 export const buildPhilosopherAbilityMessage = (roleName: string) =>
   `你获得了${roleName}的能力；若该角色在场，其进入醉酒状态`;
+
+export const buildPhilosopherFailedAbilityMessage = (roleName: string) =>
+  `你选择了${roleName}，但本晚能力未生效`;
 
 export const parsePhilosopherAbilityMessage = (
   body: string,
