@@ -3,6 +3,9 @@ import type { SyntheticEvent } from "react";
 const roleIconAliases: Record<string, string> = {
   "fortune-teller": "fortuneteller",
   "scarlet-woman": "scarletwoman",
+  "town-crier": "towncrier",
+  "tea-lady": "tealady",
+  "devils-advocate": "devilsadvocate",
 };
 
 const pngRoleIds = new Set([

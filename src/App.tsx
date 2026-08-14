@@ -373,6 +373,7 @@ const getNightStatusMarksForPlayers = (
       !actingPlayer?.alive ||
       actingPlayer.roleId === "drunk" ||
       actingPlayer.roleId === "marionette" ||
+      actingPlayer.roleId === "lunatic" ||
       ensureMarks(actingPlayer.id).has("poisoned") ||
       ensureMarks(actingPlayer.id).has("drunk") ||
       isProvisionallyPoisonedByNodashii(actingPlayer.id)
@@ -404,7 +405,9 @@ const getNightStatusMarksForPlayers = (
     const actingPlayer = playersById.get(message.player_id);
     if (
       actingPlayer &&
-      (actingPlayer.roleId === "drunk" || actingPlayer.roleId === "marionette")
+      (actingPlayer.roleId === "drunk" ||
+        actingPlayer.roleId === "marionette" ||
+        actingPlayer.roleId === "lunatic")
     ) {
       continue;
     }
@@ -1428,6 +1431,8 @@ function GrimoireApp() {
               ? distribution.drunkRoleId
               : distribution.roleIds[index] === "marionette"
                 ? distribution.marionetteRoleId
+                : distribution.roleIds[index] === "lunatic"
+                  ? distribution.lunaticRoleId
               : "",
           alive: true,
           identityMessage: "",
@@ -2513,7 +2518,8 @@ function GrimoirePanel({
                         <span className="table-role-name-text">
                           {role.name}
                           {(player.roleId === "drunk" ||
-                            player.roleId === "marionette") &&
+                            player.roleId === "marionette" ||
+                            player.roleId === "lunatic") &&
                           player.drunkRoleId
                             ? ` / ${getRole(player.drunkRoleId).name}`
                             : ""}
@@ -2863,13 +2869,15 @@ function PlayerEditor({
             onUpdate(player.id, {
               roleId,
               drunkRoleId:
-                roleId === "drunk" || roleId === "marionette"
+                roleId === "drunk" ||
+                roleId === "marionette" ||
+                roleId === "lunatic"
                   ? getDisguiseRoleId(
                       players,
                       player.id,
                       roleOptions,
                       player.drunkRoleId,
-                      ["镇民"],
+                      roleId === "lunatic" ? ["恶魔"] : ["镇民"],
                     )
                   : "",
             });
@@ -2884,7 +2892,9 @@ function PlayerEditor({
         </CompactSelect>
       </label>
 
-      {player.roleId === "drunk" || player.roleId === "marionette" ? (
+      {player.roleId === "drunk" ||
+      player.roleId === "marionette" ||
+      player.roleId === "lunatic" ? (
         <label className="drunk-disguise-field">
           <span className="drunk-disguise-icon">
             <RoleIcon roleId={disguiseRole?.id ?? "washerwoman"} size={24} />
@@ -2893,19 +2903,31 @@ function PlayerEditor({
             <strong>
               {player.roleId === "drunk"
                 ? "酒鬼展示身份"
-                : "提线木偶展示身份"}
+                : player.roleId === "marionette"
+                  ? "提线木偶展示身份"
+                  : "疯子展示身份"}
             </strong>
-            <small>玩家只会看到这个镇民身份</small>
+            <small>
+              玩家只会看到这个{player.roleId === "lunatic" ? "恶魔" : "镇民"}身份
+            </small>
           </span>
           <CompactSelect
             value={player.drunkRoleId}
             onValueChange={(drunkRoleId) => onUpdate(player.id, { drunkRoleId })}
             ariaLabel={`${formatSeat(player.seat)} ${
-              player.roleId === "drunk" ? "酒鬼" : "提线木偶"
+              player.roleId === "drunk"
+                ? "酒鬼"
+                : player.roleId === "marionette"
+                  ? "提线木偶"
+                  : "疯子"
             }展示身份`}
           >
             {roleOptions
-              .filter((option) => option.team === "镇民")
+              .filter((option) =>
+                player.roleId === "lunatic"
+                  ? option.team === "恶魔"
+                  : option.team === "镇民",
+              )
               .map((option) => (
                 <option
                   value={option.id}
@@ -2919,7 +2941,7 @@ function PlayerEditor({
                 </option>
               ))}
           </CompactSelect>
-          {disguiseConflictsWithActualRole ? (
+          {player.roleId !== "lunatic" && disguiseConflictsWithActualRole ? (
             <span className="drunk-disguise-warning">
               该展示身份已经在场，请更换一个不在本局的{player.roleId === "drunk" ? "镇民" : "善良"}身份
             </span>
@@ -2936,7 +2958,8 @@ function PlayerEditor({
           <small>{role.team}</small>
           <p>{role.short}</p>
           {(player.roleId === "drunk" ||
-            player.roleId === "marionette") &&
+            player.roleId === "marionette" ||
+            player.roleId === "lunatic") &&
           disguiseRole ? (
             <span className="drunk-host-summary">
               玩家看到：{disguiseRole.name} · {disguiseRole.short}
@@ -3523,20 +3546,38 @@ function NightPanel({
       ),
     [firstNightMinionPlayers],
   );
+  const firstNightMagicianPlayers = useMemo(
+    () => state.players.filter((player) => player.roleId === "magician"),
+    [state.players],
+  );
   const demonIdentitySummary =
-    firstNightDemonPlayers.map(formatSeatRoleIdentity).join("、") || "未找到";
+    firstNightMagicianPlayers.length
+      ? [...firstNightDemonPlayers, ...firstNightMagicianPlayers]
+          .sort((left, right) => left.seat - right.seat)
+          .map((player) => formatSeat(player.seat))
+          .join("、") + "（其中一人是魔术师）"
+      : firstNightDemonPlayers.map(formatSeatRoleIdentity).join("、") || "未找到";
   const awakeMinionIdentitySummary =
     firstNightAwakeMinionPlayers.map(formatSeatRoleIdentity).join("、") || "无";
-  const demonMinionInfoBody = `爪牙身份：${
-    firstNightMinionPlayers.map(formatSeatRoleIdentity).join("、") || "无"
-  }`;
+  const demonMinionInfoBody = firstNightMagicianPlayers.length
+    ? `爪牙候选：${[...firstNightMinionPlayers, ...firstNightMagicianPlayers]
+        .sort((left, right) => left.seat - right.seat)
+        .map((player) => formatSeat(player.seat))
+        .join("、")}（其中一人是魔术师）`
+    : `爪牙身份：${
+        firstNightMinionPlayers.map(formatSeatRoleIdentity).join("、") || "无"
+      }`;
   const selectedPlayer = rolePlayers.find(
     (player) => player.id === targetPlayerId,
+  );
+  const isLunaticDemonInfo = Boolean(
+    isDemonInfoAction && selectedPlayer?.roleId === "lunatic",
   );
   const selectedPlayerHasNoShownAbility = Boolean(
     selectedPlayer &&
       (selectedPlayer.roleId === "drunk" ||
         selectedPlayer.roleId === "marionette" ||
+        selectedPlayer.roleId === "lunatic" ||
         getPhilosopherAbilityState(selectedPlayer)?.hasAbilityEffect === false),
   );
   const philosopherAbilityJustAcquired = Boolean(
@@ -3601,7 +3642,10 @@ function NightPanel({
     ? `xueran-demon-bluffs-${room.id}`
     : "";
   const demonBluffsAvailable =
-    isDemonInfoAction && state.round <= 1 && Boolean(selectedPlayer);
+    isDemonInfoAction &&
+    !isLunaticDemonInfo &&
+    state.round <= 1 &&
+    Boolean(selectedPlayer);
   const chooseRandomBluffs = useCallback(
     (excludedSignature = "") => {
       const shuffled = [...availableDemonBluffRoles].sort(
@@ -4998,6 +5042,8 @@ function NightPanel({
           ? "本晚主人：" + targetLabel
           : currentRole.id === "poisoner"
             ? "本晚中毒目标：" + targetLabel
+            : currentRole.id === "devils-advocate"
+              ? "本晚免死目标：" + targetLabel
             : currentRole.id === "imp"
               ? "本晚攻击目标：" +
                 targetLabel +
@@ -5023,6 +5069,8 @@ function NightPanel({
                       : "")
                   : currentRole.id === "nodashii"
                     ? "本晚攻击目标：" + targetLabel
+                    : currentRole.id === "vortox"
+                      ? "本晚攻击目标：" + targetLabel
                     : currentRole.id === "godfather"
                       ? "本晚复仇目标：" + targetLabel
               : currentRole.id === "slayer"
@@ -5482,7 +5530,9 @@ function NightPanel({
     const assessments = targets.map((player) => {
       const philosopherAbilityRoleId = getPhilosopherAbilityRoleId(player);
       const disguisedAbilityRoleId =
-        (player.roleId === "drunk" || player.roleId === "marionette") &&
+        (player.roleId === "drunk" ||
+          player.roleId === "marionette" ||
+          player.roleId === "lunatic") &&
         player.drunkRoleId
           ? player.drunkRoleId
           : "";
@@ -5517,7 +5567,9 @@ function NightPanel({
       const shownRoleId = player.drunkRoleId;
       const roleLabel = philosopherAbilityRoleId
         ? `哲学家→${getRole(philosopherAbilityRoleId).name}`
-        : (player.roleId === "drunk" || player.roleId === "marionette") &&
+        : (player.roleId === "drunk" ||
+            player.roleId === "marionette" ||
+            player.roleId === "lunatic") &&
             shownRoleId
           ? `${getRole(player.roleId).name}（展示${getRole(shownRoleId).name}）`
           : getRole(player.roleId).name;
@@ -6211,7 +6263,7 @@ function NightPanel({
                   </button>
                 </div>
               ) : null}
-              {isDemonInfoAction ? (
+              {isDemonInfoAction && !isLunaticDemonInfo ? (
                 <div className="night-skill-panel demon-bluff-draft">
                   <div className="demon-bluff-draft-heading">
                     <div><strong>恶魔首夜信息</strong><small>发送三张不在场善良身份，以及所有爪牙的座位和身份</small></div>
@@ -6240,10 +6292,25 @@ function NightPanel({
                   </button>
                 </div>
               ) : null}
+              {isLunaticDemonInfo ? (
+                <div className="night-skill-panel compact">
+                  <div className="night-skill-panel-heading">
+                    <div className="night-skill-heading-title">
+                      <span><Skull size={14} />疯子首夜伪装信息</span>
+                      <small>按本局爪牙人数编排虚假爪牙，并准备三张善良身份；不要展示真实邪恶阵营。</small>
+                    </div>
+                  </div>
+                  <div className="night-host-only-note">
+                    <BookOpen size={14} />
+                    <span>请使用下方私密消息手动发送虚假阵营信息，并在后续夜晚把疯子的选择转告真正恶魔。</span>
+                  </div>
+                </div>
+              ) : null}
               {!isDemonInfoAction && (
                 currentRole.id === "monk" ||
                 currentRole.id === "butler" ||
                 currentRole.id === "poisoner" ||
+                currentRole.id === "devils-advocate" ||
                 (currentRole.id === "imp" && state.round > 1)
               ) ? (
                 <div className="night-skill-panel">
@@ -6630,7 +6697,7 @@ function NightPanel({
                   <button className="primary-button night-skill-submit" disabled={!canUseSkill} onClick={() => void sendGodfatherOutsiderInfo()}><Send size={15} />校验并发送外来者信息</button>
                 </div>
               ) : null}
-              {!isDemonInfoAction && ["godfather", "pukka", "vigormortis", "nodashii"].includes(currentRole.id) && !(currentRole.id === "godfather" && state.round <= 1) ? (
+              {!isDemonInfoAction && ["godfather", "pukka", "vigormortis", "nodashii", "vortox"].includes(currentRole.id) && !(currentRole.id === "godfather" && state.round <= 1) ? (
                 <div className="night-skill-panel">
                   <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><Target size={14} />{currentRole.name}{isNodashiiFirstNight ? "首夜中毒设置" : "本轮目标"}</span><small>{currentRole.short}</small></div></div>
                   {currentRole.id === "pukka" ? (

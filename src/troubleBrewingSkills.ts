@@ -116,6 +116,12 @@ const skills: TroubleBrewingSkill[] = [
     roleId: "nightwatchman", phase: "夜晚", interaction: "玩家每局一次选择一名玩家，上帝向目标确认守夜人身份", hostHint: "需要同时给守夜人发送确认，并向目标玩家发送身份通知。",
     playerChoice: { kind: "single", title: "守夜人通知", help: "每局一次，选择一名玩家得知你是守夜人", submitLabel: "提交目标", summaryPrefix: "守夜人选择", phase: "night", allowFirstNight: true, excludeSelf: false, aliveOnly: false, oneUse: true },
   },
+  { roleId: "town-crier", phase: "夜晚", interaction: "上帝核对当天全部提名者，并向玩家发送是或否", hostHint: "只判断爪牙是否发起过提名，不判断其提名对象，也不要求提名成功。" },
+  { roleId: "gossip", phase: "夜晚", interaction: "记录当天公开声明；若声明为真，选择一名玩家额外死亡", hostHint: "每个白天只结算一个公开声明；造谣者醉酒或中毒时不造成死亡。", trackerOptions: ["今天未发表声明", "声明为假 · 无额外死亡", "声明为真 · 今晚额外死亡"] },
+  { roleId: "seamstress", phase: "夜晚", interaction: "每局一次选择两名其他玩家，上帝告知两人阵营是否相同", hostHint: "判断阵营而非角色类型；醉酒或中毒时可以给出错误结果。", trackerOptions: ["能力未使用", "已使用 · 阵营相同", "已使用 · 阵营不同"] },
+  { roleId: "tea-lady", phase: "被动", interaction: "持续核对两名存活邻座；两人均善良时阻止他们死亡", hostHint: "跳过死亡玩家寻找最近的存活邻座；茶艺师醉酒或中毒时保护失效。", trackerOptions: ["两侧均善良 · 邻座受保护", "存在邪恶邻座 · 不保护", "能力失效"] },
+  { roleId: "magician", phase: "设置", interaction: "首夜恶魔信息将魔术师列为可能的爪牙，爪牙信息将其列为可能的恶魔", hostHint: "不要向魔术师发送邪恶阵营信息；分别给真正的邪恶玩家制造二选一身份。", trackerOptions: ["恶魔已看到魔术师候选", "爪牙已看到魔术师候选", "邪恶信息待处理"] },
+  { roleId: "minstrel", phase: "被动", interaction: "爪牙死于处决后，除吟游诗人和旅行者外全员醉酒至次日黄昏", hostHint: "只在爪牙实际死于处决时触发；若被处决但没有死亡则不触发。", trackerOptions: ["未触发", "爪牙死于处决 · 全员醉酒", "醉酒已于黄昏结束"] },
   {
     roleId: "moonchild", phase: "白天", interaction: "月之子得知死亡后选择一名存活玩家，上帝判定其是否善良", hostHint: "目标为善良时，该玩家在当晚死亡。",
     playerChoice: { kind: "single", title: "月之子选择", help: "得知死亡后，公开选择一名存活玩家", submitLabel: "确认公开目标", summaryPrefix: "月之子选择", phase: "day", allowFirstNight: false, excludeSelf: true, aliveOnly: true, onlyWhenDead: true, oneUse: true, publicDeclaration: true }, trackerOptions: ["等待公开选择", "目标善良 · 今晚死亡", "目标非善良 · 不死亡"],
@@ -126,9 +132,13 @@ const skills: TroubleBrewingSkill[] = [
   },
   { roleId: "godfather", phase: "夜晚", interaction: "首夜展示在场外来者；白天有外来者死亡后，上帝通知教父选择击杀目标", hostHint: "必须先确认白天有外来者死亡并发送通知，再等待教父选择目标；首夜外来者信息可考虑间谍登记。", playerChoice: { kind: "single", title: "教父复仇", help: "收到上帝的外来者死亡通知后，选择一名玩家死亡", submitLabel: "提交目标", summaryPrefix: "教父攻击", phase: "night", allowFirstNight: false, excludeSelf: false, aliveOnly: false } },
   { roleId: "marionette", phase: "设置", interaction: "上帝设置玩家看到的善良身份，并在首夜单独告知恶魔提线木偶座位", hostHint: "绝不能向提线木偶本人透露真实身份。", trackerOptions: ["伪装身份已设置", "恶魔已获知提线木偶", "等待告知恶魔"] },
+  { roleId: "lunatic", phase: "设置", interaction: "上帝设置玩家看到的恶魔身份，并按该恶魔流程收集其夜间选择", hostHint: "疯子的选择不会自行生效；每晚应将选择告知真正的恶魔。", trackerOptions: ["伪装恶魔已设置", "本晚选择已告知恶魔", "等待疯子选择"] },
+  { roleId: "barber", phase: "被动", interaction: "理发师死亡后唤醒恶魔，由恶魔决定是否交换两名玩家的角色", hostHint: "不能选择另一名恶魔；交换角色后分别向两名玩家展示新身份。", trackerOptions: ["尚未死亡", "已死亡 · 等待恶魔决定", "角色交换已完成", "恶魔放弃交换"] },
+  { roleId: "devils-advocate", phase: "夜晚", interaction: "玩家每晚选择一名与上晚不同的存活玩家，使其明天被处决时不会死亡", hostHint: "首夜也行动；目标可以是自己，但不能连续两晚选择同一人。", playerChoice: { kind: "single", title: "选择辩护目标", help: "选择一名与上晚不同的存活玩家", submitLabel: "提交目标", summaryPrefix: "魔鬼代言人保护", phase: "night", allowFirstNight: true, excludeSelf: false, aliveOnly: true } },
   { roleId: "pukka", phase: "夜晚", interaction: "玩家先选择新的中毒目标，再结算此前的中毒者死亡并恢复健康", hostHint: "顺序必须是先放置新中毒，再让旧中毒者死亡并恢复；若两者是同一人，该玩家最终恢复健康。", playerChoice: { kind: "single", title: "普卡下毒", help: "先选择新中毒目标；随后上一名中毒者死亡并恢复", submitLabel: "提交目标", summaryPrefix: "普卡下毒", phase: "night", allowFirstNight: true, excludeSelf: false, aliveOnly: false } },
   { roleId: "vigormortis", phase: "夜晚", interaction: "玩家选择击杀目标；若击杀爪牙，上帝记录保留能力与邻近镇民中毒", hostHint: "首夜不能击杀；爪牙必须确实被亡骨魔杀死才保留能力，并从其两侧最近镇民中选择一名中毒。", playerChoice: { kind: "single", title: "亡骨魔攻击", help: "选择一名玩家死亡", submitLabel: "提交攻击", summaryPrefix: "亡骨魔攻击", phase: "night", allowFirstNight: false, excludeSelf: false, aliveOnly: false } },
   { roleId: "nodashii", phase: "夜晚", interaction: "首夜只确认两侧最近镇民中毒；之后玩家选择击杀目标并持续核对中毒邻座", hostHint: "首夜不进行击杀；顺、逆时针最近的镇民均中毒，死亡镇民仍计入，间谍可按登记规则改变邻接判定。", playerChoice: { kind: "single", title: "诺-达鲷攻击", help: "首夜后选择一名玩家死亡", submitLabel: "提交攻击", summaryPrefix: "诺-达鲷攻击", phase: "night", allowFirstNight: false, excludeSelf: false, aliveOnly: false } },
+  { roleId: "vortox", phase: "夜晚", interaction: "玩家选择一名玩家死亡；上帝确保镇民能力得到的信息全部为假", hostHint: "首夜不攻击；每天必须有人被处决，否则邪恶阵营立即获胜。", playerChoice: { kind: "single", title: "涡流攻击", help: "选择一名玩家死亡", submitLabel: "提交攻击", summaryPrefix: "涡流攻击", phase: "night", allowFirstNight: false, excludeSelf: false, aliveOnly: false }, trackerOptions: ["今日已有处决", "今日无人被处决 · 邪恶获胜", "镇民信息已检查为假"] },
 ];
 
 export const troubleBrewingSkillMap = new Map(skills.map((skill) => [skill.roleId, skill]));

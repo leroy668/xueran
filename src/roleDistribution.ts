@@ -5,6 +5,7 @@ export type RoleDistribution = {
   roleIds: string[];
   drunkRoleId: string;
   marionetteRoleId: string;
+  lunaticRoleId: string;
   counts: Record<Team, number>;
   setupNotes: string[];
 };
@@ -151,11 +152,18 @@ export const distributeRoles = (
   const marionetteRoleId = roleIds.includes("marionette")
     ? marionetteDisguiseCandidates[0]?.id ?? ""
     : "";
+  const lunaticRoleId = roleIds.includes("lunatic")
+    ? shuffle(
+        rolePool.filter((role) => role.team === "恶魔"),
+        random,
+      )[0]?.id ?? ""
+    : "";
 
   return {
     roleIds,
     drunkRoleId,
     marionetteRoleId,
+    lunaticRoleId,
     counts,
     setupNotes,
   };
