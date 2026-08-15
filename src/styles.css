@@ -981,6 +981,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red) !important;
 .player-skill-targets.single { grid-template-columns: minmax(0, 1fr) auto; }
 .player-skill-targets .compact-select { min-width: 0; }
 .player-skill-targets .compact-select-trigger { min-height: 38px; background: #111113; }
+.player-skill-statement { min-height: 72px; resize: vertical; border: 1px solid var(--line); background: #111113; color: var(--ink); padding: 10px; font: inherit; line-height: 1.45; }
 .player-skill-targets button { min-width: 98px; min-height: 38px; padding: 0 10px; font-size: 10px; }
 .player-skill-latest { margin: 7px 0 0; color: var(--blue); font-size: 9px; line-height: 1.45; }
 .player-skill-locked-note { margin: 8px 0 0 43px; color: var(--dim); font-size: 9px; line-height: 1.4; }

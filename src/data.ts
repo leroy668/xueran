@@ -7,6 +7,7 @@ export const vigormortisRetainedAbilityNoteId =
 export const nodashiiPoisonNotePrefix = "system:nodashii-poison:";
 export const grandmotherGrandchildNotePrefix =
   "system:grandmother-grandchild:";
+export const barberDeathNotePrefix = "system:barber-death:";
 
 export const hasVigormortisRetainedAbility = (notes = "") =>
   parsePlayerNotes(notes).some(
@@ -183,7 +184,7 @@ export const roles: RoleDefinition[] = [
   { id: "moonchild", name: "月之子", team: "外来者", icon: "月", short: "得知死亡时公开选择一名存活玩家；若其善良，他在当晚死亡", firstNightOrder: 0, otherNightOrder: 71, reminder: "若月之子选择了善良玩家，该玩家在当晚死亡。" },
   { id: "klutz", name: "呆瓜", team: "外来者", icon: "呆", short: "当你得知你死亡时，公开选择一名存活玩家；如果他是邪恶的，你的阵营落败", firstNightOrder: 0, otherNightOrder: 0, reminder: "呆瓜得知自己死亡时，须公开选择一名存活玩家；若目标是邪恶玩家，呆瓜的阵营落败。" },
   { id: "lunatic", name: "疯子", team: "外来者", icon: "疯", short: "你以为自己是恶魔，但其实不是；恶魔知道你是谁以及你每晚选择了谁", firstNightOrder: 0, otherNightOrder: 0, reminder: "让疯子看到一张恶魔身份并按该恶魔行动；随后将疯子的选择告知真正的恶魔。" },
-  { id: "barber", name: "理发师", team: "外来者", icon: "理", short: "若你在今天或今晚死亡，恶魔可以选择两名玩家交换角色（不能选择另一名恶魔）", firstNightOrder: 0, otherNightOrder: 0, reminder: "理发师死亡后唤醒恶魔；恶魔可以选择两名非其他恶魔玩家交换角色。" },
+  { id: "barber", name: "理发师", team: "外来者", icon: "理", short: "若你在今天或今晚死亡，恶魔可以选择两名玩家交换角色（不能选择另一名恶魔）", firstNightOrder: 0, otherNightOrder: 96, reminder: "理发师死亡后唤醒恶魔；恶魔可以选择两名非其他恶魔玩家交换角色。" },
   { id: "poisoner", name: "投毒者", team: "爪牙", icon: "毒", short: "每晚选择一名玩家，使其中毒至下个夜晚", firstNightOrder: 33, otherNightOrder: 18, reminder: "投毒者选择一名玩家，直到下次夜晚开始前中毒。" },
   { id: "scarlet-woman", name: "红唇女郎", team: "爪牙", icon: "唇", short: "五名或更多玩家存活时恶魔死亡，你变成该恶魔", firstNightOrder: 0, otherNightOrder: 34, reminder: "恶魔死亡前至少五名玩家存活（死亡后至少四名）时，红唇女郎接替恶魔。" },
   { id: "baron", name: "男爵", team: "爪牙", icon: "爵", short: "剧本中增加两名外来者", firstNightOrder: 0, otherNightOrder: 0, reminder: "确认本局外来者数量因为男爵增加。" },
@@ -214,6 +215,24 @@ export const getPlayerVisibleRoleId = (
 export const getRole = (roleId: string) =>
   roleMap.get(normalizeRoleId(roleId)) ?? roles[0];
 
+export const hasActiveVigormortisRetainedAbility = (
+  player: { id?: string; roleId: string; alive: boolean; notes?: string },
+  players: { id?: string; roleId: string; alive: boolean }[],
+) => {
+  if (
+    player.alive ||
+    getRole(player.roleId).team !== "爪牙" ||
+    !hasVigormortisRetainedAbility(player.notes)
+  ) return false;
+  const sourcePlayerId = getVigormortisRetainedAbilitySourceId(player.notes);
+  return players.some(
+    (candidate) =>
+      candidate.alive &&
+      getRole(candidate.roleId).id === "vigormortis" &&
+      (!sourcePlayerId || candidate.id === sourcePlayerId),
+  );
+};
+
 export const getScriptRoles = (scriptId: string) => {
   const script = scripts.find((item) => item.id === scriptId);
   if (!script || script.roleIds.length === 0) return roles;
@@ -222,7 +241,7 @@ export const getScriptRoles = (scriptId: string) => {
     .filter((role): role is RoleDefinition => Boolean(role));
 };
 
-const actsAfterDeathRoleIds = new Set(["ravenkeeper", "moonchild"]);
+const actsAfterDeathRoleIds = new Set(["ravenkeeper", "moonchild", "barber"]);
 
 const troubleBrewingFirstNightRoleIds = [
   "poisoner",
@@ -400,21 +419,8 @@ export const getNightActions = (
           acquiredThisNight && normalOrder <= philosopherOrder
             ? philosopherOrder + 0.01
             : normalOrder;
-        const vigormortisSourcePlayerId =
-          getVigormortisRetainedAbilitySourceId(player.notes);
-        const hasActiveVigormortisSource = players.some(
-          (candidate) =>
-            candidate.alive &&
-            getRole(candidate.roleId).id === "vigormortis" &&
-            (!vigormortisSourcePlayerId ||
-              candidate.id === vigormortisSourcePlayerId),
-        );
-        const retainsVigormortisAbility = Boolean(
-          !player.alive &&
-          actualRole.team === "爪牙" &&
-          hasVigormortisRetainedAbility(player.notes) &&
-          hasActiveVigormortisSource,
-        );
+        const retainsVigormortisAbility =
+          hasActiveVigormortisRetainedAbility(player, players);
         const canAct =
           player.alive ||
           actsAfterDeathRoleIds.has(role.id) ||

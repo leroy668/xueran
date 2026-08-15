@@ -23,6 +23,7 @@ import { getRole } from "./data";
 import { getPhilosopherAbilityRoleId } from "./philosopher";
 import { parsePlayerSkillChoiceMessage } from "./playerSkillChoices";
 import { parsePlayerNotes } from "./playerNotes";
+import { isVortoxActive } from "./ramsayStreetRules";
 import type { Phase, Player } from "./types";
 
 const getPlayer = (players: PublicRoomPlayer[], playerId: string) =>
@@ -553,6 +554,7 @@ export function HostVotingPanel({
   const saintExecuted = Boolean(
     executedGamePlayer &&
       resolution?.executed_player_was_alive !== false &&
+      resolution?.executed_player_died !== false &&
       (getPhilosopherAbilityRoleId(executedGamePlayer) || executedGamePlayer.roleId) === "saint" &&
       !abilityDisabledPlayerIds.has(executedGamePlayer.id),
   );
@@ -567,6 +569,11 @@ export function HostVotingPanel({
       !resolution.executed_player_id &&
       aliveCount === 3 &&
       mayorPlayers.length,
+  );
+  const vortoxWin = Boolean(
+    resolution &&
+      !resolution.executed_player_id &&
+      isVortoxActive(gamePlayers, abilityDisabledPlayerIds),
   );
 
   return (
@@ -600,7 +607,9 @@ export function HostVotingPanel({
           <div>
             <strong>
               {resolvedPlayer
-                ? `${getPlayerLabel(players, resolvedPlayer.id)} 已被处决`
+                ? resolution?.executed_player_died === false
+                  ? `${getPlayerLabel(players, resolvedPlayer.id)} 已被处决但没有死亡`
+                  : `${getPlayerLabel(players, resolvedPlayer.id)} 已被处决并死亡`
                 : "本日无人被处决"}
             </strong>
             <span>结算完成，可以进入夜晚阶段</span>
@@ -670,11 +679,13 @@ export function HostVotingPanel({
         </>
       )}
 
-      {resolution && (saintExecuted || mayorWinAvailable) ? (
+      {resolution && (saintExecuted || vortoxWin || mayorWinAvailable) ? (
         <div className="voting-inline-notice">
           {saintExecuted
             ? `圣徒${formatSeat(executedGamePlayer?.seat)}被处决：其阵营立即落败`
-            : `仅 3 名玩家存活且今天无人被处决：存活镇长${formatSeat(mayorPlayers[0]?.seat)}可令其阵营获胜`}
+            : vortoxWin
+              ? "涡流能力生效且今天无人被处决：邪恶阵营立即获胜"
+              : `仅 3 名玩家存活且今天无人被处决：存活镇长${formatSeat(mayorPlayers[0]?.seat)}可令其阵营获胜`}
         </div>
       ) : null}
 

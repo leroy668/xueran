@@ -3,7 +3,7 @@ import type { Team } from "./types";
 export type SkillPhase = "首夜" | "夜晚" | "白天" | "被动" | "设置";
 
 export type PlayerChoiceSpec = {
-  kind: "single" | "pair" | "role" | "single-role" | "juggler";
+  kind: "single" | "pair" | "role" | "single-role" | "juggler" | "text";
   title: string;
   help: string;
   submitLabel: string;
@@ -117,8 +117,8 @@ const skills: TroubleBrewingSkill[] = [
     playerChoice: { kind: "single", title: "守夜人通知", help: "每局一次，选择一名玩家得知你是守夜人", submitLabel: "提交目标", summaryPrefix: "守夜人选择", phase: "night", allowFirstNight: true, excludeSelf: false, aliveOnly: false, oneUse: true },
   },
   { roleId: "town-crier", phase: "夜晚", interaction: "上帝核对当天全部提名者，并向玩家发送是或否", hostHint: "只判断爪牙是否发起过提名，不判断其提名对象，也不要求提名成功。" },
-  { roleId: "gossip", phase: "夜晚", interaction: "记录当天公开声明；若声明为真，选择一名玩家额外死亡", hostHint: "每个白天只结算一个公开声明；造谣者醉酒或中毒时不造成死亡。", trackerOptions: ["今天未发表声明", "声明为假 · 无额外死亡", "声明为真 · 今晚额外死亡"] },
-  { roleId: "seamstress", phase: "夜晚", interaction: "每局一次选择两名其他玩家，上帝告知两人阵营是否相同", hostHint: "判断阵营而非角色类型；醉酒或中毒时可以给出错误结果。", trackerOptions: ["能力未使用", "已使用 · 阵营相同", "已使用 · 阵营不同"] },
+  { roleId: "gossip", phase: "夜晚", interaction: "记录当天公开声明；若声明为真，选择一名玩家额外死亡", hostHint: "每个白天只结算一个公开声明；造谣者醉酒或中毒时不造成死亡。", playerChoice: { kind: "text", title: "记录公开声明", help: "填写今天已经公开说出的一个声明", submitLabel: "提交声明", summaryPrefix: "造谣声明", phase: "day", allowFirstNight: false, excludeSelf: false, aliveOnly: false, publicDeclaration: true }, trackerOptions: ["今天未发表声明", "声明为假 · 无额外死亡", "声明为真 · 今晚额外死亡"] },
+  { roleId: "seamstress", phase: "夜晚", interaction: "每局一次选择两名其他玩家，上帝告知两人阵营是否相同", hostHint: "判断阵营而非角色类型；醉酒或中毒时可以给出错误结果。", playerChoice: { kind: "pair", title: "女裁缝查验", help: "每局一次，选择两名其他玩家比较阵营", submitLabel: "提交查验", summaryPrefix: "女裁缝选择", phase: "night", allowFirstNight: true, excludeSelf: true, aliveOnly: false, oneUse: true }, trackerOptions: ["能力未使用", "已使用 · 阵营相同", "已使用 · 阵营不同"] },
   { roleId: "tea-lady", phase: "被动", interaction: "持续核对两名存活邻座；两人均善良时阻止他们死亡", hostHint: "跳过死亡玩家寻找最近的存活邻座；茶艺师醉酒或中毒时保护失效。", trackerOptions: ["两侧均善良 · 邻座受保护", "存在邪恶邻座 · 不保护", "能力失效"] },
   { roleId: "magician", phase: "设置", interaction: "首夜恶魔信息将魔术师列为可能的爪牙，爪牙信息将其列为可能的恶魔", hostHint: "不要向魔术师发送邪恶阵营信息；分别给真正的邪恶玩家制造二选一身份。", trackerOptions: ["恶魔已看到魔术师候选", "爪牙已看到魔术师候选", "邪恶信息待处理"] },
   { roleId: "minstrel", phase: "被动", interaction: "爪牙死于处决后，除吟游诗人和旅行者外全员醉酒至次日黄昏", hostHint: "只在爪牙实际死于处决时触发；若被处决但没有死亡则不触发。", trackerOptions: ["未触发", "爪牙死于处决 · 全员醉酒", "醉酒已于黄昏结束"] },

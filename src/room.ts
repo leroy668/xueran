@@ -134,6 +134,7 @@ export type DayResolution = {
   round: number;
   executed_player_id: string | null;
   executed_player_was_alive?: boolean | null;
+  executed_player_died?: boolean | null;
   resolved_at: string;
 };
 
@@ -142,6 +143,7 @@ export type ExecutionResult = {
   round: number;
   executed_player_id: string | null;
   executed_player_was_alive?: boolean | null;
+  executed_player_died?: boolean | null;
   vote_count?: number | null;
   required_votes?: number | null;
   already_resolved: boolean;
@@ -552,10 +554,15 @@ export const closeNomination = async (nominationId: string) => {
   return data as Nomination;
 };
 
-export const finalizeExecution = async (roomId: string, round: number) => {
+export const finalizeExecution = async (
+  roomId: string,
+  round: number,
+  preventDeath: boolean,
+) => {
   const { data, error } = await supabase.rpc("xueran_finalize_execution", {
     p_room_id: roomId,
     p_round: round,
+    p_prevent_death: preventDeath,
   });
   if (error) throw error;
   return data as ExecutionResult;

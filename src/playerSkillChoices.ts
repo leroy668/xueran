@@ -11,6 +11,7 @@ export type PlayerSkillChoice = {
   playerIds: string[];
   roleIdChoice?: string;
   guesses?: PlayerSkillGuess[];
+  statement?: string;
   summary: string;
 };
 
@@ -47,6 +48,8 @@ export const parsePlayerSkillChoiceMessage = (
               typeof (guess as PlayerSkillGuess).playerId === "string" &&
               typeof (guess as PlayerSkillGuess).roleId === "string",
           ))) ||
+      (parsed.statement !== undefined &&
+        (typeof parsed.statement !== "string" || parsed.statement.length > 300)) ||
       typeof parsed.summary !== "string"
     ) {
       return null;

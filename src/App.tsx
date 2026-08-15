@@ -52,6 +52,8 @@ import {
   getPossibleEvilCounts,
 } from "./registration";
 import {
+  barberDeathNotePrefix,
+  hasActiveVigormortisRetainedAbility,
   getNightActions,
   grandmotherGrandchildNotePrefix,
   getPlayerVisibleRoleId,
@@ -98,6 +100,14 @@ import {
   parsePlayerSkillChoiceMessage,
 } from "./playerSkillChoices";
 import { RoleIcon } from "./RoleIcon";
+import {
+  getDevilsAdvocateProtectedPlayerIds,
+  getExecutionLeader as getRulesExecutionLeader,
+  getInformationResultCompliance,
+  getPreviousRoleTargetPlayerId,
+  getTeaLadyProtectionSources,
+  isVortoxActive,
+} from "./ramsayStreetRules";
 import { getRoleDetailsUrl } from "./roleDetails";
 import { distributeRoles } from "./roleDistribution";
 import {
@@ -228,6 +238,7 @@ const setFortuneTellerRedHerring = (
   });
 
 const roleStateNotePrefix = "system:role-state:";
+const minstrelDrunkNotePrefix = "system:minstrel-drunk:";
 
 const isPlayerRoleStateNote = (note: PlayerNoteEntry, roleId: string) => {
   const roleNoteId = roleStateNotePrefix + roleId;
@@ -310,13 +321,15 @@ const getNightStatusMarksForPlayers = (
       // 已勾销备注不参与展示。
       if (note.resolved) continue;
       if (
-        note.id.startsWith(roleStateNotePrefix) &&
+        (note.id.startsWith(roleStateNotePrefix) ||
+          note.id.startsWith(minstrelDrunkNotePrefix)) &&
         note.stage &&
         note.stage !== getGameStageLabel("夜晚", round)
       ) {
         continue;
       }
       if (note.id.startsWith(nodashiiPoisonNotePrefix)) continue;
+      if (note.id.startsWith(`${roleStateNotePrefix}minstrel`)) continue;
       collectNightStatusFromText(note.body, marks);
     }
   }
@@ -370,7 +383,9 @@ const getNightStatusMarksForPlayers = (
     ) continue;
     const actingPlayer = playersById.get(message.player_id);
     if (
-      !actingPlayer?.alive ||
+      !actingPlayer ||
+      (!actingPlayer.alive &&
+        !hasActiveVigormortisRetainedAbility(actingPlayer, players)) ||
       actingPlayer.roleId === "drunk" ||
       actingPlayer.roleId === "marionette" ||
       actingPlayer.roleId === "lunatic" ||
@@ -457,7 +472,9 @@ const getNightStatusMarksForPlayers = (
     }
     if (
       !latestProtectSeatsBySource.has(message.player_id) &&
-      (message.role_id === "monk" || /本晚保护目标/.test(body))
+      (message.role_id === "monk" ||
+        message.role_id === "devils-advocate" ||
+        /本晚(?:保护|免死)目标/.test(body))
     ) {
       const seats = extractSeatNumbers(body);
       if (seats.length) {
@@ -1243,6 +1260,17 @@ function GrimoireApp() {
         }
       });
     }
+    state.players.forEach((player) => {
+      if (
+        !player.alive &&
+        player.roleId === "barber" &&
+        parsePlayerNotes(player.notes).some(
+          (note) => note.id.startsWith(barberDeathNotePrefix) && !note.resolved,
+        )
+      ) {
+        playerIds.add(player.id);
+      }
+    });
     return playerIds;
   }, [nightMessages, playerMessages, state.players, state.round]);
   const demonKilledPlayerIds = useMemo(() => {
@@ -1273,6 +1301,7 @@ function GrimoireApp() {
   const nightActionContext = useMemo(
     () => ({
       executedPlayerId:
+        previousDayResolution?.executed_player_died === false ||
         previousDayResolution?.executed_player_was_alive === false
           ? null
           : previousDayResolution?.executed_player_id ?? null,
@@ -1283,6 +1312,7 @@ function GrimoireApp() {
       activeDeathTriggeredPlayerIds,
       demonKilledPlayerIds,
       previousDayResolution?.executed_player_id,
+      previousDayResolution?.executed_player_died,
       previousDayResolution?.executed_player_was_alive,
     ],
   );
@@ -1318,6 +1348,43 @@ function GrimoireApp() {
         .map((player) => player.id),
     );
   }, [nightMessages, state.players, state.round]);
+  const teaLadyProtectionSources = useMemo(
+    () =>
+      getTeaLadyProtectionSources(
+        state.players,
+        abilityDisabledPlayerIds,
+        (roleId) => getRole(roleId).team,
+      ),
+    [abilityDisabledPlayerIds, state.players],
+  );
+  const retainedAbilityPlayerIds = useMemo(
+    () =>
+      new Set(
+        state.players
+          .filter((player) =>
+            hasActiveVigormortisRetainedAbility(player, state.players),
+          )
+          .map((player) => player.id),
+      ),
+    [state.players],
+  );
+  const devilsAdvocateProtectedPlayerIds = useMemo(
+    () =>
+      getDevilsAdvocateProtectedPlayerIds(
+        state.players,
+        nightMessages,
+        state.round,
+        abilityDisabledPlayerIds,
+        retainedAbilityPlayerIds,
+      ),
+    [
+      abilityDisabledPlayerIds,
+      nightMessages,
+      retainedAbilityPlayerIds,
+      state.players,
+      state.round,
+    ],
+  );
 
   const update = (patch: Partial<GameState>) => {
     setState((current) => ({
@@ -1680,10 +1747,45 @@ function GrimoireApp() {
   const handleSetPlayerAlive = async (playerId: string, alive: boolean) => {
     const player = state.players.find((item) => item.id === playerId);
     if (!player) return false;
+    if (!alive && teaLadyProtectionSources.has(playerId)) {
+      const sources = teaLadyProtectionSources.get(playerId) ?? [];
+      setToast(
+        `${formatSeat(player.seat)}受到${sources.map((sourceId) => formatSeat(state.players.find((item) => item.id === sourceId)?.seat)).join("、")}茶艺师保护，不能死亡`,
+      );
+      return false;
+    }
 
     const players = reconcilePhilosopherDrunkenness(
       state.players.map((item) =>
-        item.id === playerId ? { ...item, alive } : item,
+        item.id === playerId
+          ? {
+              ...item,
+              alive,
+              notes:
+                !alive && item.roleId === "barber"
+                  ? serializePlayerNotes([
+                      {
+                        id: `${barberDeathNotePrefix}${state.round}`,
+                        body: "理发师已死亡，等待恶魔决定是否交换角色",
+                        createdAt: new Date().toISOString(),
+                        stage: getGameStageLabel(state.phase, state.round),
+                      },
+                      ...parsePlayerNotes(item.notes).filter(
+                        (note) => note.id !== `${barberDeathNotePrefix}${state.round}`,
+                      ),
+                    ])
+                  : alive && item.roleId === "barber"
+                    ? serializePlayerNotes(
+                        parsePlayerNotes(item.notes).map((note) =>
+                          note.id.startsWith(barberDeathNotePrefix) &&
+                          !note.resolved
+                            ? { ...note, resolved: true }
+                            : note,
+                        ),
+                      )
+                    : item.notes,
+            }
+          : item,
       ),
       (roleId) => getRole(roleId).name,
     );
@@ -1756,17 +1858,107 @@ function GrimoireApp() {
     }
     setRoomBusy(true);
     try {
-      const result = await finalizeExecution(room.id, state.round);
+      const leader = getRulesExecutionLeader(
+        nominations.filter((nomination) => nomination.round === state.round),
+      );
+      const predictedPlayer = leader
+        ? state.players.find((player) => player.id === leader.nomineePlayerId)
+        : null;
+      const protectionReasons = predictedPlayer
+        ? [
+            ...(teaLadyProtectionSources.has(predictedPlayer.id)
+              ? ["茶艺师保护"]
+              : []),
+            ...(devilsAdvocateProtectedPlayerIds.has(predictedPlayer.id)
+              ? ["魔鬼代言人保护"]
+              : []),
+          ]
+        : [];
+      const result = await finalizeExecution(
+        room.id,
+        state.round,
+        protectionReasons.length > 0,
+      );
       const executedPlayer = result.executed_player_id
         ? state.players.find((player) => player.id === result.executed_player_id)
         : null;
-      if (executedPlayer?.alive) {
-        await handleSetPlayerAlive(executedPlayer.id, false);
+      if (executedPlayer?.alive && result.executed_player_died) {
+        const activeMinstrels = state.players.filter(
+          (player) =>
+            player.alive &&
+            player.roleId === "minstrel" &&
+            !abilityDisabledPlayerIds.has(player.id),
+        );
+        const minstrelTriggered =
+          getRole(executedPlayer.roleId).team === "爪牙" &&
+          activeMinstrels.length > 0;
+        const drunkStage = getGameStageLabel("夜晚", state.round + 1);
+        const nextPlayers = reconcilePhilosopherDrunkenness(
+          state.players.map((player) => {
+            const notes = parsePlayerNotes(player.notes);
+            const deathNotes =
+              player.id === executedPlayer.id && player.roleId === "barber"
+                ? [
+                    {
+                      id: `${barberDeathNotePrefix}${state.round}`,
+                      body: "理发师已死亡，等待恶魔决定是否交换角色",
+                      createdAt: new Date().toISOString(),
+                      stage: getGameStageLabel(state.phase, state.round),
+                    } satisfies PlayerNoteEntry,
+                  ]
+                : [];
+            const minstrelNotes = minstrelTriggered && player.roleId !== "minstrel"
+              ? activeMinstrels.map(
+                  (minstrel) =>
+                    ({
+                      id: `${minstrelDrunkNotePrefix}${minstrel.id}:${state.round}`,
+                      body: "吟游诗人能力：醉酒至明天黄昏",
+                      createdAt: new Date().toISOString(),
+                      stage: drunkStage,
+                    }) satisfies PlayerNoteEntry,
+                )
+              : [];
+            const replacedNoteIds = new Set(
+              [...deathNotes, ...minstrelNotes].map((note) => note.id),
+            );
+            return {
+              ...player,
+              alive: player.id === executedPlayer.id ? false : player.alive,
+              notes: serializePlayerNotes([
+                ...deathNotes,
+                ...minstrelNotes,
+                ...notes.filter((note) => !replacedNoteIds.has(note.id)),
+              ]),
+            };
+          }),
+          (roleId) => getRole(roleId).name,
+        );
+        const nextState = {
+          ...state,
+          players: nextPlayers,
+          updatedAt: new Date().toISOString(),
+        };
+        setState(nextState);
+        await syncRoom(room.id, nextState);
+        const visibleRoleId =
+          getPhilosopherAbilityRoleId(executedPlayer) ||
+          getPlayerVisibleRoleId(executedPlayer.roleId, executedPlayer.drunkRoleId);
+        const notice = getDeathTriggeredAbilityNotice(visibleRoleId);
+        const roomPlayer = roomPlayers.find((item) => item.id === executedPlayer.id);
+        if (notice && roomPlayer?.is_claimed) {
+          await handleSendNightMessage({
+            playerId: executedPlayer.id,
+            roleId: visibleRoleId,
+            body: notice,
+          });
+        }
       }
       await refreshRoomAdmin(room);
       setToast(
         executedPlayer
-          ? `${formatSeat(executedPlayer.seat)}已被处决`
+          ? result.executed_player_died
+            ? `${formatSeat(executedPlayer.seat)}已被处决并死亡`
+            : `${formatSeat(executedPlayer.seat)}已被处决但因${protectionReasons.join("与") || "能力"}没有死亡`
           : "今日投票结束，无人被处决",
       );
     } catch {
@@ -1955,6 +2147,7 @@ function GrimoireApp() {
             roomPlayers={roomPlayers}
             nightMessages={nightMessages}
             playerMessages={playerMessages}
+            nominations={nominations}
             unreadPlayerMessages={unreadPlayerMessages}
             nightActionContext={nightActionContext}
             onUpdate={update}
@@ -3420,6 +3613,7 @@ function NightPanel({
   roomPlayers,
   nightMessages,
   playerMessages,
+  nominations,
   unreadPlayerMessages,
   nightActionContext,
   onUpdate,
@@ -3437,6 +3631,7 @@ function NightPanel({
   roomPlayers: PublicRoomPlayer[];
   nightMessages: NightMessage[];
   playerMessages: PlayerMessage[];
+  nominations: Nomination[];
   unreadPlayerMessages: PlayerMessage[];
   nightActionContext: NonNullable<Parameters<typeof getNightActions>[4]>;
   onUpdate: (patch: Partial<GameState>) => void;
@@ -3496,6 +3691,25 @@ function NightPanel({
       ),
     [nightMessages, state.players, state.round],
   );
+  const nightAbilityDisabledPlayerIds = useMemo(
+    () =>
+      new Set(
+        state.players
+          .filter(
+            (player) =>
+              getPhilosopherAbilityState(player)?.hasAbilityEffect === false ||
+              (nightStatusByPlayerId.get(player.id) ?? []).some(
+                (mark) => mark.kind === "poisoned" || mark.kind === "drunk",
+              ),
+          )
+          .map((player) => player.id),
+      ),
+    [nightStatusByPlayerId, state.players],
+  );
+  const vortoxActive = isVortoxActive(
+    state.players,
+    nightAbilityDisabledPlayerIds,
+  );
   const poisonedPlayerStatuses = state.players.flatMap((player) => {
     const mark = (nightStatusByPlayerId.get(player.id) ?? []).find(
       (status) => status.kind === "poisoned",
@@ -3550,6 +3764,10 @@ function NightPanel({
     () => state.players.filter((player) => player.roleId === "magician"),
     [state.players],
   );
+  const firstNightLunaticPlayers = useMemo(
+    () => state.players.filter((player) => player.roleId === "lunatic"),
+    [state.players],
+  );
   const demonIdentitySummary =
     firstNightMagicianPlayers.length
       ? [...firstNightDemonPlayers, ...firstNightMagicianPlayers]
@@ -3559,16 +3777,32 @@ function NightPanel({
       : firstNightDemonPlayers.map(formatSeatRoleIdentity).join("、") || "未找到";
   const awakeMinionIdentitySummary =
     firstNightAwakeMinionPlayers.map(formatSeatRoleIdentity).join("、") || "无";
-  const demonMinionInfoBody = firstNightMagicianPlayers.length
+  const demonMinionInfoBody = (firstNightMagicianPlayers.length
     ? `爪牙候选：${[...firstNightMinionPlayers, ...firstNightMagicianPlayers]
         .sort((left, right) => left.seat - right.seat)
         .map((player) => formatSeat(player.seat))
         .join("、")}（其中一人是魔术师）`
     : `爪牙身份：${
         firstNightMinionPlayers.map(formatSeatRoleIdentity).join("、") || "无"
-      }`;
+      }`) +
+    (firstNightLunaticPlayers.length
+      ? `；疯子身份：${firstNightLunaticPlayers.map((player) => formatSeat(player.seat)).join("、")}`
+      : "");
   const selectedPlayer = rolePlayers.find(
     (player) => player.id === targetPlayerId,
+  );
+  const previousDevilsAdvocateTargetId = useMemo(
+    () =>
+      currentRole?.id === "devils-advocate" && selectedPlayer
+        ? getPreviousRoleTargetPlayerId(
+            state.players,
+            nightMessages,
+            selectedPlayer.id,
+            "devils-advocate",
+            state.round,
+          )
+        : null,
+    [currentRole?.id, nightMessages, selectedPlayer, state.players, state.round],
   );
   const isLunaticDemonInfo = Boolean(
     isDemonInfoAction && selectedPlayer?.roleId === "lunatic",
@@ -3814,7 +4048,9 @@ function NightPanel({
     if (!currentRole) return [];
     const playerChoice = getTroubleBrewingSkill(currentRole.id)?.playerChoice;
     const excludesSelf = Boolean(playerChoice?.excludeSelf);
-    const requiresAlive = Boolean(playerChoice?.aliveOnly);
+    const requiresAlive = Boolean(
+      playerChoice?.aliveOnly || currentRole.id === "gossip",
+    );
     const executedPlayer = state.players.find(
       (player) => player.id === nightActionContext.executedPlayerId,
     );
@@ -3826,9 +4062,13 @@ function NightPanel({
     return pool.filter((player) => {
       if (excludesSelf && player.id === targetPlayerId) return false;
       if (requiresAlive && !player.alive) return false;
+      if (
+        currentRole.id === "devils-advocate" &&
+        player.id === previousDevilsAdvocateTargetId
+      ) return false;
       return true;
     });
-  }, [currentRole, nightActionContext.executedPlayerId, state.players, targetPlayerId]);
+  }, [currentRole, nightActionContext.executedPlayerId, previousDevilsAdvocateTargetId, state.players, targetPlayerId]);
   const grandchildCandidates = useMemo(
     () =>
       state.players.filter((player) => {
@@ -4036,7 +4276,7 @@ function NightPanel({
     singleSkillTargetId,
     state.players,
   ]);
-  const latestPlayerSkillChoice = useMemo(() => {
+  const latestPlayerSkillChoiceEntry = useMemo(() => {
     if (!targetPlayerId || !currentRole) return null;
     const choiceRound =
       getTroubleBrewingSkill(currentRole.id)?.playerChoice?.phase === "day" &&
@@ -4067,8 +4307,57 @@ function NightPanel({
         (left, right) =>
           new Date(right.message.created_at).getTime() -
           new Date(left.message.created_at).getTime(),
-      )[0]?.choice ?? null;
+      )[0] ?? null;
   }, [currentRole, playerMessages, state.phase, state.round, targetPlayerId]);
+  const latestPlayerSkillChoice = latestPlayerSkillChoiceEntry?.choice ?? null;
+  const latestPlayerSkillChoiceMessageId =
+    latestPlayerSkillChoiceEntry?.message.id ?? "";
+  const previousDayRound = Math.max(1, state.round - 1);
+  const townCrierNominators = useMemo(
+    () =>
+      nominations
+        .filter((nomination) => nomination.round === previousDayRound)
+        .map((nomination) =>
+          state.players.find(
+            (player) => player.id === nomination.nominator_player_id,
+          ),
+        )
+        .filter((player): player is Player => Boolean(player)),
+    [nominations, previousDayRound, state.players],
+  );
+  const townCrierActualYes = townCrierNominators.some(
+    (player) => getRole(player.roleId).team === "爪牙",
+  );
+  const townCrierResultOptions = useMemo(() => {
+    const options = new Set([townCrierActualYes]);
+    if (townCrierNominators.some((player) => player.roleId === "recluse")) {
+      options.add(true);
+    }
+    if (
+      townCrierNominators.some(
+        (player) => player.roleId === "spy" || player.roleId === "marionette",
+      )
+    ) {
+      options.add(false);
+    }
+    return options;
+  }, [townCrierActualYes, townCrierNominators]);
+  const barberDemon = useMemo(
+    () =>
+      state.players.find(
+        (player) => player.alive && getRole(player.roleId).team === "恶魔",
+      ) ?? null,
+    [state.players],
+  );
+  const barberSwapCandidates = useMemo(
+    () =>
+      state.players.filter(
+        (player) =>
+          getRole(player.roleId).team !== "恶魔" ||
+          player.id === barberDemon?.id,
+      ),
+    [barberDemon?.id, state.players],
+  );
   const jugglerGuessRows = useMemo(() => {
     if (currentRole?.id !== "juggler") return [];
     return (latestPlayerSkillChoice?.guesses ?? []).map((guess) => {
@@ -4134,68 +4423,122 @@ function NightPanel({
     currentRole?.id === "librarian" ||
     currentRole?.id === "investigator" ||
     currentRole?.id === "fortune-teller" ||
-    currentRole?.id === "chambermaid";
+    currentRole?.id === "chambermaid" ||
+    currentRole?.id === "seamstress";
+  const pairSkillCandidates =
+    currentRole?.id === "chambermaid" || currentRole?.id === "seamstress"
+      ? singleTargetCandidates
+      : fortuneTellerCandidates;
+  const pairSkillCandidateIds = pairSkillCandidates
+    .map((player) => player.id)
+    .join("|");
+  const acceptsSubmittedPair =
+    currentRole?.id === "fortune-teller" ||
+    currentRole?.id === "chambermaid" ||
+    currentRole?.id === "seamstress";
+  const submittedPairFirst = acceptsSubmittedPair
+    ? latestPlayerSkillChoice?.playerIds[0] ?? ""
+    : "";
+  const submittedPairSecond = acceptsSubmittedPair
+    ? latestPlayerSkillChoice?.playerIds[1] ?? ""
+    : "";
 
   useEffect(() => {
     if (!pairSkillRole) return;
-    const candidateIds = new Set(
-      fortuneTellerCandidates.map((player) => player.id),
-    );
-    const submittedFirst =
-      currentRole?.id === "fortune-teller" ||
-      currentRole?.id === "chambermaid"
-        ? latestPlayerSkillChoice?.playerIds[0]
-        : "";
-    const submittedSecond =
-      currentRole?.id === "fortune-teller" ||
-      currentRole?.id === "chambermaid"
-        ? latestPlayerSkillChoice?.playerIds[1]
-        : "";
-    const nextFirst =
-      submittedFirst && candidateIds.has(submittedFirst)
-        ? submittedFirst
-        : candidateIds.has(skillTargets.first)
-          ? skillTargets.first
-      : fortuneTellerCandidates[0]?.id ?? "";
+    const candidateIds = pairSkillCandidateIds
+      ? pairSkillCandidateIds.split("|")
+      : [];
+    const candidateIdSet = new Set(candidateIds);
+    const nextFirst = submittedPairFirst && candidateIdSet.has(submittedPairFirst)
+      ? submittedPairFirst
+      : candidateIds[0] ?? "";
     const nextSecond =
-      submittedSecond &&
-      candidateIds.has(submittedSecond) &&
-      submittedSecond !== nextFirst
-        ? submittedSecond
-        : candidateIds.has(skillTargets.second) &&
-            skillTargets.second !== nextFirst
-          ? skillTargets.second
-        : fortuneTellerCandidates.find(
-            (player) => player.id !== nextFirst,
-          )?.id ?? "";
-    if (
-      nextFirst !== skillTargets.first ||
-      nextSecond !== skillTargets.second
-    ) {
-      setSkillTargets({ first: nextFirst, second: nextSecond });
-    }
+      submittedPairSecond &&
+      candidateIdSet.has(submittedPairSecond) &&
+      submittedPairSecond !== nextFirst
+        ? submittedPairSecond
+        : candidateIds.find((playerId) => playerId !== nextFirst) ?? "";
+    setSkillTargets({ first: nextFirst, second: nextSecond });
   }, [
     currentRole?.id,
-    fortuneTellerCandidates,
-    latestPlayerSkillChoice?.playerIds,
+    latestPlayerSkillChoiceMessageId,
+    pairSkillCandidateIds,
+    pairSkillRole,
+    submittedPairFirst,
+    submittedPairSecond,
+    targetPlayerId,
+  ]);
+  useEffect(() => {
+    if (!pairSkillRole) return;
+    const candidateIds = new Set(pairSkillCandidates.map((player) => player.id));
+    const first = candidateIds.has(skillTargets.first)
+      ? skillTargets.first
+      : pairSkillCandidates[0]?.id ?? "";
+    const second =
+      candidateIds.has(skillTargets.second) && skillTargets.second !== first
+        ? skillTargets.second
+        : pairSkillCandidates.find((player) => player.id !== first)?.id ?? "";
+    if (first !== skillTargets.first || second !== skillTargets.second) {
+      setSkillTargets({ first, second });
+    }
+  }, [
+    pairSkillCandidateIds,
+    pairSkillCandidates,
     pairSkillRole,
     skillTargets.first,
     skillTargets.second,
   ]);
-
   useEffect(() => {
-    const preferredTarget = latestPlayerSkillChoice?.playerIds[0];
+    if (currentRole?.id !== "barber") return;
+    const candidateIds = new Set(barberSwapCandidates.map((player) => player.id));
+    const first = candidateIds.has(skillTargets.first)
+      ? skillTargets.first
+      : barberSwapCandidates[0]?.id ?? "";
+    const second =
+      candidateIds.has(skillTargets.second) && skillTargets.second !== first
+        ? skillTargets.second
+        : barberSwapCandidates.find((player) => player.id !== first)?.id ?? "";
+    if (first !== skillTargets.first || second !== skillTargets.second) {
+      setSkillTargets({ first, second });
+    }
+  }, [
+    barberSwapCandidates,
+    currentRole?.id,
+    skillTargets.first,
+    skillTargets.second,
+  ]);
+
+  const singleTargetCandidateIds = singleTargetCandidates
+    .map((player) => player.id)
+    .join("|");
+  const submittedSingleTargetId =
+    latestPlayerSkillChoice?.playerIds[0] ?? "";
+  useEffect(() => {
+    const candidateIds = singleTargetCandidateIds
+      ? singleTargetCandidateIds.split("|")
+      : [];
+    const candidateIdSet = new Set(candidateIds);
+    setSingleSkillTargetId(
+      submittedSingleTargetId && candidateIdSet.has(submittedSingleTargetId)
+        ? submittedSingleTargetId
+        : candidateIds[0] ?? "",
+    );
+  }, [
+    currentRole?.id,
+    latestPlayerSkillChoiceMessageId,
+    singleTargetCandidateIds,
+    submittedSingleTargetId,
+    targetPlayerId,
+  ]);
+  useEffect(() => {
     const candidateIds = new Set(singleTargetCandidates.map((player) => player.id));
-    const nextTarget =
-      preferredTarget && candidateIds.has(preferredTarget)
-        ? preferredTarget
-        : candidateIds.has(singleSkillTargetId)
-          ? singleSkillTargetId
-          : singleTargetCandidates[0]?.id ?? "";
+    const nextTarget = candidateIds.has(singleSkillTargetId)
+      ? singleSkillTargetId
+      : singleTargetCandidates[0]?.id ?? "";
     if (nextTarget !== singleSkillTargetId) setSingleSkillTargetId(nextTarget);
   }, [
-    latestPlayerSkillChoice?.playerIds,
     singleSkillTargetId,
+    singleTargetCandidateIds,
     singleTargetCandidates,
   ]);
 
@@ -4519,32 +4862,77 @@ function NightPanel({
     if (statusKinds.has("drunk")) issues.push("当前醉酒");
     return [...new Set(issues)];
   })();
+  const vortoxInformationRoleIds = new Set([
+    "washerwoman",
+    "librarian",
+    "investigator",
+    "chef",
+    "empath",
+    "fortune-teller",
+    "undertaker",
+    "ravenkeeper",
+    "grandmother",
+    "chambermaid",
+    "juggler",
+    "oracle",
+    "town-crier",
+    "seamstress",
+  ]);
   const confirmSkillResult = ({
     title,
     sendLines,
     sentMatchesBaseline,
+    sentMatchesStrictBaseline,
     baseline,
     caveats = [],
   }: {
     title: string;
     sendLines: string[];
     sentMatchesBaseline: boolean;
+    sentMatchesStrictBaseline?: boolean | null;
     baseline: string;
     caveats?: string[];
   }) => {
     const recipient = selectedPlayer
       ? `${formatSeat(selectedPlayer.seat)} · ${selectedPlayerName}`
       : selectedPlayerName;
+    const vortoxRequiresFalseInformation = Boolean(
+      vortoxActive &&
+      currentRole &&
+      vortoxInformationRoleIds.has(currentRole.id) &&
+      selectedAbilityIssueLabels.length === 0,
+    );
+    const informationCompliance = getInformationResultCompliance({
+      vortoxActive: vortoxRequiresFalseInformation,
+      registrationCompatible: sentMatchesBaseline,
+      matchesStrictTruth:
+        sentMatchesStrictBaseline === undefined
+          ? sentMatchesBaseline
+          : sentMatchesStrictBaseline,
+    });
+    const resultMatchesRules = informationCompliance !== false;
     const judgement = selectedAbilityIssueLabels.length
       ? "辅助判断：结果可自由裁定（该角色能力当前可能失效）"
-      : sentMatchesBaseline
-        ? "辅助判断：符合当前真实身份基准"
-        : "辅助判断：与当前真实身份基准不符";
+      : informationCompliance === null
+        ? "辅助判断：涡流生效，请按本晚实际唤醒或登记结果确保信息为假"
+      : resultMatchesRules
+        ? vortoxRequiresFalseInformation
+          ? "辅助判断：涡流生效，发送结果与真实基准不符，符合规则"
+          : "辅助判断：符合当前真实身份基准"
+        : vortoxRequiresFalseInformation
+          ? "辅助判断：涡流生效，镇民不能获得真实信息"
+          : "辅助判断：与当前真实身份基准不符";
     const issueLines = selectedAbilityIssueLabels.length
       ? [`能力状态：${selectedAbilityIssueLabels.join("、")}`]
       : [];
-    const caveatLines = caveats.length
-      ? ["规则例外：" + caveats.join("；")]
+    const effectiveCaveats = [
+      ...(vortoxRequiresFalseInformation
+        ? ["存活且能力正常的涡流要求镇民信息必定为假"]
+        : []),
+      ...caveats,
+    ];
+    const caveatLines = effectiveCaveats.length
+      ? ["规则例外：" + effectiveCaveats.join("；")]
       : [];
     return new Promise<boolean>((resolve) => {
       setSkillResultConfirmation({
@@ -4556,7 +4944,7 @@ function NightPanel({
         issueLines,
         caveatLines,
         mismatch:
-          selectedAbilityIssueLabels.length === 0 && !sentMatchesBaseline,
+          selectedAbilityIssueLabels.length === 0 && !resultMatchesRules,
         resolve,
       });
     });
@@ -4651,13 +5039,31 @@ function NightPanel({
         return Boolean(skillBody && !skillBody.includes("等待夜晚结算"));
       }),
   );
+  const currentRoundRamsaySkillResolved = Boolean(
+    selectedPlayer &&
+      ["town-crier", "gossip", "barber"].includes(currentRole?.id ?? "") &&
+      nightMessages.some(
+        (message) =>
+          message.player_id === selectedPlayer.id &&
+          message.role_id === currentRole?.id &&
+          message.round === state.round &&
+          Boolean(getRoleSkillMessage(message.body)),
+      ),
+  );
   const canUseSkill =
     Boolean(room) &&
     state.phase === "夜晚" &&
     Boolean(currentRole) &&
     Boolean(currentAction?.canAct) &&
-    Boolean(selectedRoomPlayer?.is_claimed) &&
+    Boolean(selectedRoomPlayer?.is_claimed || currentRole?.id === "barber") &&
     !currentSkillAlreadyResolved &&
+    !currentRoundRamsaySkillResolved &&
+    !sending;
+  const canResolveBarber =
+    currentRole?.id === "barber" &&
+    state.phase === "夜晚" &&
+    Boolean(currentAction?.canAct) &&
+    !currentRoundRamsaySkillResolved &&
     !sending;
   const canUseSingleTargetSkill =
     canUseSkill && !firstNightTargetSkillLocked;
@@ -4909,6 +5315,11 @@ function NightPanel({
         : targetPlayers.some((player) =>
             canRegisterAsRole(player.roleId, skillRoleId, getRole),
           );
+    const sentMatchesStrictBaseline = noPairRoleInPlay
+      ? currentRole.id === "librarian"
+        ? actualOutsiders.length === 0
+        : actualMinions.length === 0
+      : targetPlayers.some((player) => player.roleId === skillRoleId);
     const baseline =
       noPairRoleInPlay
         ? currentRole.id === "librarian"
@@ -4944,6 +5355,7 @@ function NightPanel({
         title: `确认发送${currentRole.name}信息？`,
         sendLines: [`发送内容：${body}`],
         sentMatchesBaseline,
+        sentMatchesStrictBaseline,
         baseline,
         caveats,
       }))
@@ -4959,6 +5371,7 @@ function NightPanel({
       title: "确认发送厨师结果？",
       sendLines: [`发送结果：${chefResult} 对`],
       sentMatchesBaseline: chefResultOptions.includes(chefResult),
+      sentMatchesStrictBaseline: chefResult === calculatedChefResult,
       baseline: `按登记规则可为 ${chefResultOptions.join("、")} 对（按真实阵营为 ${calculatedChefResult} 对）`,
       caveats: registrationRoles.length
         ? [`${registrationRoles.map((player) => `${formatSeat(player.seat)} ${getRole(player.roleId).name}`).join("、")}可能改变登记结果`]
@@ -4975,6 +5388,7 @@ function NightPanel({
       title: "确认发送共情者结果？",
       sendLines: [`发送结果：${count} 名邪恶玩家`],
       sentMatchesBaseline: empathResultOptions.includes(count),
+      sentMatchesStrictBaseline: count === calculatedEmpathResult,
       baseline: `两名存活邻座为${empathNeighbors.map((player) => `${formatSeat(player.seat)} ${getRole(player.roleId).name}`).join("、") || "未找到"}；按登记规则可为 ${empathResultOptions.join("、")}（按真实阵营为 ${calculatedEmpathResult}）`,
       caveats: registrationRoles.length
         ? [`${registrationRoles.map((player) => getRole(player.roleId).name).join("、")}可能改变善恶登记`]
@@ -4997,6 +5411,13 @@ function NightPanel({
       currentRole.id === "godfather" &&
       (!godfatherRevengeNotified || !latestPlayerSkillChoice)
     ) {
+      return;
+    }
+    if (
+      currentRole.id === "devils-advocate" &&
+      singleSkillTargetId === previousDevilsAdvocateTargetId
+    ) {
+      setSendError("魔鬼代言人不能连续两晚选择同一名玩家");
       return;
     }
     const targetLabel = getNightSeatLabel(singleSkillTargetId);
@@ -5077,6 +5498,35 @@ function NightPanel({
                 ? "本局射击目标：" + targetLabel
                 : "本轮选择目标：" + targetLabel;
     const sent = await submitSkill(body);
+    if (sent && selectedPlayer?.roleId === "lunatic") {
+      const trueDemons = state.players.filter(
+        (player) =>
+          player.id !== selectedPlayer.id &&
+          getRole(player.roleId).team === "恶魔",
+      );
+      for (const demon of trueDemons) {
+        try {
+          await onSendMessage({
+            playerId: demon.id,
+            roleId: demon.roleId,
+            body: `疯子${formatSeat(selectedPlayer.seat)}本晚选择：${targetLabel}`,
+          });
+        } catch {
+          setSendError(`疯子的选择已记录，但未能转告${formatSeat(demon.seat)}恶魔`);
+        }
+      }
+    }
+    if (
+      sent &&
+      currentRole.id === "pukka" &&
+      selectedAbilityIssueLabels.length === 0 &&
+      previousPukkaTarget?.alive
+    ) {
+      const died = await onSetPlayerAlive(previousPukkaTarget.id, false);
+      if (!died) {
+        setSendError("上一名中毒者受到死亡保护，本晚没有死亡");
+      }
+    }
     if (sent && currentRole.id === "nodashii") {
       persistNodashiiPoisonTargets();
     }
@@ -5254,6 +5704,7 @@ function NightPanel({
       sentMatchesBaseline: target
         ? canRegisterAsRole(target.roleId, revealedSkillRoleId, getRole)
         : false,
+      sentMatchesStrictBaseline: target?.roleId === revealedSkillRoleId,
       baseline: target
         ? `${targetLabel}的真实身份是${actualRole.name}`
         : "未找到查验目标",
@@ -5405,6 +5856,7 @@ function NightPanel({
       sentMatchesBaseline: target
         ? canRegisterAsRole(target.roleId, revealedSkillRoleId, getRole)
         : false,
+      sentMatchesStrictBaseline: target?.roleId === revealedSkillRoleId,
       baseline: target
         ? `${targetLabel}的真实身份是${actualRole.name}，真实阵营为${["镇民", "外来者"].includes(actualRole.team) ? "善良" : "邪恶"}`
         : "未找到选择的孙辈玩家",
@@ -5505,6 +5957,7 @@ function NightPanel({
         `发送结果：${result}`,
       ],
       sentMatchesBaseline: hasDemon === baselineHasDemon || (!baselineHasDemon && hasDemon && recluseTargets.length > 0),
+      sentMatchesStrictBaseline: hasDemon === baselineHasDemon,
       baseline: baselineHasDemon
         ? `应为“有恶魔”（${baselineReasons.join("、")}）`
         : "两名目标均非真实恶魔，也不是占卜师宿敌，应为“没有恶魔”",
@@ -5611,6 +6064,10 @@ function NightPanel({
         `发送结果：${reportedCount} 人因自身能力醒来`,
       ],
       sentMatchesBaseline,
+      sentMatchesStrictBaseline:
+        definiteWakeCount === maximumWakeCount
+          ? reportedCount === definiteWakeCount
+          : null,
       baseline,
       caveats: conditionalAssessments.map(
         ({ player, assessment }) =>
@@ -5659,6 +6116,7 @@ function NightPanel({
           `发送结果：猜对 ${count} 个`,
         ],
         sentMatchesBaseline: jugglerResultOptions.includes(count),
+        sentMatchesStrictBaseline: count === calculatedJugglerResult,
         baseline: `${detail}；按登记规则可猜对 ${jugglerResultOptions.join("、")} 个（按真实身份为 ${calculatedJugglerResult} 个）`,
         caveats: registrationRows.length
           ? [
@@ -5694,6 +6152,7 @@ function NightPanel({
         `发送结果：全部 ${oracleAssessment.deadCount} 名死亡玩家中，有 ${count} 名邪恶玩家`,
       ],
       sentMatchesBaseline: isOracleResultCompatible(count, oracleAssessment),
+      sentMatchesStrictBaseline: count === oracleAssessment.trueEvilCount,
       baseline: `死亡玩家共 ${oracleAssessment.deadCount} 名；按登记规则应为 ${registrationRange} 名邪恶玩家（按真实阵营为 ${oracleAssessment.trueEvilCount} 名）`,
       caveats: oracleAssessment.registrationExceptions.map(
         (exception) =>
@@ -5804,6 +6263,145 @@ function NightPanel({
     ) {
       await onSetPlayerAlive(target.id, false);
     }
+  };
+
+  const sendTownCrierResult = async (reportedYes: boolean) => {
+    const nominators = townCrierNominators.length
+      ? townCrierNominators
+          .map((player) => `${formatSeat(player.seat)} ${getRole(player.roleId).name}`)
+          .join("、")
+      : "今天无人发起提名";
+    if (!(await confirmSkillResult({
+      title: "确认发送城镇公告员结果？",
+      sendLines: [`发送结果：${reportedYes ? "是" : "否"}`],
+      sentMatchesBaseline: townCrierResultOptions.has(reportedYes),
+      sentMatchesStrictBaseline: reportedYes === townCrierActualYes,
+      baseline: `当天提名者：${nominators}；按真实身份应为${townCrierActualYes ? "是" : "否"}`,
+      caveats: townCrierNominators.some((player) =>
+        ["recluse", "spy", "marionette"].includes(player.roleId),
+      )
+        ? ["陌客、间谍或提线木偶可能改变本次爪牙登记"]
+        : [],
+    }))) return;
+    void submitSkill(`今天${reportedYes ? "有" : "没有"}爪牙发起提名`);
+  };
+
+  const sendSeamstressResult = async (reportedSame: boolean) => {
+    if (!pairTargetsReady) return;
+    const targets = [skillTargets.first, skillTargets.second]
+      .map((playerId) => state.players.find((player) => player.id === playerId))
+      .filter((player): player is Player => Boolean(player));
+    if (targets.length !== 2) return;
+    const actualSame =
+      ["镇民", "外来者"].includes(getRole(targets[0].roleId).team) ===
+      ["镇民", "外来者"].includes(getRole(targets[1].roleId).team);
+    const flexible = targets.some((player) =>
+      ["recluse", "spy"].includes(player.roleId),
+    );
+    if (!(await confirmSkillResult({
+      title: "确认发送女裁缝结果？",
+      sendLines: [
+        `查验目标：${getNightSeatLabel(targets[0].id)}、${getNightSeatLabel(targets[1].id)}`,
+        `发送结果：阵营${reportedSame ? "相同" : "不同"}`,
+      ],
+      sentMatchesBaseline: flexible || reportedSame === actualSame,
+      sentMatchesStrictBaseline: reportedSame === actualSame,
+      baseline: `${formatSeat(targets[0].seat)}为${getRole(targets[0].roleId).team}，${formatSeat(targets[1].seat)}为${getRole(targets[1].roleId).team}；按真实阵营应为${actualSame ? "相同" : "不同"}`,
+      caveats: flexible ? ["陌客或间谍可能改变善恶阵营登记"] : [],
+    }))) return;
+    void submitSkill(
+      `你选择的${getNightSeatLabel(targets[0].id)}和${getNightSeatLabel(targets[1].id)}阵营${reportedSame ? "相同" : "不同"}`,
+    );
+  };
+
+  const resolveGossip = async (statementIsTrue: boolean) => {
+    if (!latestPlayerSkillChoice?.statement) {
+      setSendError("造谣者尚未提交今天的公开声明");
+      return;
+    }
+    if (
+      statementIsTrue &&
+      selectedAbilityIssueLabels.length === 0 &&
+      !singleSkillTargetId
+    ) {
+      setSendError("请选择一名玩家结算额外死亡");
+      return;
+    }
+    if (
+      !window.confirm(
+        `公开声明：${latestPlayerSkillChoice.statement}\n\n确认按“${statementIsTrue ? "真实" : "虚假"}”结算？`,
+      )
+    ) return;
+    const sent = await submitSkill("你今天的公开声明已完成夜间结算");
+    if (
+      sent &&
+      statementIsTrue &&
+      selectedAbilityIssueLabels.length === 0
+    ) {
+      const target = state.players.find(
+        (player) => player.id === singleSkillTargetId,
+      );
+      if (target?.alive) {
+        const died = await onSetPlayerAlive(target.id, false);
+        if (!died) setSendError("目标受到死亡保护，本次额外死亡未发生");
+      }
+    }
+  };
+
+  const resolveBarberSwap = async (swap: boolean) => {
+    if (!selectedPlayer || currentRole?.id !== "barber") return;
+    const first = state.players.find((player) => player.id === skillTargets.first);
+    const second = state.players.find((player) => player.id === skillTargets.second);
+    if (swap && (!first || !second || first.id === second.id)) return;
+    if (
+      swap &&
+      (!barberSwapCandidates.some((player) => player.id === first?.id) ||
+        !barberSwapCandidates.some((player) => player.id === second?.id))
+    ) {
+      setSendError("理发师交换不能选择另一名恶魔");
+      return;
+    }
+    const description = swap && first && second
+      ? `${formatSeat(first.seat)} ${getRole(first.roleId).name}与${formatSeat(second.seat)} ${getRole(second.roleId).name}交换角色`
+      : "恶魔放弃理发师角色交换";
+    if (!window.confirm(`确认${description}？`)) return;
+    const sent = room
+      ? await submitSkill("理发师能力已完成结算")
+      : true;
+    if (!sent) return;
+    onUpdate({
+      players: state.players.map((player) => {
+        const notes = parsePlayerNotes(player.notes).map((note) =>
+          player.id === selectedPlayer.id &&
+          note.id.startsWith(barberDeathNotePrefix) &&
+          !note.resolved
+            ? { ...note, resolved: true }
+            : note,
+        );
+        if (!swap || !first || !second) {
+          return { ...player, notes: serializePlayerNotes(notes) };
+        }
+        if (player.id === first.id) {
+          return {
+            ...player,
+            roleId: second.roleId,
+            drunkRoleId: second.drunkRoleId,
+            identityMessage: `你的角色已因理发师能力变为${getRole(second.roleId).name}。`,
+            notes: serializePlayerNotes(notes),
+          };
+        }
+        if (player.id === second.id) {
+          return {
+            ...player,
+            roleId: first.roleId,
+            drunkRoleId: first.drunkRoleId,
+            identityMessage: `你的角色已因理发师能力变为${getRole(first.roleId).name}。`,
+            notes: serializePlayerNotes(notes),
+          };
+        }
+        return { ...player, notes: serializePlayerNotes(notes) };
+      }),
+    });
   };
 
   return (
@@ -6654,6 +7252,55 @@ function NightPanel({
                   <small className="oracle-result-help">
                     可以输入任意非负整数；若不在当前规则范围内，再次确认时会标红，但上帝仍可强制发送。
                   </small>
+                </div>
+              ) : null}
+              {currentRole.id === "town-crier" ? (
+                <div className="night-skill-panel compact">
+                  <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><ScrollText size={14} />城镇公告员结果</span><small>核对上一白天是否有爪牙发起过提名</small></div></div>
+                  <div className="night-player-choice"><Users size={14} /><span>{townCrierNominators.length ? `当天提名者：${townCrierNominators.map((player) => `${formatSeat(player.seat)} ${getRole(player.roleId).name}`).join("、")}` : "当天没有人发起提名"}</span></div>
+                  <div className="night-skill-result-grid fortune-results">
+                    <button className="secondary-button positive" disabled={!canUseSkill} onClick={() => void sendTownCrierResult(true)}>是<small>有爪牙提名</small></button>
+                    <button className="secondary-button negative" disabled={!canUseSkill} onClick={() => void sendTownCrierResult(false)}>否<small>没有爪牙提名</small></button>
+                  </div>
+                </div>
+              ) : null}
+              {currentRole.id === "seamstress" ? (
+                <div className="night-skill-panel compact">
+                  <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><Target size={14} />女裁缝查验</span><small>{currentRole.short}</small></div></div>
+                  <div className={latestPlayerSkillChoice ? "night-player-choice" : "night-player-choice waiting"}><Target size={14} /><span>{latestPlayerSkillChoice ? `玩家已提交：${latestPlayerSkillChoice.summary}` : "等待玩家选择两名其他玩家"}</span></div>
+                  <div className="night-skill-target-grid">
+                    <CompactSelect value={skillTargets.first} onChange={(event) => setSkillTargets((current) => ({ ...current, first: event.target.value }))}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id} disabled={player.id === skillTargets.second}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect>
+                    <CompactSelect value={skillTargets.second} onChange={(event) => setSkillTargets((current) => ({ ...current, second: event.target.value }))}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id} disabled={player.id === skillTargets.first}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect>
+                  </div>
+                  <div className="night-skill-result-grid fortune-results">
+                    <button className="secondary-button positive" disabled={!canUseSkill || !pairTargetsReady} onClick={() => void sendSeamstressResult(true)}>相同</button>
+                    <button className="secondary-button negative" disabled={!canUseSkill || !pairTargetsReady} onClick={() => void sendSeamstressResult(false)}>不同</button>
+                  </div>
+                </div>
+              ) : null}
+              {currentRole.id === "gossip" ? (
+                <div className="night-skill-panel compact">
+                  <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><ScrollText size={14} />造谣声明结算</span><small>{currentRole.short}</small></div></div>
+                  <div className={latestPlayerSkillChoice?.statement ? "night-player-choice" : "night-player-choice waiting"}><MessageSquareText size={14} /><span>{latestPlayerSkillChoice?.statement ?? "玩家尚未提交今天的公开声明"}</span></div>
+                  <label className="night-skill-role-field"><span>声明为真时额外死亡</span><CompactSelect value={singleSkillTargetId} onChange={(event) => setSingleSkillTargetId(event.target.value)}>{singleTargetCandidates.map((player) => <option value={player.id} key={player.id}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect></label>
+                  <div className="night-skill-result-grid fortune-results">
+                    <button className="secondary-button negative" disabled={!canUseSkill || !latestPlayerSkillChoice?.statement} onClick={() => void resolveGossip(false)}>声明为假</button>
+                    <button className="secondary-button positive" disabled={!canUseSkill || !latestPlayerSkillChoice?.statement || !singleSkillTargetId} onClick={() => void resolveGossip(true)}>声明为真·结算死亡</button>
+                  </div>
+                </div>
+              ) : null}
+              {currentRole.id === "barber" ? (
+                <div className="night-skill-panel compact">
+                  <div className="night-skill-panel-heading"><div className="night-skill-heading-title"><span><RotateCcw size={14} />理发师角色交换</span><small>由{barberDemon ? `${formatSeat(barberDemon.seat)} ${getRole(barberDemon.roleId).name}` : "存活恶魔"}决定</small></div></div>
+                  {!barberDemon ? <div className="inline-error">没有存活恶魔可以发动理发师能力</div> : null}
+                  <div className="night-skill-target-grid">
+                    <CompactSelect value={skillTargets.first} onChange={(event) => setSkillTargets((current) => ({ ...current, first: event.target.value }))}>{barberSwapCandidates.map((player) => <option value={player.id} key={player.id} disabled={player.id === skillTargets.second}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect>
+                    <CompactSelect value={skillTargets.second} onChange={(event) => setSkillTargets((current) => ({ ...current, second: event.target.value }))}>{barberSwapCandidates.map((player) => <option value={player.id} key={player.id} disabled={player.id === skillTargets.first}>{getNightPlayerLabel(player.id)}</option>)}</CompactSelect>
+                  </div>
+                  <div className="night-skill-result-grid fortune-results">
+                    <button className="secondary-button negative" disabled={!canResolveBarber} onClick={() => void resolveBarberSwap(false)}>放弃交换</button>
+                    <button className="secondary-button positive" disabled={!canResolveBarber || !barberDemon || !pairTargetsReady} onClick={() => void resolveBarberSwap(true)}>确认交换角色</button>
+                  </div>
                 </div>
               ) : null}
               {currentRole.id === "nightwatchman" ? (
